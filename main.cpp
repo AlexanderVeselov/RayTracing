@@ -9,25 +9,26 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <sstream>
 
-const int g_Width = 1920;
-const int g_Height = 1080;
+const int g_Width = 1280;
+const int g_Height = 720;
 const size_t global_work_size = g_Width * g_Height;
 
 Camera camera(glm::vec3(0.0f), 0.001f, 1.0f, g_Width, g_Height, 90.0f);
 
 cl_command_queue queue;
 cl_kernel kernel;
-cl_mem pixel_buffer, scene_buffer, index_buffer, cell_buffer;
+cl_mem pixel_buffer, random_buffer, scene_buffer, index_buffer, cell_buffer;
 
-std::vector<Sphere> spheres;
+//std::vector<Sphere> spheres;
+std::vector<Triangle> triangles;
 std::vector<cl_uint> indices;
 std::vector<CellData> cells;
-const int spheres_x = 10;
-const int spheres_y = 10;
-const int spheres_z = 10;
-const int sphere_count = spheres_x * spheres_y * spheres_z;
-const size_t cell_resolution = 10;
+int* random_array;
+unsigned long int sample_count = 0;
+
+const size_t cell_resolution = 64;
 const size_t cell_resolution3 = cell_resolution * cell_resolution * cell_resolution;
 
 void InitCL()
@@ -48,6 +49,8 @@ void InitCL()
 	}
 	
 	std::string curr_line, source;
+    source += "#define GRID_RES " + static_cast<std::ostringstream*>( &(std::ostringstream() << cell_resolution) )->str();
+    source += "\n";
 	while (std::getline(input_file, curr_line))
 	{
 		source += curr_line + "\n";
@@ -71,17 +74,26 @@ void InitCL()
 
 	kernel = clCreateKernel(program, "main", 0);
 
-	pixel_buffer   = clCreateBuffer(context, CL_MEM_WRITE_ONLY, g_Width*g_Height*sizeof(cl_float4), 0, 0);
-	scene_buffer   = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Sphere) * sphere_count, spheres.begin()._Ptr, 0);
-	index_buffer   = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * indices.size(), indices.begin()._Ptr, 0);
+    random_array = new int[global_work_size];
+
+    for (size_t i = 0; i < global_work_size; ++i)
+    {
+        random_array[i] = rand();
+    }
+
+	pixel_buffer  = clCreateBuffer(context, CL_MEM_READ_WRITE, g_Width*g_Height*sizeof(cl_float4), 0, 0);
+	random_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, g_Width*g_Height*sizeof(cl_int), random_array, 0);
+    scene_buffer  = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), triangles.begin()._Ptr, 0);
+	index_buffer  = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * indices.size(), indices.begin()._Ptr, 0);
 	cell_buffer   = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(CellData) * cells.size(), cells.begin()._Ptr, 0);
 	
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), &pixel_buffer);
-	clSetKernelArg(kernel, 1, sizeof(cl_uint), &g_Width);
-	clSetKernelArg(kernel, 2, sizeof(cl_uint), &g_Height);
-	clSetKernelArg(kernel, 6, sizeof(cl_mem), &scene_buffer);
-	clSetKernelArg(kernel, 7, sizeof(cl_mem), &index_buffer);
-	clSetKernelArg(kernel, 8, sizeof(cl_mem), &cell_buffer);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &random_buffer);
+	clSetKernelArg(kernel, 2, sizeof(cl_uint), &g_Width);
+	clSetKernelArg(kernel, 3, sizeof(cl_uint), &g_Height);
+	clSetKernelArg(kernel, 7, sizeof(cl_mem), &scene_buffer);
+	clSetKernelArg(kernel, 8, sizeof(cl_mem), &index_buffer);
+	clSetKernelArg(kernel, 9, sizeof(cl_mem), &cell_buffer);
 
 }
 
@@ -92,25 +104,50 @@ void Update(GLFWwindow *window)
 
 void Render()
 {
-	cl_float4* ptr = (cl_float4*) clEnqueueMapBuffer(queue, pixel_buffer, CL_TRUE, CL_MAP_READ, 0, global_work_size*sizeof(cl_float4), 0, 0, 0, 0); 
+	float3 pos(camera.GetPos().x, camera.GetPos().y, camera.GetPos().z);
+	clSetKernelArg(kernel, 4, sizeof(float3), &pos);
+	float3 front(camera.GetFrontVec().x, camera.GetFrontVec().y, camera.GetFrontVec().z);
+	clSetKernelArg(kernel, 5, sizeof(float3), &front);
+	float3 up(camera.GetUpVec().x, camera.GetUpVec().y, camera.GetUpVec().z);
+	clSetKernelArg(kernel, 6, sizeof(float3), &up);
+    
+	clEnqueueWriteBuffer(queue, random_buffer, true, 0, sizeof(int) * global_work_size, random_array, 0, 0, 0);
+	clFinish(queue);
+    
 	clEnqueueNDRangeKernel(queue, kernel, 1, 0, &global_work_size, 0, 0, 0, 0);
+	clFinish(queue);
+
+    cl_float4* ptr = (cl_float4*) clEnqueueMapBuffer(queue, pixel_buffer, CL_TRUE, CL_MAP_READ, 0, global_work_size*sizeof(cl_float4), 0, 0, 0, 0);
 
     clEnqueueUnmapMemObject(queue, pixel_buffer, ptr, 0, 0, 0);
-
-	float3 pos(camera.GetPos().x, camera.GetPos().y, camera.GetPos().z);
-	clSetKernelArg(kernel, 3, sizeof(float3), &pos);
-	float3 front(camera.GetFrontVec().x, camera.GetFrontVec().y, camera.GetFrontVec().z);
-	clSetKernelArg(kernel, 4, sizeof(float3), &front);
-	float3 up(camera.GetUpVec().x, camera.GetUpVec().y, camera.GetUpVec().z);
-	clSetKernelArg(kernel, 5, sizeof(float3), &up);
-
-
-
-    //if (ptr)
+    
+    
+    if (camera.Changed())
+    {
+        for (size_t i = 0; i < global_work_size; ++i)
+        {
+            ptr[i].x = 0;
+            ptr[i].y = 0;
+            ptr[i].z = 0;
+            sample_count = 0;
+        }
+        clEnqueueWriteBuffer(queue, pixel_buffer, true, 0, sizeof(cl_float4) * global_work_size, ptr, 0, 0, 0);
+        clFinish(queue);
+    }
+    ++sample_count;
+    for (size_t i = 0; i < global_work_size; ++i)
+    {
+        random_array[i] = rand();
+        ptr[i].x /= sample_count;
+        ptr[i].y /= sample_count;
+        ptr[i].z /= sample_count;
+    }
+    
+    
+    if (ptr)
     {
         glDrawPixels(g_Width, g_Height, GL_RGBA, GL_FLOAT, ptr);
-    }	
-	clFinish(queue);
+    }
 
 }
 
@@ -126,25 +163,10 @@ static void CursorCallback(GLFWwindow *window, double xpos, double ypos)
 
 int main()
 {
-	for (int x = 0; x < spheres_x; ++x)
-	for (int y = 0; y < spheres_y; ++y)
-	for (int z = 0; z < spheres_z; ++z)
-	{
-		/*
-        spheres.push_back(Sphere(float3(
-			x * 4, y * 4, z * 4)+2.0f,
-			1.75f));
-        */
-
-        spheres.push_back(Sphere(float3(
-            static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 80.0f,
-            static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 80.0f,
-            static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 80.0f),
-            2.0f));
-
-	}
-	CreateGrid(spheres, cell_resolution, indices, cells);
-
+    LoadTriangles("teapot.obj", triangles);
+    
+	CreateGrid(triangles, cell_resolution, indices, cells);
+    
     GLFWwindow* window;
 
     if (!glfwInit())
@@ -158,7 +180,7 @@ int main()
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 	glfwSetKeyCallback(window, KeyCallback);
 	glfwSetCursorPosCallback(window, CursorCallback);
-
+    
     while (!glfwWindowShouldClose(window))
     {
 		Update(window);
@@ -171,5 +193,6 @@ int main()
     }
 
     glfwTerminate();
+
     return 0;
 }

@@ -1,7 +1,6 @@
-#define kMaxRenderDist 20000.0f;
+#define kMaxRenderDist 20000.0f
 
-#define GRID_RES 10
-#define GRID_MAX 400
+#define GRID_MAX 64
 #define CELL_SIZE (GRID_MAX / GRID_RES)
 #define CELL_INDEX(x, y, z) (((x) + (y) * GRID_RES + (z) * GRID_RES * GRID_RES))
 #define POS_TO_CELL(pos) (CELL_INDEX((int)(pos.x) / CELL_SIZE, (int)(pos.y) / CELL_SIZE, (int)(pos.z) / CELL_SIZE))
@@ -10,41 +9,13 @@
 #define CELL_Z(ind) ((float)(((ind) / (GRID_RES * GRID_RES)) * CELL_SIZE))
 #define CELL_TO_POS(ind) ((float3)(CELL_X(ind), CELL_Y(ind), CELL_Z(ind)))
 
-typedef struct Sphere
+typedef struct Triangle
 {
-	float3 Position;
-	float3 Color;
-	float Radius;
+	float3 p1, p2, p3;
+	float3 n1, n2, n3;
 
-} Sphere;
+} Triangle;
 
-typedef struct
-{
-	float3 Position;
-	float3 Normal;
-
-} Plane;
-
-typedef struct
-{
-	float3 Position;
-	float3 Color;
-
-} Light;
-/*
-typedef struct
-{
-	Sphere spheres[64];
-	int spheresCount;
-
-	Plane planes[10];
-	int planesCount;
-	
-	Light lights[10];
-	int lightsCount;
-
-} Scene;
-*/
 typedef struct{
 	float3 origin;
 	float3 dir;
@@ -52,8 +23,9 @@ typedef struct{
 
 typedef struct{
 	bool hit;
-	float dist;
-	__global Sphere* object;
+	float3 pos;
+    float3 normal;
+	__global Triangle* object;
 	int objectType;
 } IntersectData;
 
@@ -64,136 +36,100 @@ typedef struct
 
 } CellData;
 
-bool rayPlane(Plane* p, Ray* r, float* t)
-{
-	float dotProduct = dot(r->dir, p->Normal);
-	if (dotProduct == 0){
-		return false;
-	}
-	*t = dot(p->Normal,p->Position-r->origin) / dotProduct ;
+typedef struct {
+	ulong a;
+	ulong b;
+	ulong c;
+} random_state;
 
-	return *t >= 0;
+inline float sample_unit(random_state *r) {
+	ulong old = r->b;
+	r->b = r->a * 1103515245 + 12345;
+	r->a = (~old ^ (r->b >> 3)) - r->c++;
+    return (float)(r->b & 4294967295) / 4294967295.0f;
 }
-/*
-IntersectData intersect(Ray* ray, Scene* scene)
-{
-	float minT = kMaxRenderDist;
-	IntersectData out;
-	out.hit = false;
 
-	for(int i = 0; i < scene->spheresCount; i++){
-		float t;
-		if ( raySphere( &scene->spheres[i], ray, &t ) ){
-			if ( t < minT ){
-				minT = t;
-				out.dist = t;
-				out.objectType = 1;
-				out.object = &scene->spheres[i];
-				out.hit = true;
-			}
-		}
+void seed_random(random_state *r, const uint seed) {
+	r->a = seed;
+	r->b = 0;
+	r->c = 362436;
+	for( int i = 0; i < 1000; i++ ) {
+	    sample_unit( r );
 	}
-	
-	for(int i = 0; i < scene->planesCount; i++){
-		float t;
-		if ( rayPlane( &scene->planes[i], ray, &t ) ){
-			if (t < minT){
-				minT = t;
-				out.dist = t;
-				out.objectType = 2;
-				out.object = &scene->planes[i];
-				out.hit = true;
-			}
-		}
-	}
-	
-	return out;
 }
-*/
+
+inline float3 sample_hemisphere_uniform(random_state *r, const float3 towards) {
+    float u = sample_unit(r) * 2.0f - 1.0f;
+    float v = sample_unit(r) * 2.0f * 3.14159265359f;
+	float w = sqrt(1.0f - pow(u, 2.0f));
+    float3 sample = (float3)(w * cos(v), w * sin(v), u);
+    return normalize((dot(sample, towards) < 0 ? -sample : sample));
+}
+
 float3 reflect(float3 V, float3 N)
 {
 	return V - 2.0f * dot( V, N ) * N;
 }
-/*
-float4 raytrace(Ray* ray, Scene* scene, int traceDepth)
+
+bool rayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3 *n)
 {
-	IntersectData data = intersect(ray, scene);
+	// Vertices
+	float3 A = triangle->p1;
+	float3 B = triangle->p2;
+	float3 C = triangle->p3;
 
-	if (data.hit)
-	{
-		float3 Normal;
-		float4 diffuseColor = 0.0f;
-		float4 albedo = 0.0f;
-		float3 intersectPos = ray->origin+ray->dir*data.dist;
+	// Figure out triangle plane
+	float3 triangle_ab = B - A;
+	float3 triangle_ac = C - A;
+	float3 triangle_nn = cross(triangle_ab, triangle_ac);
+	float3 triangle_n = normalize(triangle_nn);
+	float triangle_support = dot(A, triangle_n);
 
-		if (data.objectType == 1)
-		{
-			Normal = normalize(intersectPos-((Sphere*)data.object)->Position);
-			albedo = (float4)(((Sphere*)data.object)->Color, 1.0f);
-		}
-		else if (data.objectType == 2)
-		{
-			Normal = ((Plane*)data.object)->Normal;
-			albedo = (round(sin(intersectPos.x) * 0.5f + 0.5f) == round(sin(intersectPos.y) * 0.5f + 0.5f)) * 0.75f + 0.25f;
-		}
-		
-		diffuseColor = (float4)(0.25f, 0.75f, 1.0f, 0) * albedo * 0.25f;
-		
-		for (int i = 0; i < scene->lightsCount; ++i)
-		{
-			Ray lightRay;
-
-			float3 lightDir = normalize(scene->lights[i].Position);
-			lightRay.origin = intersectPos + lightDir*0.001f;
-			lightRay.dir = lightDir;
-			data = intersect(&lightRay, scene);
-
-			if (!data.hit)
-			{
-				diffuseColor += albedo * max(0.0f, dot(Normal, lightDir));
-			}
-		}
-		
-		if (traceDepth == 0)
-		{
-			Ray reflectedRay;
-
-			reflectedRay.dir = reflect(ray->dir, Normal);
-			reflectedRay.origin = intersectPos + reflectedRay.dir * 0.0001f;
-			diffuseColor += raytrace(&reflectedRay, scene, traceDepth + 1) * 0.5f;
-		}
-		
-		return diffuseColor;
+	// Compute intersection distance, bail if infinite or negative
+	float intersection_det = dot(triangle_n, r->dir);
+	if(fabs(intersection_det) <= 0.0001f) {
+        return false;
 	}
-	else
-	{
-		return (float4)(0.25f, 0.75f, 1.0f, 0);
-	}
-}
-*/
-
-bool raySphere(const __global Sphere* s, Ray* r, float* t)
-{
-	float3 rayToCenter = s->Position.xyz - r->origin;
-	float dotProduct = dot(r->dir, rayToCenter);
-	float d = dotProduct * dotProduct - dot(rayToCenter, rayToCenter) + s->Radius * s->Radius;
-
-	if (d < 0)
-	{
-		return false;
-	}
-	*t = (dotProduct - sqrt(d));
-
-	if (*t < 0)
-	{
-		*t = (dotProduct + sqrt(d));
-		if (*t < 0)
-		{
-			return false;
-		}
+	float intersection_dist = (triangle_support - dot(triangle_n, r->origin)) / intersection_det;
+	if(intersection_dist <= 0.0f) {
+        return false;
 	}
 
-	return true;
+	// Compute intersection point
+	float3 Q = r->origin + r->dir * intersection_dist;
+
+	// Test inside-ness
+	float3 triangle_bc = C - B;
+	float3 triangle_ca = A - C;
+	float3 triangle_aq = Q - A;
+	float3 triangle_bq = Q - B;
+	float3 triangle_cq = Q - C;
+
+	float baryA = dot(cross(triangle_bc, triangle_bq), triangle_n);
+	float baryB = dot(cross(triangle_ca, triangle_cq), triangle_n);
+	float baryC = dot(cross(triangle_ab, triangle_aq), triangle_n);
+
+	if(baryA < 0.0f || baryB < 0.0f || baryC < 0.0f) {
+        return false;
+	}
+    
+	// Perform barycentric interpolation of normals
+	float triangle_den = dot(triangle_nn, triangle_n);
+	baryA /= triangle_den;
+	baryB /= triangle_den;
+	baryC /= triangle_den;
+
+	float3 N = normalize(
+		triangle->n1 * baryA + 
+		triangle->n2 * baryB + 
+		triangle->n3 * baryC
+	);
+
+    // Fill up the hit struct
+    *n = N;
+    *t = intersection_dist;
+    
+    return true;
 }
 
 void DDA_prepare(Ray ray, float3* tmax, float3* step, float3* tdelta)
@@ -237,7 +173,7 @@ void DDA_step(float3* current_pos, float3* tmax, float3 step, float3 tdelta)
 	}
 }
 
-IntersectData Intersect(Ray *ray, __global Sphere* spheres, __global uint* indices, __global CellData* cells)
+IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* indices, __global CellData* cells)
 {
 	IntersectData out;
 	out.hit = false;
@@ -249,28 +185,33 @@ IntersectData Intersect(Ray *ray, __global Sphere* spheres, __global uint* indic
 	float3 current_pos = CELL_TO_POS(start_index);
 	
 	float t;
+    float3 n;
 	float minT = kMaxRenderDist;
+    
 	while (current_pos.x >= 0 && current_pos.x < GRID_MAX
 		&& current_pos.y >= 0 && current_pos.y < GRID_MAX
 		&& current_pos.z >= 0 && current_pos.z < GRID_MAX)
 	{
 		int current_index = POS_TO_CELL(current_pos);
 		CellData current_cell = cells[current_index];
-		for (uint i = current_cell.start_index; i < current_cell.start_index+current_cell.count; ++i)
+        
+		for (uint i = current_cell.start_index; i < current_cell.start_index + current_cell.count; ++i)
 		{
-			if (raySphere(&spheres[indices[i]], ray, &t))
+            if (rayTriangle(&triangles[indices[i]], ray, &t, &n))
 			{
 				if (t < minT)
 				{
 					minT = t;
-					out.dist = t;
+					out.pos = ray->origin + ray->dir * t;
 					out.objectType = 1;
-					out.object = &spheres[indices[i]];
+					out.object = &triangles[indices[i]];
+                    out.normal = n;
 					out.hit = true;
 				}
 			}
+            
 		}
-		if (out.hit)
+		if (out.hit && POS_TO_CELL(out.pos) == current_index)
 		{
 			break;
 		}
@@ -281,69 +222,39 @@ IntersectData Intersect(Ray *ray, __global Sphere* spheres, __global uint* indic
 }
 
 
-float4 raytrace(Ray *ray, __global Sphere* spheres, __global uint* indices, __global CellData* cells, int traceDepth)
+float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
 {
-	IntersectData data = Intersect(ray, spheres, indices, cells);
-	
-	const int light_count = 1;
-	Light lights[2];
-	lights[0].Position = (float3)(0.5f, 0.5f, 0.75f);
-	lights[1].Position = (float3)(48, 48, 12);
+    IntersectData data = Intersect(ray, triangles, indices, cells);
+
+    float3 Radiance = 0.0f;
 
 	if (data.hit)
-	{
-		float3 Normal;
-		float4 diffuseColor = 0.0f;
-		float4 albedo = 0.0f;
-		float3 intersectPos = ray->origin+ray->dir*data.dist;
+    {
+        Ray reflected_ray;
+        reflected_ray.dir    = sample_hemisphere_uniform(rand, data.normal);
+        reflected_ray.origin = data.pos + reflected_ray.dir * 0.0001f;
+        if (traceDepth == 0)
+        Radiance += raytrace(&reflected_ray, rand, triangles, indices, cells, traceDepth + 1);
+    }
+    else
+    {
+        Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), ray->dir.z);
+    }
 
-		Normal = normalize(intersectPos-data.object->Position);
-		albedo = (float4)(Normal * 0.5f + 0.5f, 1.0f);
-		
-		if (traceDepth == 0)
-		{
-			Ray reflectedRay;
-
-			reflectedRay.dir = reflect(ray->dir, Normal);
-			reflectedRay.origin = intersectPos + reflectedRay.dir * 0.0001f;
-			float fresnel = 1.0f - clamp(dot(-ray->dir, Normal), 0.0f, 1.0f);
-			diffuseColor += raytrace(&reflectedRay, spheres, indices, cells, traceDepth + 1) * fresnel;
-		}
-		
-		
-		for (int i = 0; i < light_count; ++i)
-		{
-			Ray lightRay;
-			float3 lightDir = normalize(lights[i].Position);
-			lightRay.origin = intersectPos + lightDir*0.001f;
-			lightRay.dir = lightDir;
-            data = Intersect(&lightRay, spheres, indices, cells);
-
-			if (!data.hit)
-			{
-				float att = 1.0f;//1.0f - clamp(distance(intersectPos, lights[0].Position) / 64.0f, 0.0f, 1.0f);
-				diffuseColor += albedo * max(0.0f, dot(Normal, lightDir)) * att;// + pow(dot(reflect(-lightDir, Normal), ray->dir), 32.0f);
-			}
-		}
-		return diffuseColor;
-	}
-	else
-	{
-		float zenith = ray->dir.z;
-		float4 color1 = (float4)(0.75f, 0.75f, 0.75f, 1.0f);
-		float4 color2 = (float4)(0.5f, 0.75f, 1.0f, 1.0f);
-
-		return mix(color1, color2, zenith) + pow(max(0.0f, dot(normalize(lights[0].Position), ray->dir)), 32.0f);
-	}
+    return Radiance;
+    
 }
 
-__kernel void main(__global float4* result, uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
-					__global Sphere* spheres, __global uint* indices, __global CellData* cells)
+__kernel void main(__global float4* result, __global int* random_int, uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
+					__global Triangle* triangles, __global uint* indices, __global CellData* cells)
 {
 	float invWidth = 1 / (float)(width), invHeight = 1 / (float)(height);
 	float aspectratio = (float)(width) / (float)(height);
 	float fov = 90.0f;
 	float angle = tan(3.1415f * 0.5f * fov / 180.0f);
+    
+	random_state randstate;
+	seed_random(&randstate, random_int[get_global_id(0)]);
 
 	float x = (float)(get_global_id(0) % width);
 	float y = (float)(get_global_id(0) / width);
@@ -352,9 +263,9 @@ __kernel void main(__global float4* result, uint width, uint height, float3 came
 
 	Ray r;
 	r.origin = cameraPos;
-	float3 dir = normalize(x * cross(cameraUp, cameraFront) + y * cameraUp + cameraFront);
+	float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
 	r.dir = dir;
 
-	result[get_global_id(0)] = raytrace(&r, spheres, indices, cells, 0);
+	result[get_global_id(0)] += (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
 	
 }

@@ -32,10 +32,10 @@ void Camera::Update(GLFWwindow *window, float delta)
 		velocity = -front*speed*delta;
 		break;
 	case GLFW_KEY_A:
-		velocity = right*speed*delta;
+		velocity = -right*speed*delta;
 		break;
 	case GLFW_KEY_D:
-		velocity = -right*speed*delta;
+		velocity = right*speed*delta;
 		break;
 	}
 
@@ -47,7 +47,7 @@ void Camera::Update(GLFWwindow *window, float delta)
 	position += velocity;
 	
 	//std::cout << "(" << position.x << ", " << position.y << ", " << position.z << ") ";
-	
+    	
 }
 
 void Camera::KeyCallback(int Key, int Action)
@@ -58,8 +58,16 @@ void Camera::KeyCallback(int Key, int Action)
 
 void Camera::CursorCallback(float xpos, float ypos)
 {
+    if (abs(xpos - width/2) > 0 || abs(ypos - height/2) > 0)
+    {
+        bCameraChanged = true;
+    }
+    else
+    {
+        bCameraChanged = false;
+    }
 
-	yaw += (xpos - width / 2) * sensivity;
+	yaw -= (xpos - width / 2) * sensivity;
 	pitch -= (ypos - height / 2) * sensivity;
 	pitch = glm::clamp(pitch, glm::radians(-89.0f), glm::radians(89.0f));
 
