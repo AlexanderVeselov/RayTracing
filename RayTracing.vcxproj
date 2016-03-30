@@ -86,6 +86,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="kernel.cl" />
+    <None Include="kernel1.cl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.hpp" />

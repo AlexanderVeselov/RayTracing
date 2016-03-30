@@ -22,7 +22,7 @@ Camera camera(glm::vec3(0.0f), 0.001f, 1.0f, g_Width, g_Height, 90.0f);
 
 cl::CommandQueue queue;
 cl::Kernel kernel;
-cl_mem pixel_buffer, random_buffer, scene_buffer, index_buffer, cell_buffer;
+cl::Buffer pixel_buffer, random_buffer, scene_buffer, index_buffer, cell_buffer;
 
 //std::vector<Sphere> spheres;
 std::vector<Triangle> triangles;
@@ -38,7 +38,6 @@ const size_t cell_resolution3 = cell_resolution * cell_resolution * cell_resolut
 
 bool InitCL()
 {
-    //get all platforms (drivers)
     std::vector<cl::Platform> all_platforms;
     cl::Platform::get(&all_platforms);
     if (all_platforms.size() == 0)
@@ -49,7 +48,6 @@ bool InitCL()
     cl::Platform default_platform = all_platforms[0];
     std::cout << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
-    //get default device of the default platform
     std::vector<cl::Device> all_devices;
     default_platform.getDevices(CL_DEVICE_TYPE_ALL, &all_devices);
     if (all_devices.size() == 0)
@@ -60,39 +58,31 @@ bool InitCL()
     cl::Device default_device = all_devices[0];
     std::cout << "Using device: " << default_device.getInfo<CL_DEVICE_NAME>() << std::endl;
 
-    cl::Context context({default_device});
-    queue = cl::CommandQueue(context, default_device, 0, 0);
-
+    cl::Context context(default_device);
+    
     std::ifstream input_file("kernel1.cl");
     if (!input_file)
     {
         std::cerr << "Cannot load kernel file" << std::endl;
         return false;
     }
-
-    PRINT_SIZE(int);
-    PRINT_SIZE(cl_int);
-    PRINT_SIZE(cl_float4);
-    PRINT_SIZE(float3);
-    PRINT_SIZE(Triangle);
-    PRINT_SIZE(CellData);
-
+    
     cl::Program::Sources sources;
 
-    //std::ostringstream buf;
-    //buf << "#define GRID_RES " << cell_resolution << std::endl;
-    //sources.push_back({buf.str().c_str(), buf.str().length()});
+    std::ostringstream buf;
+    buf << "#define GRID_RES " << cell_resolution << std::endl;
 
     std::string curr_line;
+    std::string source;
+    source += buf.str() + "\n";
     while (std::getline(input_file, curr_line))
     {
-        curr_line += "\n";
-    	std::cout << curr_line;
-        sources.push_back({curr_line.c_str(), curr_line.length()});
+        source += curr_line + "\n";
     }
-
+    sources.push_back(std::make_pair(source.c_str(), source.length()));
+    
     cl::Program program(context, sources);
-    if (program.build({default_device}) != CL_SUCCESS)
+    if (program.build(all_devices) != CL_SUCCESS)
     {
         std::cerr << " Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device) << std::endl;
         return false;
@@ -104,11 +94,14 @@ bool InitCL()
 	kernel = cl::Kernel(program, "main", &errCode);
 	std::cout << "KernelCode: " << errCode << std::endl;
 	
-/*
-    random_array = new int[global_work_size];
+    queue = cl::CommandQueue(context, default_device, 0, 0);
+    
+    //random_array = new int[global_work_size];
 
-	pixel_buffer  = clCreateBuffer(context(), CL_MEM_READ_WRITE, g_Width*g_Height*sizeof(cl_float4), 0, 0);
-	random_buffer = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, g_Width*g_Height*sizeof(cl_int), random_array, 0);
+    pixel_buffer  = cl::Buffer(context, CL_MEM_READ_WRITE, g_Width*g_Height*sizeof(cl_float4));
+    kernel.setArg(0, sizeof(pixel_buffer), &pixel_buffer);
+	/*
+    random_buffer = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, g_Width*g_Height*sizeof(cl_int), random_array, 0);
     scene_buffer  = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), triangles.data(), 0);
 	index_buffer  = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * indices.size(), indices.data(), 0);
 	cell_buffer   = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(CellData) * cells.size(), cells.data(), 0);
@@ -120,7 +113,7 @@ bool InitCL()
 	kernel.setArg(7, &scene_buffer);
 	kernel.setArg(8, &index_buffer);
 	kernel.setArg(9, &cell_buffer);
-*/
+    */
     std::cout << __FUNCTION__ << " : SUCCESS" << std::endl;
     return true;
 }
@@ -143,20 +136,15 @@ void Render()
 	clEnqueueWriteBuffer(queue, random_buffer, true, 0, sizeof(int) * global_work_size, random_array, 0, 0, 0);
 	clFinish(queue);
     */
-	//std::cout << queue.enqueueNDRangeKernel(kernel, cl::NDRange(1), cl::NullRange, cl::NDRange(global_work_size)) << std::endl;
-	//queue.finish();
 
-    cl_float4* ptr = 0;//(cl_float4*) clEnqueueMapBuffer(queue, pixel_buffer, CL_TRUE, CL_MAP_READ, 0, global_work_size*sizeof(cl_float4), 0, 0, 0, 0);
+	std::cout << queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global_work_size)) << std::endl;
+	queue.finish();
 
-    if (!ptr)
-	{
-		//std::cout << "Could not enqueue map buffer!" << std::endl;
-		return;
-	}
-
-   // clEnqueueUnmapMemObject(queue, pixel_buffer, ptr, 0, 0, 0);
-	//queue.finish();
+    cl_float4* ptr = (cl_float4* ) queue.enqueueMapBuffer(pixel_buffer, CL_TRUE, CL_MAP_READ, 0, global_work_size*sizeof(cl_float4));
     
+    queue.enqueueUnmapMemObject(pixel_buffer, ptr);
+	queue.finish();
+    /*
     if (camera.Changed())
     {
         for (size_t i = 0; i < global_work_size; ++i)
@@ -177,7 +165,7 @@ void Render()
         ptr[i].y /= sample_count;
         ptr[i].z /= sample_count;
     }
-    
+    */
     if (ptr)
     {
         glDrawPixels(g_Width, g_Height, GL_RGBA, GL_FLOAT, ptr);
