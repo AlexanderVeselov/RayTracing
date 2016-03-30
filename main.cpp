@@ -14,8 +14,8 @@
 #include <vector>
 #include <sstream>
 
-const int g_Width = 1280;
-const int g_Height = 720;
+unsigned int g_Width = 1280;
+unsigned int g_Height = 720;
 const size_t global_work_size = g_Width * g_Height;
 
 Camera camera(glm::vec3(0.0f), 0.001f, 1.0f, g_Width, g_Height, 90.0f);
@@ -60,7 +60,7 @@ bool InitCL()
 
     cl::Context context(default_device);
     
-    std::ifstream input_file("kernel1.cl");
+    std::ifstream input_file("kernel.cl");
     if (!input_file)
     {
         std::cerr << "Cannot load kernel file" << std::endl;
@@ -96,24 +96,30 @@ bool InitCL()
 	
     queue = cl::CommandQueue(context, default_device, 0, 0);
     
-    //random_array = new int[global_work_size];
+    random_array = new int[global_work_size];
+
+    for (size_t i = 0; i < global_work_size; ++i)
+    {
+        random_array[i] = rand();
+    }
 
     pixel_buffer  = cl::Buffer(context, CL_MEM_READ_WRITE, g_Width*g_Height*sizeof(cl_float4));
-    kernel.setArg(0, sizeof(pixel_buffer), &pixel_buffer);
-	/*
-    random_buffer = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, g_Width*g_Height*sizeof(cl_int), random_array, 0);
-    scene_buffer  = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), triangles.data(), 0);
-	index_buffer  = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * indices.size(), indices.data(), 0);
-	cell_buffer   = clCreateBuffer(context(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(CellData) * cells.size(), cells.data(), 0);
+    random_buffer = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, g_Width*g_Height * sizeof(cl_int), random_array);
+    
+    scene_buffer  = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), triangles.data());
+    index_buffer  = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint) * indices.size(), indices.data());
+    cell_buffer   = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(CellData) * cells.size(), cells.data());
+    
+	kernel.setArg(0, sizeof(cl::Buffer), &pixel_buffer);
+	kernel.setArg(1, sizeof(cl::Buffer), &random_buffer);
+	
+	kernel.setArg(2, sizeof(unsigned int), &g_Width);
+	kernel.setArg(3, sizeof(unsigned int), &g_Height);
+	
+	kernel.setArg(7, sizeof(cl::Buffer), &scene_buffer);
+	kernel.setArg(8, sizeof(cl::Buffer), &index_buffer);
+	kernel.setArg(9, sizeof(cl::Buffer), &cell_buffer);
 
-	kernel.setArg(0, pixel_buffer);
-	kernel.setArg(1, &random_buffer);
-	kernel.setArg(2, &g_Width);
-	kernel.setArg(3, &g_Height);
-	kernel.setArg(7, &scene_buffer);
-	kernel.setArg(8, &index_buffer);
-	kernel.setArg(9, &cell_buffer);
-    */
     std::cout << __FUNCTION__ << " : SUCCESS" << std::endl;
     return true;
 }
@@ -125,51 +131,32 @@ void Update(GLFWwindow *window)
 
 void Render()
 {
-	/*
+	
 	float3 pos(camera.GetPos().x, camera.GetPos().y, camera.GetPos().z);
-	clSetKernelArg(kernel, 4, sizeof(float3), &pos);
+	kernel.setArg(4, sizeof(float3), &pos);
 	float3 front(camera.GetFrontVec().x, camera.GetFrontVec().y, camera.GetFrontVec().z);
-	clSetKernelArg(kernel, 5, sizeof(float3), &front);
+	kernel.setArg(5, sizeof(float3), &front);
 	float3 up(camera.GetUpVec().x, camera.GetUpVec().y, camera.GetUpVec().z);
-	clSetKernelArg(kernel, 6, sizeof(float3), &up);
+	kernel.setArg(6, sizeof(float3), &up);
 
-	clEnqueueWriteBuffer(queue, random_buffer, true, 0, sizeof(int) * global_work_size, random_array, 0, 0, 0);
-	clFinish(queue);
-    */
 
-	std::cout << queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global_work_size)) << std::endl;
+	queue.enqueueWriteBuffer(random_buffer, true, 0, sizeof(int) * global_work_size, random_array);
+	queue.finish();
+
+	queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global_work_size));
 	queue.finish();
 
     cl_float4* ptr = (cl_float4* ) queue.enqueueMapBuffer(pixel_buffer, CL_TRUE, CL_MAP_READ, 0, global_work_size*sizeof(cl_float4));
     
-    queue.enqueueUnmapMemObject(pixel_buffer, ptr);
-	queue.finish();
-    /*
-    if (camera.Changed())
-    {
-        for (size_t i = 0; i < global_work_size; ++i)
-        {
-            ptr[i].x = 0;
-            ptr[i].y = 0;
-            ptr[i].z = 0;
-            sample_count = 0;
-        }
-       // clEnqueueWriteBuffer(queue, pixel_buffer, true, 0, sizeof(cl_float4) * global_work_size, ptr, 0, 0, 0);
-       // clFinish(queue);
-    }
-    ++sample_count;
-    for (size_t i = 0; i < global_work_size; ++i)
-    {
-        random_array[i] = rand();
-        ptr[i].x /= sample_count;
-        ptr[i].y /= sample_count;
-        ptr[i].z /= sample_count;
-    }
-    */
+
     if (ptr)
     {
         glDrawPixels(g_Width, g_Height, GL_RGBA, GL_FLOAT, ptr);
     }
+
+
+    queue.enqueueUnmapMemObject(pixel_buffer, ptr);
+	queue.finish();
 
 }
 

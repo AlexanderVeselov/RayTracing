@@ -249,7 +249,7 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
 __kernel void main(__global float4* result, __global int* random_int, uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
 					__global Triangle* triangles, __global uint* indices, __global CellData* cells)
 {
-/*
+
 	float invWidth = 1 / (float)(width), invHeight = 1 / (float)(height);
 	float aspectratio = (float)(width) / (float)(height);
 	float fov = 90.0f;
@@ -267,7 +267,7 @@ __kernel void main(__global float4* result, __global int* random_int, uint width
 	r.origin = cameraPos;
 	float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
 	r.dir = dir;
-*/
-	result[get_global_id(0)] = 1; //(float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
+
+	result[get_global_id(0)] = (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
 	
 }
