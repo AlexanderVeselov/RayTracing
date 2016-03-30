@@ -1,7 +1,7 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include <CL/cl.h>
+#include <CL/cl.hpp>
 #include <vector>
 
 struct CellData

@@ -1,0 +1,4 @@
+__kernel void main()
+{
+
+}

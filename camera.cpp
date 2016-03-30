@@ -1,8 +1,9 @@
 #include "camera.hpp"
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <cmath>
 
-#define M_PI 3.141592f
+//#define M_PI 3.141592f
 
 Camera::Camera(glm::vec3 Position, float Sensivity, float Speed, int Width, int Height, float Fov) :
 	position(Position),

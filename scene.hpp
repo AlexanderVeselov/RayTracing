@@ -2,7 +2,7 @@
 #define SCENE_HPP
 
 #include "vectors.hpp"
-#include <CL/cl.h>
+#include <CL/cl.hpp>
 #include <algorithm>
 #include <vector>
 
