@@ -105,6 +105,24 @@ private:
 
 };
 
-void LoadTriangles(const char* filename, std::vector<Triangle> &triangles);
+struct CellData
+{
+	cl_uint start_index;
+	cl_uint	count;
+
+};
+
+class Scene
+{
+public:
+    Scene(const char* filename, size_t cell_resolution);
+    void LoadTriangles(const char* filename);
+    void CreateGrid(const std::vector<Triangle> &objects, size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells);
+
+    std::vector<Triangle> triangles;
+    std::vector<cl_uint>  indices;
+    std::vector<CellData> cells;
+
+};
 
 #endif // SCENE_HPP

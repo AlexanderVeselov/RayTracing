@@ -15,21 +15,21 @@
     <ClInclude Include="..\src\camera.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\grid.hpp">
-      <Filter>Include Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\scene.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\vectors.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\raytracer.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\cl_context.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\grid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\main.cpp">
@@ -38,12 +38,15 @@
     <ClCompile Include="..\src\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\raytracer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\cl_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\kernel.cl">
-      <Filter>Kernel Files</Filter>
-    </None>
-    <None Include="..\src\kernel1.cl">
       <Filter>Kernel Files</Filter>
     </None>
   </ItemGroup>

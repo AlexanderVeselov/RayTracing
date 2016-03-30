@@ -12,19 +12,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\camera.hpp" />
-    <ClInclude Include="..\src\grid.hpp" />
+    <ClInclude Include="..\src\cl_context.hpp" />
+    <ClInclude Include="..\src\raytracer.hpp" />
     <ClInclude Include="..\src\scene.hpp" />
     <ClInclude Include="..\src\vectors.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp" />
-    <ClCompile Include="..\src\grid.cpp" />
+    <ClCompile Include="..\src\cl_context.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\raytracer.cpp" />
     <ClCompile Include="..\src\scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\kernel.cl" />
-    <None Include="..\src\kernel1.cl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B577E027-4BC3-4D0C-9B58-5021B4A1A673}</ProjectGuid>
