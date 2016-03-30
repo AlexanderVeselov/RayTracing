@@ -2,10 +2,10 @@ APP = RayTrace
 
 all: $(APP)
 
-SRC += camera.cpp
-SRC += grid.cpp
-SRC += main.cpp
-SRC += scene.cpp
+SRC += src/camera.cpp
+SRC += src/grid.cpp
+SRC += src/main.cpp
+SRC += src/scene.cpp
 
 CPPFLAGS += -std=gnu++11
 
