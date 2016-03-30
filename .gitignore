@@ -1,1 +1,6 @@
 *.o
+*.opensdf
+*.sdf
+
+VS2010/Debug/
+VS2010/ipch/

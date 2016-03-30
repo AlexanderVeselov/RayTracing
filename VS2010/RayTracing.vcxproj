@@ -10,6 +10,22 @@
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\camera.hpp" />
+    <ClInclude Include="..\src\grid.hpp" />
+    <ClInclude Include="..\src\scene.hpp" />
+    <ClInclude Include="..\src\vectors.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\camera.cpp" />
+    <ClCompile Include="..\src\grid.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\scene.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\kernel.cl" />
+    <None Include="..\src\kernel1.cl" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B577E027-4BC3-4D0C-9B58-5021B4A1A673}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
@@ -39,8 +55,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(MSBuildProjectDirectory)\include;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MSBuildProjectDirectory)\lib;$(CUDA_PATH)\lib\Win32;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)\..\lib\;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)\..\lib\GLFW;$(CUDA_PATH)\lib\Win32;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -78,22 +94,6 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="camera.cpp" />
-    <ClCompile Include="grid.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="scene.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="kernel.cl" />
-    <None Include="kernel1.cl" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="camera.hpp" />
-    <ClInclude Include="grid.hpp" />
-    <ClInclude Include="scene.hpp" />
-    <ClInclude Include="vectors.hpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
