@@ -9,19 +9,20 @@
 class RayTracer
 {
 public:
-    RayTracer();
-    void MainLoop();
-    void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
-    void CursorCallback(GLFWwindow *window, double xpos, double ypos);
+    RayTracer(const char* filename);
+    void Start();
 
 private:
     void Update();
     void Render();
-    unsigned int width, height;
-    ClContext context;
-    GLFWwindow* window;
-    Camera camera;
-    Scene  scene;
+
+    size_t width_;
+    size_t height_;
+
+    ClContext context_;
+    GLFWwindow* window_;
+    Camera camera_;
+    Scene  scene_;
 
 };
 

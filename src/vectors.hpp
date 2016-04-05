@@ -24,10 +24,14 @@ struct float3
 	float3 operator- (const float3 &other) { return float3(x - other.x, y - other.y, z - other.z); }
 	friend float3 operator- (const float3 &lhs, const float3 &rhs) { return float3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z); }
 
+	float3 operator+= (const float3 &other) { x += other.x; y += other.y; z += other.z; return *this; }
+	float3 operator-= (const float3 &other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
+
+	float3 operator- () { return float3(-x, -y, -z); }
+
     float operator[] (size_t i) const { return i == 0 ? x : (i == 1 ? y : z); }
     friend std::ostream& operator<< (std::ostream &os, const float3 &vec) { return os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")"; }	
-
-
+    
 	float x, y, z;
 
 private:
@@ -36,6 +40,7 @@ private:
 
 };
 
+// Can I do this?
 inline float3 cross(float3 a, float3 b)
 {
     return float3(a.y * b.z - a.z * b.y, a.z * b.z - a.x * b.z, a.x * b.y - a.y * b.x);

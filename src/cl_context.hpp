@@ -7,14 +7,28 @@
 class ClContext
 {
 public:
-    ClContext(size_t global_work_size, size_t cell_resolution);
-    void SetupBuffers(size_t width, size_t height, const Scene& scene);
-    cl::CommandQueue queue;
-    cl::Kernel kernel;
-    cl::Buffer pixel_buffer, random_buffer, scene_buffer, index_buffer, cell_buffer;
-    
-    cl::Context context;
-    int* random_array;
+    ClContext(size_t width, size_t height, size_t cell_resolution);
+    void setupBuffers(const Scene& scene);
+    void setArgument(size_t index, size_t size, const void* argPtr);
+    void writeBuffer(const cl::Buffer& buffer, size_t size, const void* ptr);
+    void executeKernel();
+
+    cl_float4* getPixels();
+    void unmapPixels(cl_float4* ptr);
+
+private:
+    size_t width_;
+    size_t height_;
+
+    cl::Context context_;
+    cl::CommandQueue queue_;
+    cl::Kernel kernel_;
+    // Memory Buffers
+    cl::Buffer pixel_buffer_;
+    cl::Buffer random_buffer_;
+    cl::Buffer scene_buffer_;
+    cl::Buffer index_buffer_;
+    cl::Buffer cell_buffer_;
 
 };
 

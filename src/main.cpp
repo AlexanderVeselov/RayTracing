@@ -4,8 +4,9 @@
 
 int main()
 {
-    RayTracer rt;
-    rt.MainLoop();
+    RayTracer rt("meshes/wall.obj");
+    rt.Start();
 
     return 0;
+
 }

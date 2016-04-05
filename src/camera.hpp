@@ -1,33 +1,37 @@
 #ifndef CAMERA_HPP
 #define CAMERA_HPP
 
+#include "vectors.hpp"
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 
 class Camera
 {
 public:
-	Camera(glm::vec3 Position, float Sensivity, float Speed, int Width, int Height, float Fov);
+	Camera(int width, int height, float3 position, float fov, float sensivity, float speed);
 	void Update(GLFWwindow *window, float delta);
 	void KeyCallback(int Key, int Action);
 	void CursorCallback(float xpos, float ypos);
 
 	// Getters...
-	glm::vec3 GetPos() const { return position; }
-	glm::vec3 GetVelocity() const { return velocity; }
-	glm::vec3 GetFrontVec() const { return front; }
-	glm::vec3 GetUpVec() const { return up; }
-    bool      Changed() const { return bCameraChanged; }
+	float3 getPos()         const { return position_; }
+	float3 getFrontVector() const { return front_; }
+	float3 getUpVector()    const { return up_; }
 
 private:
-	glm::vec3 position, velocity, front, right, up;
-	float pitch, yaw;
+	int width_;
+    int height_;
 
-	float sensivity, speed;
-	int width, height;
-	float fov;
-	int key, keyAction;
-    bool bCameraChanged;
+	float3 position_;
+    float3 velocity_;
+    float3 front_;
+    float3 up_;
+
+	float pitch_;
+    float yaw_;
+    
+	float fov_;
+    float speed_;
+	float sensivity_;
 
 };
 

@@ -3,34 +3,32 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
-RayTracer::RayTracer() :
-    width(1280),
-    height(720),
-    context(1280 * 720, 16),
-    camera(glm::vec3(), 0.0005f, 1.0f, width, height, 90.0f),
-    scene("meshes/teapot.obj", 16)
+RayTracer::RayTracer(const char* filename) :
+    width_(1280),
+    height_(720),
+    context_(1280, 720, 64),
+    camera_(width_, height_, 0.0, 90.0f, 0.0005f, 2.0f),
+    scene_(filename, 64)
 {
     glfwInit();
-    window = glfwCreateWindow(width, height, "Ray Tracing Test", NULL, NULL);
-    glfwMakeContextCurrent(window);
+    window_ = glfwCreateWindow(width_, height_, "Ray Tracing Test", NULL, NULL);
+    glfwMakeContextCurrent(window_);
 	
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-    std::cout << scene.triangles.size() << std::endl;
-    context.SetupBuffers(width, height, scene);
-	//glfwSetKeyCallback(window, (GLFWkeyfun) RayTracer::KeyCallback);
-	//glfwSetCursorPosCallback(window, RayTracer::CursorCallback);
+	glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+    context_.setupBuffers(scene_);
+    std::cout << "Triangle count: " << scene_.triangles.size() << std::endl;
+
 }
 
-void RayTracer::MainLoop()
+void RayTracer::Start()
 {
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window_))
     {
-	    camera.Update(window, 1.0f);
+	    camera_.Update(window_, 1.0f);
 		// temp..
-		glfwSetCursorPos(window, width / 2, height / 2);
 		Render();
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window_);
         glfwPollEvents();
     }
     glfwTerminate();
@@ -38,36 +36,18 @@ void RayTracer::MainLoop()
 
 void RayTracer::Render()
 {
-    float3 pos(camera.GetPos().x, camera.GetPos().y, camera.GetPos().z);
-	context.kernel.setArg(4, sizeof(float3), &pos);
-	float3 front(camera.GetFrontVec().x, camera.GetFrontVec().y, camera.GetFrontVec().z);
-	context.kernel.setArg(5, sizeof(float3), &front);
-	float3 up(camera.GetUpVec().x, camera.GetUpVec().y, camera.GetUpVec().z);
-	context.kernel.setArg(6, sizeof(float3), &up);
+	context_.setArgument(4, sizeof(float3), &camera_.getPos());
+	context_.setArgument(5, sizeof(float3), &camera_.getFrontVector());
+	context_.setArgument(6, sizeof(float3), &camera_.getUpVector());
+    context_.executeKernel();
 
-	context.queue.enqueueWriteBuffer(context.random_buffer, true, 0, sizeof(int) * width * height, context.random_array);
-	context.queue.finish();
-
-	context.queue.enqueueNDRangeKernel(context.kernel, cl::NullRange, cl::NDRange(width * height));
-	context.queue.finish();
-
-    cl_float4* ptr = (cl_float4* ) context.queue.enqueueMapBuffer(context.pixel_buffer, CL_TRUE, CL_MAP_READ, 0, width * height * sizeof(cl_float4));
+    cl_float4* ptr = context_.getPixels();
     
     if (ptr)
     {
-        glDrawPixels(width, width, GL_RGBA, GL_FLOAT, ptr);
+        glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, ptr);
     }
 
-    context.queue.enqueueUnmapMemObject(context.pixel_buffer, ptr);
-	context.queue.finish();
-}
+    context_.unmapPixels(ptr);
 
-void RayTracer::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
-{
-	camera.KeyCallback(key, action);
-}
-
-void RayTracer::CursorCallback(GLFWwindow *window, double xpos, double ypos)
-{
-	camera.CursorCallback(static_cast<float>(xpos), static_cast<float>(ypos));
 }

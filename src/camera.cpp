@@ -1,77 +1,59 @@
 #include "camera.hpp"
+#include "math_functions.hpp"
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <cmath>
 
-Camera::Camera(glm::vec3 Position, float Sensivity, float Speed, int Width, int Height, float Fov) :
-	position(Position),
-	velocity(0.0f),
-	front(1.0f, 0.0f, 0.0f),
-	up(0.0f, 0.0f, 1.0f),
-	pitch(0),
-	yaw(0.0f),
-	sensivity(Sensivity),
-	speed(Speed),
-	width(Width),
-	height(Height),
-	fov(Fov),
-	key(0),
-	keyAction(0)
+Camera::Camera(int width, int height, float3 position, float fov, float sensivity, float speed) :
+	width_(width),
+	height_(height),
+	position_(position),
+	velocity_(0.0f),
+	front_(1.0f, 0.0f, 0.0f),
+	up_(0.0f, 0.0f, 1.0f),
+	pitch_(0.0f),
+	yaw_(0.0f),
+	fov_(fov),
+	speed_(speed),
+	sensivity_(sensivity)
 {
 }
 
 void Camera::Update(GLFWwindow *window, float delta)
 {
-	switch(key)
-	{
-	case GLFW_KEY_W:
-		velocity = front*speed*delta;
-		break;
-	case GLFW_KEY_S:
-		velocity = -front*speed*delta;
-		break;
-	case GLFW_KEY_A:
-		velocity = -right*speed*delta;
-		break;
-	case GLFW_KEY_D:
-		velocity = right*speed*delta;
-		break;
-	}
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+	glfwSetCursorPos(window, width_ / 2, height_ / 2);
 
-	if (keyAction == GLFW_RELEASE)
-	{
-		velocity = glm::vec3(0);
-	}
+	yaw_   -= (static_cast<float>(xpos) - static_cast<float>(width_) / 2.0f) * sensivity_;
+	pitch_ -= (static_cast<float>(ypos) - static_cast<float>(height_) / 2.0f) * sensivity_;
+	pitch_  = clamp(pitch_, radians(-89.9f), radians(89.9f));
 
-	position += velocity;
-	
-	//std::cout << "(" << position.x << ", " << position.y << ", " << position.z << ") ";
-    	
-}
+	front_ = float3(cos(yaw_)*cos(pitch_), sin(yaw_)*cos(pitch_), sin(pitch_));
+    
+    float3 right = float3(sin(yaw_), -cos(yaw_), 0.0f);
+	up_	         = cross(right, front_);
+    velocity_    = float3(0.0f);
 
-void Camera::KeyCallback(int Key, int Action)
-{
-	key = Key;
-	keyAction = Action;
-}
-
-void Camera::CursorCallback(float xpos, float ypos)
-{
-    if (abs(xpos - width/2) > 0 || abs(ypos - height/2) > 0)
+    if (glfwGetKey(window, GLFW_KEY_W))
     {
-        bCameraChanged = true;
-    }
-    else
-    {
-        bCameraChanged = false;
+        velocity_ += front_ * speed_ * delta;
     }
 
-	yaw -= (xpos - width / 2) * sensivity;
-	pitch -= (ypos - height / 2) * sensivity;
-	pitch = glm::clamp(pitch, glm::radians(-89.0f), glm::radians(89.0f));
+    if (glfwGetKey(window, GLFW_KEY_S))
+    {
+		velocity_ -= front_ * speed_ * delta;
+    }
 
-	front = glm::vec3(cos(yaw)*cos(pitch), sin(yaw)*cos(pitch), sin(pitch));
-	right = glm::vec3(sin(yaw), -cos(yaw), 0);
-	up	  = glm::cross(right, front);
+    if (glfwGetKey(window, GLFW_KEY_A))
+    {
+		velocity_ -= right * speed_ * delta;
+    }
 
+    if (glfwGetKey(window, GLFW_KEY_D))
+    {
+		velocity_ += right * speed_ * delta;
+    }
+
+	position_ += velocity_;
+	    	
 }

@@ -11,13 +11,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\aabb.hpp" />
     <ClInclude Include="..\src\camera.hpp" />
     <ClInclude Include="..\src\cl_context.hpp" />
+    <ClInclude Include="..\src\math_functions.hpp" />
     <ClInclude Include="..\src\raytracer.hpp" />
     <ClInclude Include="..\src\scene.hpp" />
+    <ClInclude Include="..\src\triangle.hpp" />
     <ClInclude Include="..\src\vectors.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\aabb.cpp" />
     <ClCompile Include="..\src\camera.cpp" />
     <ClCompile Include="..\src\cl_context.cpp" />
     <ClCompile Include="..\src\main.cpp" />

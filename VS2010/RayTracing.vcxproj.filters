@@ -27,6 +27,15 @@
     <ClInclude Include="..\src\cl_context.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\math_functions.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\aabb.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\triangle.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp">
@@ -42,6 +51,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\cl_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\aabb.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
