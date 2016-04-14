@@ -4,9 +4,9 @@
 #include <iostream>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(512),
-    height_(512),
-    context_(512, 512, 64),
+    width_(1024),
+    height_(768),
+    context_(1024, 768, 64),
     camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
     scene_(filename, 64)
 {
