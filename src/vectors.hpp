@@ -25,6 +25,7 @@ struct float3
 	friend float3 operator- (const float3 &lhs, const float3 &rhs) { return float3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z); }
 
 	float3 operator+= (const float3 &other) { x += other.x; y += other.y; z += other.z; return *this; }
+	float3 operator*= (const float  &other) { x *= other;   y *= other;   z *= other;   return *this; }
 	float3 operator-= (const float3 &other) { x -= other.x; y -= other.y; z -= other.z; return *this; }
 
 	float3 operator- () { return float3(-x, -y, -z); }

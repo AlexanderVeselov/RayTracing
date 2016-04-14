@@ -1,4 +1,3 @@
-
 #define kMaxRenderDist 20000.0f
 
 #define GRID_MAX 64
@@ -27,6 +26,7 @@ typedef struct{
 	float3 pos;
     float3 normal;
 	__global Triangle* object;
+    Ray ray;
 	int objectType;
 } IntersectData;
 
@@ -43,6 +43,7 @@ typedef struct {
 	ulong c;
 } random_state;
 
+// Slow
 inline float sample_unit(random_state *r) {
 	ulong old = r->b;
 	r->b = r->a * 1103515245 + 12345;
@@ -55,7 +56,7 @@ void seed_random(random_state *r, const uint seed) {
 	r->b = 0;
 	r->c = 362436;
 	for( int i = 0; i < 1000; i++ ) {
-	    sample_unit( r );
+	    sample_unit(r);
 	}
 }
 
@@ -178,6 +179,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 {
 	IntersectData out;
 	out.hit = false;
+    out.ray = *ray;
 
 	float3 tmax, step, tdelta;
 	DDA_prepare(*ray, &tmax, &step, &tdelta);
@@ -222,24 +224,39 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 	return out;
 }
 
-
 float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
 {
-    IntersectData data = Intersect(ray, triangles, indices, cells);
+    IntersectData data[5];
 
     float3 Radiance = 0.0f;
-
-	if (data.hit)
+    int intersections = 0;
+    for (int i = 0; i < 5; ++i)
     {
-        Ray reflected_ray;
-        reflected_ray.dir    = sample_hemisphere_uniform(rand, data.normal);
-        reflected_ray.origin = data.pos + reflected_ray.dir * 0.0001f;
-        if (traceDepth == 0)
-        Radiance += raytrace(&reflected_ray, rand, triangles, indices, cells, traceDepth + 1);
+        ++intersections;
+        data[i] = Intersect(ray, triangles, indices, cells);
+        if (!data[i].hit) break;
+        ray->dir = sample_hemisphere_uniform(rand, data[i].normal);
+        ray->origin = data[i].pos + ray->dir * 0.0001f;
     }
-    else
+    
+    for (int i = intersections - 1; i >= 0; --i)
     {
-        Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), ray->dir.z);
+        if (!data[i].hit)
+        {
+            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z);
+            //break;
+        }
+        else
+        {
+            if (data[i].pos.x >= 10.0f && data[i].pos.x <= 20.0f && data[i].pos.y >= 20.0f && data[i].pos.y <= 30.0f && data[i].pos.z >= 10.0f )
+            {
+                Radiance += 2.0f; //data[i].normal * 0.5f + 0.5f;
+            }
+            else
+            {
+                Radiance *= data[i].normal * 0.5f + 0.5f;
+            }
+        }
     }
 
     return Radiance;

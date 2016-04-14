@@ -4,17 +4,16 @@
 #include <iostream>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(1280),
-    height_(720),
-    context_(1280, 720, 64),
-    camera_(width_, height_, 0.0, 90.0f, 0.0005f, 2.0f),
+    width_(512),
+    height_(512),
+    context_(512, 512, 64),
+    camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
     scene_(filename, 64)
 {
     glfwInit();
     window_ = glfwCreateWindow(width_, height_, "Ray Tracing Test", NULL, NULL);
     glfwMakeContextCurrent(window_);
 	
-	glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     context_.setupBuffers(scene_);
     std::cout << "Triangle count: " << scene_.triangles.size() << std::endl;
 
@@ -25,7 +24,6 @@ void RayTracer::Start()
     while (!glfwWindowShouldClose(window_))
     {
 	    camera_.Update(window_, 1.0f);
-		// temp..
 		Render();
 
         glfwSwapBuffers(window_);
@@ -41,13 +39,13 @@ void RayTracer::Render()
 	context_.setArgument(6, sizeof(float3), &camera_.getUpVector());
     context_.executeKernel();
 
-    cl_float4* ptr = context_.getPixels();
+    cl_float4* pixels = context_.getPixels();
     
-    if (ptr)
+    if (pixels)
     {
-        glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, ptr);
+        glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, pixels);
     }
 
-    context_.unmapPixels(ptr);
+    context_.unmapPixels(pixels);
 
 }

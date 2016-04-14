@@ -94,19 +94,19 @@ void ClContext::setupBuffers(const Scene& scene)
         std::cerr << "Cannot create random buffer! (" << errCode << ")" << std::endl;
     }
 
-    scene_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.triangles.size() * sizeof(Triangle), (void* ) scene.triangles.data(), &errCode);
+    scene_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.triangles.size() * sizeof(Triangle), (void*) scene.triangles.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create scene buffer! (" << errCode << ")" << std::endl;
     }
 
-    index_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.indices.size() * sizeof(cl_uint), (void* ) scene.indices.data(), &errCode);
+    index_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.indices.size() * sizeof(cl_uint), (void*) scene.indices.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create index buffer! (" << errCode << ")" << std::endl;
     }
 
-    cell_buffer_   = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.cells.size() * sizeof(CellData), (void* ) scene.cells.data(), &errCode);
+    cell_buffer_   = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.cells.size() * sizeof(CellData), (void*) scene.cells.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create cell buffer! (" << errCode << ")" << std::endl;
@@ -115,14 +115,14 @@ void ClContext::setupBuffers(const Scene& scene)
 	setArgument(0, sizeof(cl::Buffer), &pixel_buffer_);
 	setArgument(1, sizeof(cl::Buffer), &random_buffer_);
 	
-	setArgument(2, sizeof(unsigned int), &width_);
-	setArgument(3, sizeof(unsigned int), &height_);
+	setArgument(2, sizeof(size_t), &width_);
+	setArgument(3, sizeof(size_t), &height_);
 	
 	setArgument(7, sizeof(cl::Buffer), &scene_buffer_);
 	setArgument(8, sizeof(cl::Buffer), &index_buffer_);
 	setArgument(9, sizeof(cl::Buffer), &cell_buffer_);
     
-    writeBuffer(random_buffer_, global_work_size * sizeof(int), random_array);
+    //writeBuffer(random_buffer_, global_work_size * sizeof(int), random_array);
 
 }
 
@@ -134,7 +134,7 @@ void ClContext::setArgument(size_t index, size_t size, const void* argPtr)
 void ClContext::writeBuffer(const cl::Buffer& buffer, size_t size, const void* ptr)
 {
     queue_.enqueueWriteBuffer(buffer, true, 0, size, ptr);
-	queue_.finish();
+	//queue_.finish();
 
 }
 
@@ -148,7 +148,7 @@ void ClContext::executeKernel()
 cl_float4* ClContext::getPixels()
 {
     cl_float4* ptr = static_cast<cl_float4*>(queue_.enqueueMapBuffer(pixel_buffer_, CL_TRUE, CL_MAP_READ, 0, width_ * height_ * sizeof(cl_float4)));
-    queue_.finish();
+    //queue_.finish();
     return ptr;
 
 }
@@ -156,6 +156,6 @@ cl_float4* ClContext::getPixels()
 void ClContext::unmapPixels(cl_float4* ptr)
 {
     queue_.enqueueUnmapMemObject(pixel_buffer_, ptr);
-	queue_.finish();
+	//queue_.finish();
 
 }

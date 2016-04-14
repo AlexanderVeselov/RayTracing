@@ -8,6 +8,29 @@
 #include <algorithm>
 #include <vector>
 
+struct CellData
+{
+	cl_uint start_index;
+	cl_uint	count;
+
+};
+
+class Scene
+{
+public:
+    Scene(const char* filename, size_t cell_resolution);
+    void LoadTriangles();
+    void CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells);
+
+    std::vector<Triangle> triangles;
+    std::vector<cl_uint>  indices;
+    std::vector<CellData> cells;
+
+private:
+    const char* filename_;
+
+};
+
 // Purpose: Base primitive in raytracer
 class Sphere
 {
@@ -29,29 +52,6 @@ private:
 	float  r;
 	// Padded to align on 4 floats due to technical reasons
 	float  unused[3];
-
-};
-
-struct CellData
-{
-	cl_uint start_index;
-	cl_uint	count;
-
-};
-
-class Scene
-{
-public:
-    Scene(const char* filename, size_t cell_resolution);
-    void LoadTriangles();
-    void CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells);
-
-    std::vector<Triangle> triangles;
-    std::vector<cl_uint>  indices;
-    std::vector<CellData> cells;
-
-private:
-    const char* filename_;
 
 };
 
