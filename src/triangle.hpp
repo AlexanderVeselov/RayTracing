@@ -3,6 +3,7 @@
 
 #include "vectors.hpp"
 #include <CL/cl.h>
+#include <algorithm>
 
 // Purpose: 
 class Triangle

@@ -1,73 +1,63 @@
 #include "cl_context.hpp"
 #include <iostream>
 #include <vector>
-#include <fstream>
 #include <string>
-#include <sstream>
 
-ClContext::ClContext(size_t width, size_t height, size_t cell_resolution) : width_(width), height_(height)
+// If we got an error, how to terminate the construction of the object?
+ClContext::ClContext(const cl::Platform& platform, const std::string& source, size_t width, size_t height, size_t cell_resolution) : width_(width), height_(height), valid_(true)
 {
-    std::vector<cl::Platform> all_platforms;
-    cl::Platform::get(&all_platforms);
-    if (all_platforms.size() == 0)
-    {
-        std::cerr << "No platforms found. Check OpenCL installation!" << std::endl;
+    std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
+    std::vector<cl::Device> platform_devices;
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 
-    }
-    cl::Platform default_platform = all_platforms[0];
-    std::cout << "Using platform: " << default_platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
-
-    std::vector<cl::Device> all_devices;
-    default_platform.getDevices(CL_DEVICE_TYPE_ALL, &all_devices);
-    if (all_devices.size() == 0)
+    if (platform_devices.size() == 0)
     {
-        std::cerr << "No devices found. Check OpenCL installation!" << std::endl;
-    }
-    cl::Device default_device = all_devices[0];
-    std::cout << "Using device: " << default_device.getInfo<CL_DEVICE_NAME>() << std::endl;
-
-    context_ = cl::Context(default_device);
-    
-    std::ifstream input_file("src/kernel.cl");
-    if (!input_file)
-    {
-        std::cerr << "Cannot load kernel file" << std::endl;
-    }
-    
-    std::ostringstream buf;
-    buf << "#define GRID_RES " << cell_resolution << std::endl;
-
-    std::string curr_line;
-    std::string source;
-    source += buf.str() + "\n";
-    while (std::getline(input_file, curr_line))
-    {
-        source += curr_line + "\n";
+        std::cerr << "No devices found!" << std::endl;
+        valid_ = false;
     }
 
-    cl::Program::Sources sources;
-    sources.push_back(std::make_pair(source.c_str(), source.length()));
-    
-    cl::Program program(context_, sources);
-    if (program.build(all_devices) != CL_SUCCESS)
+    for (int i = 0; i < platform_devices.size(); ++i)
     {
-        std::cerr << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device) << std::endl;
+        std::cout << "Device: " << std::endl;
+        std::cout << platform_devices[i].getInfo<CL_DEVICE_NAME>() << std::endl;
+        std::cout << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
+        std::cout << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+        std::cout << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
     }
-
-    std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device) << std::endl;
+    std::cout << std::endl;
 
     cl_int errCode;
-	kernel_ = cl::Kernel(program, "main", &errCode);
+    context_ = cl::Context(platform_devices, 0, 0, 0, &errCode);
     if (errCode)
     {
-	    std::cout << "Cannot create kernel! (" << errCode << ")" << std::endl;
+        std::cerr << "Cannot create context! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
-	
-    queue_ = cl::CommandQueue(context_, default_device, 0, &errCode);
+    
+    cl::Program program(context_, source);
+
+    errCode = program.build(platform_devices);
+    if (errCode != CL_SUCCESS)
+    {
+        std::cerr << "Error building: " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(platform_devices[0]) << " (" << errCode << ")" << std::endl;
+        valid_ = false;
+    }
+    std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(platform_devices[0]) << std::endl;
+
+    kernel_ = cl::Kernel(program, "main", &errCode);
     if (errCode)
     {
-	    std::cout << "Cannot create queue! (" << errCode << ")" << std::endl;
+	    std::cerr << "Cannot create kernel! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
+    
+    queue_ = cl::CommandQueue(context_, platform_devices[0], 0, &errCode);
+    if (errCode)
+    {
+	    std::cerr << "Cannot create queue! (" << errCode << ")" << std::endl;
+        valid_ = false;
+    }
+
 }
 
 void ClContext::setupBuffers(const Scene& scene)
@@ -86,30 +76,35 @@ void ClContext::setupBuffers(const Scene& scene)
     if (errCode)
     {
         std::cerr << "Cannot create pixel buffer! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
 
     random_buffer_ = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, global_work_size * sizeof(cl_int), random_array, &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create random buffer! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
 
     scene_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.triangles.size() * sizeof(Triangle), (void*) scene.triangles.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create scene buffer! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
 
     index_buffer_  = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.indices.size() * sizeof(cl_uint), (void*) scene.indices.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create index buffer! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
 
     cell_buffer_   = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.cells.size() * sizeof(CellData), (void*) scene.cells.data(), &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create cell buffer! (" << errCode << ")" << std::endl;
+        valid_ = false;
     }
     
 	setArgument(0, sizeof(cl::Buffer), &pixel_buffer_);

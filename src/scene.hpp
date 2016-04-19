@@ -21,6 +21,7 @@ public:
     Scene(const char* filename, size_t cell_resolution);
     void LoadTriangles();
     void CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells);
+    size_t getCellResolution() const { return cell_resolution_; }
 
     std::vector<Triangle> triangles;
     std::vector<cl_uint>  indices;
@@ -28,6 +29,7 @@ public:
 
 private:
     const char* filename_;
+    size_t cell_resolution_;
 
 };
 

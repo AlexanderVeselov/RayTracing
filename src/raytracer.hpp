@@ -19,7 +19,7 @@ private:
     size_t width_;
     size_t height_;
 
-    ClContext context_;
+    std::vector<ClContext> contexts_;
     GLFWwindow* window_;
     Camera camera_;
     Scene  scene_;

@@ -5,10 +5,10 @@
 #include <fstream>
 #include <string>
 
-Scene::Scene(const char* filename, size_t cell_resolution) : filename_(filename)
+Scene::Scene(const char* filename, size_t cell_resolution) : filename_(filename), cell_resolution_(cell_resolution)
 {
     LoadTriangles();
-	CreateGrid(cell_resolution, indices, cells);
+	CreateGrid(cell_resolution_, indices, cells);
 }
 
 void Scene::CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells)
