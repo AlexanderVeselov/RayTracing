@@ -3,6 +3,7 @@
 
 #include "scene.hpp"
 #include <CL/cl.hpp>
+#include <fstream>
 
 class ClContext
 {
@@ -12,6 +13,7 @@ public:
 
     void setArgument(size_t index, size_t size, const void* argPtr);
     void writeBuffer(const cl::Buffer& buffer, size_t size, const void* ptr);
+    void readPixels(cl_float4* ptr);
     void executeKernel();
 
     cl_float4* getPixels();

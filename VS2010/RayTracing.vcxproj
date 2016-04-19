@@ -65,8 +65,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir)\..\lib\;$(CUDA_PATH)\include;C:\Program Files %28x86%29\Intel\OpenCL SDK\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)\..\lib\GLFW;$(CUDA_PATH)\lib\Win32;C:\Program Files %28x86%29\Intel\OpenCL SDK\lib\x86;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)\..\lib\;$(CUDA_PATH)\include;C:\Program Files %28x86%29\Intel\OpenCL SDK\include;D:\boost_1_59_0;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)\..\lib\GLFW;$(CUDA_PATH)\lib\Win32;C:\Program Files %28x86%29\Intel\OpenCL SDK\lib\x86;D:\boost_1_59_0\lib32-msvc-10.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

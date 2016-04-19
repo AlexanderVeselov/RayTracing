@@ -2,11 +2,16 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
 
 // If we got an error, how to terminate the construction of the object?
+// Also if we have several devices on the same platform, should we use different ClContexts?
 ClContext::ClContext(const cl::Platform& platform, const std::string& source, size_t width, size_t height, size_t cell_resolution) : width_(width), height_(height), valid_(true)
 {
-    std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
+    std::string platformName(platform.getInfo<CL_PLATFORM_NAME>());
+    std::cout << "Platform: " << platformName << std::endl;
+    std::ofstream output("log/" + platformName.substr(0, platformName.size() - 1) + ".txt");
+
     std::vector<cl::Device> platform_devices;
     platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 
@@ -18,13 +23,12 @@ ClContext::ClContext(const cl::Platform& platform, const std::string& source, si
 
     for (int i = 0; i < platform_devices.size(); ++i)
     {
-        std::cout << "Device: " << std::endl;
-        std::cout << platform_devices[i].getInfo<CL_DEVICE_NAME>() << std::endl;
-        std::cout << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
-        std::cout << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
-        std::cout << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
+        output << "Device: " << std::endl;
+        output << platform_devices[i].getInfo<CL_DEVICE_NAME>() << std::endl;
+        output << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
+        output << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+        output << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
     }
-    std::cout << std::endl;
 
     cl_int errCode;
     context_ = cl::Context(platform_devices, 0, 0, 0, &errCode);
@@ -133,6 +137,11 @@ void ClContext::writeBuffer(const cl::Buffer& buffer, size_t size, const void* p
 
 }
 
+void ClContext::readPixels(cl_float4* ptr)
+{
+    queue_.enqueueReadBuffer(pixel_buffer_, false, 0, width_ * height_ * sizeof(cl_float4), ptr);
+}
+
 void ClContext::executeKernel()
 {
     queue_.enqueueNDRangeKernel(kernel_, cl::NullRange, cl::NDRange(width_ * height_));
@@ -142,7 +151,7 @@ void ClContext::executeKernel()
 
 cl_float4* ClContext::getPixels()
 {
-    cl_float4* ptr = static_cast<cl_float4*>(queue_.enqueueMapBuffer(pixel_buffer_, CL_TRUE, CL_MAP_READ, 0, width_ * height_ * sizeof(cl_float4)));
+    cl_float4* ptr = static_cast<cl_float4*>(queue_.enqueueMapBuffer(pixel_buffer_, false, CL_MAP_READ, 0, width_ * height_ * sizeof(cl_float4)));
     //queue_.finish();
     return ptr;
 
