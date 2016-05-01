@@ -230,7 +230,6 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
     //return data.normal;
     
     IntersectData data[2];
-
     
     float3 Radiance = 0.0f;
     int intersections = 0;
@@ -247,18 +246,18 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
     {
         if (!data[i].hit)
         {
-            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z);
+            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z) * 1.25f + pow(max(dot(data[i].ray.dir, normalize((float3)(1.0f, 0.0f, 1.0f))), 0.0f), 256.0f) * 128.0f;
             //break;
         }
         else
         {
             if (data[i].pos.x >= 10.0f && data[i].pos.x <= 20.0f && data[i].pos.y >= 20.0f && data[i].pos.y <= 30.0f && data[i].pos.z >= 10.0f )
             {
-                Radiance += 2.0f; //data[i].normal * 0.5f + 0.5f;
+                Radiance += 5.0f;// * (data[i].normal * 0.5f + 0.5f);
             }
             else
             {
-                Radiance *= 0.85f;//data[i].normal * 0.5f + 0.5f;
+                Radiance *= 0.9f;//data[i].normal * 0.5f + 0.5f;
             }
         }
     }
@@ -268,7 +267,7 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
 }
 
 __kernel void main(__global float4* result, __global int* random_int, uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
-					__global Triangle* triangles, __global uint* indices, __global CellData* cells)
+					__global Triangle* triangles, __global uint* indices, __global CellData* cells, uint frameCount, uint device)
 {
 
 	float invWidth = 1 / (float)(width), invHeight = 1 / (float)(height);
@@ -289,6 +288,19 @@ __kernel void main(__global float4* result, __global int* random_int, uint width
 	float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
 	r.dir = dir;
 
-	result[get_global_id(0)] = (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
-	
+    if (frameCount == 0)
+    {
+        result[get_global_id(0)] = (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
+    }
+    else
+    {
+	    result[get_global_id(0)] = (result[get_global_id(0)] * (frameCount - 1) + (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f)) / frameCount;
+    }
+
+    // For debug
+    //if (device == 0)
+    //    result[get_global_id(0)] *= (float4)(1.0, 0.8, 0.8, 1.0);
+    //if (device == 1)
+    //    result[get_global_id(0)] *= (float4)(0.8, 1.0, 0.8, 1.0);
+    
 }

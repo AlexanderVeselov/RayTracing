@@ -6,11 +6,11 @@
 #include <sstream>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(1280),
-    height_(720),
+    width_(800),
+    height_(600),
     camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
     scene_(filename, 64),
-    viewport_(camera_, width_, height_, 16)
+    viewport_(camera_, width_, height_, 32)
 {
     glfwInit();
     // Load kernel file
@@ -44,7 +44,6 @@ RayTracer::RayTracer(const char* filename) :
     {
         ClContext context = ClContext(all_platforms[i], source, width_, height_, scene_.getCellResolution());
         context.setupBuffers(scene_);
-        context.writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
 
         if (context.isValid())
         {
@@ -59,22 +58,43 @@ RayTracer::RayTracer(const char* filename) :
 
 void RayTracer::Start()
 {
+    
+    int* random_array = new int[width_ * height_];
+
+    for (size_t i = 0; i < width_ * height_; ++i)
+    {
+        random_array[i] = rand();
+    }
+    for (size_t i = 0; i < contexts_.size(); ++i)
+    {
+        contexts_[i].writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
+    }
+
     for (size_t i = 0; i < contexts_.size(); ++i)
     {
         boost::thread thread(&RayTracer::testThread, this, i);
     }
     
-    boost::thread thread(&RayTracer::Render, this);
-    
     while (!glfwWindowShouldClose(window_))
     {
-        boost::chrono::high_resolution_clock::time_point start(
-                    boost::chrono::high_resolution_clock::now());
+        boost::unique_lock<boost::mutex> lock(mutex_);
+        cond_.wait(lock);
+        //std::cout << "Draw thread" << std::endl;
 	    camera_.Update(window_, 1.0f);
         Render();
+        
+        for (size_t i = 0; i < width_ * height_; ++i)
+        {
+            random_array[i] = rand();
+        }
+
+        for (size_t i = 0; i < contexts_.size(); ++i)
+        {
+            contexts_[i].writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
+        }
+
         glfwSwapBuffers(window_);
         glfwPollEvents();
-        std::cout << boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::high_resolution_clock::now() - start).count() << std::endl;
     }
     glfwTerminate();
 
@@ -82,19 +102,14 @@ void RayTracer::Start()
 
 void RayTracer::testThread(size_t i)
 {
-    while (true)
+    while (!glfwWindowShouldClose(window_))
     {
-        boost::chrono::high_resolution_clock::time_point start(
-                    boost::chrono::high_resolution_clock::now());
-        viewport_.Update(contexts_[i], i);
-        std::cout << boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::high_resolution_clock::now() - start).count() << std::endl;
-
+        viewport_.Update(contexts_[i], i, cond_);
     }
 }
 
 void RayTracer::Render()
 {
-    std::cout << "Draw thread" << std::endl;
     viewport_.Draw();
 
 }

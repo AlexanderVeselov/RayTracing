@@ -1,5 +1,8 @@
 *.o
 *.opensdf
+*.pdb
+*.tlog
+*.suo
 VS2010/RayTracing.sdf
 
 VS2010/Debug/*

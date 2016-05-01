@@ -17,6 +17,8 @@ public:
 	float3 getFrontVector() const { return front_; }
 	float3 getUpVector()    const { return up_; }
 
+    bool isChanged()        const { return changed_; }
+
 private:
 	int width_;
     int height_;
@@ -32,6 +34,7 @@ private:
 	float fov_;
     float speed_;
 	float sensivity_;
+    bool changed_;
 
 };
 

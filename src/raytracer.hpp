@@ -29,6 +29,9 @@ private:
     Scene  scene_;
     Viewport viewport_;
 
+    boost::condition_variable cond_;
+    boost::mutex mutex_;
+
 };
 
 #endif // RAYTRACER_HPP

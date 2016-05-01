@@ -4,13 +4,14 @@
 #include "cl_context.hpp"
 #include "camera.hpp"
 #include <CL/cl.h>
+#include <boost/thread/thread.hpp>
 
 class Viewport
 {
 public:
     Viewport(const Camera& camera, size_t width, size_t height, size_t rectCount);
     void Draw() const;
-    void Update(ClContext &context, size_t i);
+    void Update(ClContext &context, size_t i, boost::condition_variable& cond);
 
 private:
     const Camera& camera_;
@@ -18,6 +19,7 @@ private:
     size_t height_;
     size_t rectCount_;
     size_t currRect_;
+    size_t frameCount_;
     cl_float4* pixels_;
 
 };
