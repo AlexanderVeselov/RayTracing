@@ -12,12 +12,8 @@ public:
     void setupBuffers(const Scene& scene);
 
     void setArgument(size_t index, size_t size, const void* argPtr);
-    void writeBuffer(const cl::Buffer& buffer, size_t size, const void* ptr);
-    void readPixels(cl_float4* ptr);
-    void executeKernel();
-
-    cl_float4* getPixels();
-    void unmapPixels(cl_float4* ptr);
+    void writeRandomBuffer(size_t size, const void* ptr);
+    void executeKernel(cl_float4* ptr, size_t size, size_t offset);
 
     bool isValid() const { return valid_; }
 

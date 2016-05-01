@@ -19,6 +19,7 @@
     <ClInclude Include="..\src\scene.hpp" />
     <ClInclude Include="..\src\triangle.hpp" />
     <ClInclude Include="..\src\vectors.hpp" />
+    <ClInclude Include="..\src\viewport.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\aabb.cpp" />
@@ -27,6 +28,7 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\raytracer.cpp" />
     <ClCompile Include="..\src\scene.cpp" />
+    <ClCompile Include="..\src\viewport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\kernel.cl" />

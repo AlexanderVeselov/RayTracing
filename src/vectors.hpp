@@ -36,12 +36,11 @@ struct float3
 	float x, y, z;
 
 private:
-	// Unused
+	// Used for align to 4 bytes
 	float w;
 
 };
 
-// Can I do this?
 inline float3 cross(float3 a, float3 b)
 {
     return float3(a.y * b.z - a.z * b.y, a.z * b.z - a.x * b.z, a.x * b.y - a.y * b.x);

@@ -1,4 +1,4 @@
-﻿Build started 19.04.2016 22:16:16.
+﻿Build started 01.05.2016 21:32:01.
      1>Project "C:\Users\KAJAJJJ\Documents\Visual Studio 2010\Projects\RayTracing\VS2010\RayTracing.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Release\RayTracing.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -12,6 +12,7 @@
          Release\main.obj
          Release\raytracer.obj
          Release\scene.obj
+         Release\viewport.obj
          Generating code
          Finished generating code
          RayTracing.vcxproj -> C:\Users\KAJAJJJ\Documents\Visual Studio 2010\Projects\RayTracing\VS2010\Release\RayTracing.exe
@@ -24,4 +25,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:03.61
+Time Elapsed 00:00:03.84

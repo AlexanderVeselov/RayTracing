@@ -4,8 +4,6 @@
 #include <string>
 #include <fstream>
 
-// If we got an error, how to terminate the construction of the object?
-// Also if we have several devices on the same platform, should we use different ClContexts?
 ClContext::ClContext(const cl::Platform& platform, const std::string& source, size_t width, size_t height, size_t cell_resolution) : width_(width), height_(height), valid_(true)
 {
     std::string platformName(platform.getInfo<CL_PLATFORM_NAME>());
@@ -66,14 +64,7 @@ ClContext::ClContext(const cl::Platform& platform, const std::string& source, si
 
 void ClContext::setupBuffers(const Scene& scene)
 {
-    // Memory leak!
     size_t global_work_size = width_ * height_;
-    int* random_array = new int[global_work_size];
-
-    for (size_t i = 0; i < width_ * height_; ++i)
-    {
-        random_array[i] = rand();
-    }
 
     cl_int errCode;
     pixel_buffer_  = cl::Buffer(context_, CL_MEM_READ_WRITE, global_work_size * sizeof(cl_float4), 0, &errCode);
@@ -83,7 +74,7 @@ void ClContext::setupBuffers(const Scene& scene)
         valid_ = false;
     }
 
-    random_buffer_ = cl::Buffer(context_, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, global_work_size * sizeof(cl_int), random_array, &errCode);
+    random_buffer_ = cl::Buffer(context_, CL_MEM_READ_ONLY, global_work_size * sizeof(cl_int), 0, &errCode);
     if (errCode)
     {
         std::cerr << "Cannot create random buffer! (" << errCode << ")" << std::endl;
@@ -121,8 +112,6 @@ void ClContext::setupBuffers(const Scene& scene)
 	setArgument(8, sizeof(cl::Buffer), &index_buffer_);
 	setArgument(9, sizeof(cl::Buffer), &cell_buffer_);
     
-    //writeBuffer(random_buffer_, global_work_size * sizeof(int), random_array);
-
 }
 
 void ClContext::setArgument(size_t index, size_t size, const void* argPtr)
@@ -130,36 +119,17 @@ void ClContext::setArgument(size_t index, size_t size, const void* argPtr)
     kernel_.setArg(index, size, argPtr);
 }
 
-void ClContext::writeBuffer(const cl::Buffer& buffer, size_t size, const void* ptr)
+void ClContext::writeRandomBuffer(size_t size, const void* ptr)
 {
-    queue_.enqueueWriteBuffer(buffer, true, 0, size, ptr);
-	//queue_.finish();
+    queue_.enqueueWriteBuffer(random_buffer_, true, 0, size, ptr);
 
 }
 
-void ClContext::readPixels(cl_float4* ptr)
+void ClContext::executeKernel(cl_float4* ptr, size_t size, size_t offset)
 {
-    queue_.enqueueReadBuffer(pixel_buffer_, false, 0, width_ * height_ * sizeof(cl_float4), ptr);
-}
-
-void ClContext::executeKernel()
-{
-    queue_.enqueueNDRangeKernel(kernel_, cl::NullRange, cl::NDRange(width_ * height_));
-	queue_.finish();
-
-}
-
-cl_float4* ClContext::getPixels()
-{
-    cl_float4* ptr = static_cast<cl_float4*>(queue_.enqueueMapBuffer(pixel_buffer_, false, CL_MAP_READ, 0, width_ * height_ * sizeof(cl_float4)));
-    //queue_.finish();
-    return ptr;
-
-}
-
-void ClContext::unmapPixels(cl_float4* ptr)
-{
-    queue_.enqueueUnmapMemObject(pixel_buffer_, ptr);
-	//queue_.finish();
+    std::vector<cl::Event> events(1);
+    queue_.enqueueNDRangeKernel(kernel_, cl::NDRange(offset), cl::NDRange(size), cl::NullRange, 0, &events[0]);
+    queue_.enqueueReadBuffer(pixel_buffer_, false, offset * sizeof(cl_float4), size * sizeof(cl_float4), ptr + offset, &events);
+    queue_.finish();
 
 }
