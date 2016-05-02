@@ -9,11 +9,17 @@
 #define CELL_Z(ind) ((float)(((ind) / (GRID_RES * GRID_RES)) * CELL_SIZE))
 #define CELL_TO_POS(ind) ((float3)(CELL_X(ind), CELL_Y(ind), CELL_Z(ind)))
 
+typedef struct{
+    float3 diffuse;
+    float3 specular;
+    float3 emission;
+} Material;
+
 typedef struct Triangle
 {
 	float3 p1, p2, p3;
 	float3 n1, n2, n3;
-
+    Material material;
 } Triangle;
 
 typedef struct{
@@ -21,10 +27,12 @@ typedef struct{
 	float3 dir;
 } Ray;
 
+
 typedef struct{
 	bool hit;
 	float3 pos;
     float3 normal;
+    Material material;
 	__global Triangle* object;
     Ray ray;
 	int objectType;
@@ -34,7 +42,6 @@ typedef struct
 {
 	uint start_index;
 	uint count;
-
 } CellData;
 
 typedef struct {
@@ -60,12 +67,12 @@ void seed_random(random_state *r, const uint seed) {
 	}
 }
 
-inline float3 sample_hemisphere_uniform(random_state *r, const float3 towards) {
+inline float3 sample_hemisphere_uniform(random_state *r, const float3 towards, float weight) {
     float u = sample_unit(r) * 2.0f - 1.0f;
     float v = sample_unit(r) * 2.0f * 3.14159265359f;
 	float w = sqrt(1.0f - pow(u, 2.0f));
     float3 sample = (float3)(w * cos(v), w * sin(v), u);
-    return normalize((dot(sample, towards) < 0 ? -sample : sample));
+    return normalize((dot(sample, towards) < 0 ? -sample : sample) + towards * weight);
 }
 
 float3 reflect(float3 V, float3 N)
@@ -73,7 +80,7 @@ float3 reflect(float3 V, float3 N)
 	return V - 2.0f * dot( V, N ) * N;
 }
 
-bool rayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3 *n)
+bool rayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* n, Material* mtl)
 {
 	// Vertices
 	float3 A = triangle->p1;
@@ -130,6 +137,7 @@ bool rayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
     // Fill up the hit struct
     *n = N;
     *t = intersection_dist;
+    *mtl = triangle->material;
     
     return true;
 }
@@ -189,6 +197,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 	
 	float t;
     float3 n;
+    Material mtl;
 	float minT = kMaxRenderDist;
     
 	while (current_pos.x >= 0 && current_pos.x < GRID_MAX
@@ -200,7 +209,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
         
 		for (uint i = current_cell.start_index; i < current_cell.start_index + current_cell.count; ++i)
 		{
-            if (rayTriangle(&triangles[indices[i]], ray, &t, &n))
+            if (rayTriangle(&triangles[indices[i]], ray, &t, &n, &mtl))
 			{
 				if (t < minT)
 				{
@@ -209,6 +218,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 					out.objectType = 1;
 					out.object = &triangles[indices[i]];
                     out.normal = n;
+                    out.material = mtl;
 					out.hit = true;
 				}
 			}
@@ -225,20 +235,24 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 }
 
 float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
-{
-   // IntersectData data = Intersect(ray, triangles, indices, cells);
-    //return data.normal;
-    
-    IntersectData data[2];
+{    
+    IntersectData data[5];
     
     float3 Radiance = 0.0f;
     int intersections = 0;
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         ++intersections;
         data[i] = Intersect(ray, triangles, indices, cells);
         if (!data[i].hit) break;
-        ray->dir = sample_hemisphere_uniform(rand, data[i].normal);
+        if (data[i].material.specular.x > 0.0f)
+        {
+            ray->dir = sample_hemisphere_uniform(rand, reflect(ray->dir, data[i].normal), data[i].material.specular.x);
+        }
+        else
+        {
+            ray->dir = sample_hemisphere_uniform(rand, data[i].normal, 0.0f);
+        }
         ray->origin = data[i].pos + ray->dir * 0.0001f;
     }
     
@@ -251,14 +265,8 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
         }
         else
         {
-            if (data[i].pos.x >= 10.0f && data[i].pos.x <= 20.0f && data[i].pos.y >= 20.0f && data[i].pos.y <= 30.0f && data[i].pos.z >= 10.0f )
-            {
-                Radiance += 5.0f;// * (data[i].normal * 0.5f + 0.5f);
-            }
-            else
-            {
-                Radiance *= 0.9f;//data[i].normal * 0.5f + 0.5f;
-            }
+            Radiance += data[i].material.emission * 100.0f;// * (data[i].normal * 0.5f + 0.5f);
+            Radiance *= data[i].material.diffuse;//data[i].normal * 0.5f + 0.5f;
         }
     }
 

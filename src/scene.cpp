@@ -81,6 +81,72 @@ void Scene::CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::ve
 	
 }
 
+void Scene::LoadMtlFile(const char* filename)
+{
+    std::ifstream input_file(filename);
+    std::cout << "Loading material file " << filename << std::endl;
+
+    if (!input_file)
+    {
+        std::cerr << "Failed to load material file!" << std::endl;
+        return;
+    }
+
+    std::string curr_line;
+    std::string curr_mtlname;
+    Material    curr_material;
+    while (std::getline(input_file, curr_line))
+    {
+        if (curr_line.size() == 0)
+        {
+            continue;
+        }
+
+        if (curr_line.substr(0, 6) == "newmtl")
+        {
+            curr_mtlname = curr_line.substr(7);
+        }
+
+        if (curr_line[1] == 'K' && curr_line[2] == 'd')
+        {
+            curr_line.erase(0, 4);
+            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_line.erase(0, curr_line.find(' ') + 1);
+            float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_line.erase(0, curr_line.find(' ') + 1);
+            float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_material.diffuse = float3(r, g, b);
+            std::cout << "Material " << curr_mtlname << " diffuse: " << curr_material.diffuse << std::endl;
+        }
+
+        if (curr_line[1] == 'N' && curr_line[2] == 's')
+        {
+            curr_line.erase(0, 4);
+            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            //curr_line.erase(0, curr_line.find(' ') + 1);
+            //float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            //curr_line.erase(0, curr_line.find(' ') + 1);
+            //float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_material.specular = float3(r, 0, 0);
+            std::cout << "Material " << curr_mtlname << " specular: " << curr_material.specular << std::endl;
+        }
+
+        if (curr_line[1] == 'K' && curr_line[2] == 'e')
+        {
+            curr_line.erase(0, 4);
+            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_line.erase(0, curr_line.find(' ') + 1);
+            float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_line.erase(0, curr_line.find(' ') + 1);
+            float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
+            curr_material.emission = float3(r, g, b);
+            std::cout << "Material " << curr_mtlname << " emission: " << curr_material.emission << std::endl;
+            materials.insert(std::pair<std::string, Material>(curr_mtlname, curr_material));
+        }
+
+    }
+}
+
 void Scene::LoadTriangles()
 {
     std::ifstream input_file(filename_);
@@ -89,19 +155,24 @@ void Scene::LoadTriangles()
 	
     if (!input_file)
 	{
-		std::cerr << "Cannot load object file " << filename_ << std::endl;
+		std::cerr << "Failed to load object file " << filename_ << std::endl;
 		return;
 	}
     
     std::vector<float3> vertices;
     std::vector<float3> normals;
-
+    Material curr_material;
     std::string curr_line;
     while (std::getline(input_file, curr_line))
 	{
         if (curr_line.size() == 0)
         {
             continue;
+        }
+
+        if (curr_line.substr(0, 6) == "mtllib")
+        {
+            LoadMtlFile(("meshes/" + curr_line.substr(7)).c_str());
         }
 
         if (curr_line[0] == 'v' && curr_line[1] == ' ')
@@ -126,6 +197,11 @@ void Scene::LoadTriangles()
             normals.push_back(float3(x, y, z));
         }
 
+        if (curr_line.substr(0, 6) == "usemtl")
+        {
+            curr_material = materials[curr_line.substr(7)];
+        }
+
         if (curr_line[0] == 'f')
         {
             curr_line.erase(0, 2);
@@ -141,7 +217,7 @@ void Scene::LoadTriangles()
 
             }
 
-            triangles.push_back(Triangle(vertices[iv[0]], vertices[iv[1]], vertices[iv[2]], normals[in[0]], normals[in[1]], normals[in[2]]));
+            triangles.push_back(Triangle(vertices[iv[0]], vertices[iv[1]], vertices[iv[2]], normals[in[0]], normals[in[1]], normals[in[2]], curr_material));
 
         }
 	}

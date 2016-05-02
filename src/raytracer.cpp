@@ -6,11 +6,11 @@
 #include <sstream>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(800),
-    height_(600),
+    width_(1280),
+    height_(720),
     camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
     scene_(filename, 64),
-    viewport_(camera_, width_, height_, 32)
+    viewport_(camera_, width_, height_, 4)
 {
     glfwInit();
     // Load kernel file
@@ -70,9 +70,9 @@ void RayTracer::Start()
         contexts_[i].writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
     }
 
-    for (size_t i = 0; i < contexts_.size(); ++i)
+    //for (size_t i = 0; i < contexts_.size(); ++i)
     {
-        boost::thread thread(&RayTracer::testThread, this, i);
+        boost::thread thread(&RayTracer::testThread, this, 0);
     }
     
     while (!glfwWindowShouldClose(window_))

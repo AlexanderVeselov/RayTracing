@@ -7,6 +7,7 @@
 #include <CL/cl.hpp>
 #include <algorithm>
 #include <vector>
+#include <map>
 
 struct CellData
 {
@@ -26,8 +27,10 @@ public:
     std::vector<Triangle> triangles;
     std::vector<cl_uint>  indices;
     std::vector<CellData> cells;
+    std::map<std::string, Material> materials;
 
 private:
+    void LoadMtlFile(const char* filename);
     const char* filename_;
     size_t cell_resolution_;
 
