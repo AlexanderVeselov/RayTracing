@@ -4,7 +4,7 @@
 
 int main()
 {
-    RayTracer rt("meshes/room.obj");
+    RayTracer rt("meshes/box.obj");
     rt.Start();
 
     return 0;

@@ -1,13 +1,12 @@
 #include "raytracer.hpp"
 #include "vectors.hpp"
-#include <glm/glm.hpp>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(1280),
-    height_(720),
+    width_(640),
+    height_(480),
     camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
     scene_(filename, 64),
     viewport_(camera_, width_, height_, 4)

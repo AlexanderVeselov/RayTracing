@@ -236,11 +236,11 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 
 float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
 {    
-    IntersectData data[5];
+    IntersectData data[3];
     
     float3 Radiance = 0.0f;
     int intersections = 0;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 3; ++i)
     {
         ++intersections;
         data[i] = Intersect(ray, triangles, indices, cells);
