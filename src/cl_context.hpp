@@ -1,5 +1,5 @@
-#ifndef CL_CONTEXT_HPP
-#define CL_CONTEXT_HPP
+#ifndef CL_m_ContextHPP
+#define CL_m_ContextHPP
 
 #include "scene.hpp"
 #include <CL/cl.hpp>
@@ -9,29 +9,29 @@ class ClContext
 {
 public:
     ClContext(const cl::Platform& platform, const std::string& source, size_t width, size_t height, size_t cell_resolution);
-    void setupBuffers(const Scene& scene);
+    void SetupBuffers(const Scene& scene);
 
-    void setArgument(size_t index, size_t size, const void* argPtr);
-    void writeRandomBuffer(size_t size, const void* ptr);
-    void executeKernel(cl_float4* ptr, size_t size, size_t offset);
+    void SetArgument(size_t index, size_t size, const void* argPtr);
+    void WriteRandomBuffer(size_t size, const void* ptr);
+    void ExecuteKernel(cl_float4* ptr, size_t size, size_t offset);
 
-    bool isValid() const { return valid_; }
+    bool IsValid() const { return m_Valid; }
 
 private:
-    size_t width_;
-    size_t height_;
-    bool valid_;
+    size_t m_Width;
+    size_t m_Height;
+    bool m_Valid;
 
-    cl::Context context_;
-    cl::CommandQueue queue_;
-    cl::Kernel kernel_;
+    cl::Context m_Context;
+    cl::CommandQueue m_Queue;
+    cl::Kernel m_Kernel;
     // Memory Buffers
-    cl::Buffer pixel_buffer_;
-    cl::Buffer random_buffer_;
-    cl::Buffer scene_buffer_;
-    cl::Buffer index_buffer_;
-    cl::Buffer cell_buffer_;
+    cl::Buffer m_PixelBuffer;
+    cl::Buffer m_RandomBuffer;
+    cl::Buffer m_SceneBuffer;
+    cl::Buffer m_IndexBuffer;
+    cl::Buffer m_CellBuffer;
 
 };
 
-#endif // CL_CONTEXT_HPP
+#endif // CL_m_ContextHPP

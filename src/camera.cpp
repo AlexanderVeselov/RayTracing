@@ -4,66 +4,66 @@
 #include <iostream>
 
 Camera::Camera(int width, int height, float3 position, float fov, float sensivity, float speed) :
-	width_(width),
-	height_(height),
-	position_(position),
-	velocity_(0.0f),
-	front_(1.0f, 0.0f, 0.0f),                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-	up_(0.0f, 0.0f, 1.0f),
-	pitch_(0.0f),
-	yaw_(0.0f),
-	fov_(fov),
-	speed_(speed),
-	sensivity_(sensivity),
-    changed_(false)
+	m_Width(width),
+	m_Height(height),
+	m_Position(position),
+	m_Velocity(0.0f),
+	m_Front(1.0f, 0.0f, 0.0f),                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+	m_Up(0.0f, 0.0f, 1.0f),
+	m_Pitch(0.0f),
+	m_Yaw(0.0f),
+	m_Fov(fov),
+	m_Speed(speed),
+	m_Sensivity(sensivity),
+    m_Changed(false)
 {
 }
 
 void Camera::Update(GLFWwindow *window, float delta)
 {
-    changed_ = false;
+    m_Changed = false;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
-	    glfwSetCursorPos(window, width_ / 2, height_ / 2);
+	    glfwSetCursorPos(window, m_Width / 2, m_Height / 2);
 
-	    yaw_   -= (static_cast<float>(xpos) - static_cast<float>(width_) / 2.0f) * sensivity_;
-	    pitch_ -= (static_cast<float>(ypos) - static_cast<float>(height_) / 2.0f) * sensivity_;
-	    pitch_  = clamp(pitch_, radians(-89.9f), radians(89.9f));
-        changed_ = true;
+	    m_Yaw   -= (static_cast<float>(xpos) - static_cast<float>(m_Width) / 2.0f) * m_Sensivity;
+	    m_Pitch -= (static_cast<float>(ypos) - static_cast<float>(m_Height) / 2.0f) * m_Sensivity;
+	    m_Pitch  = clamp(m_Pitch, radians(-89.9f), radians(89.9f));
+        m_Changed = true;
     
     }
 
-	front_ = float3(cos(yaw_)*cos(pitch_), sin(yaw_)*cos(pitch_), sin(pitch_));
-    float3 right = float3(sin(yaw_), -cos(yaw_), 0.0f);
-    up_	         = cross(right, front_);
+	m_Front = float3(cos(m_Yaw)*cos(m_Pitch), sin(m_Yaw)*cos(m_Pitch), sin(m_Pitch));
+    float3 right = float3(sin(m_Yaw), -cos(m_Yaw), 0.0f);
+    m_Up	         = cross(right, m_Front);
 
     if (glfwGetKey(window, GLFW_KEY_W))
     {
-        velocity_ += front_ * speed_ * delta;
-        changed_ = true;
+        m_Velocity += m_Front * m_Speed * delta;
+        m_Changed = true;
     }
 
     if (glfwGetKey(window, GLFW_KEY_S))
     {
-		velocity_ -= front_ * speed_ * delta;
-        changed_ = true;
+		m_Velocity -= m_Front * m_Speed * delta;
+        m_Changed = true;
     }
 
     if (glfwGetKey(window, GLFW_KEY_A))
     {
-		velocity_ -= right * speed_ * delta;
-        changed_ = true;
+		m_Velocity -= right * m_Speed * delta;
+        m_Changed = true;
     }
 
     if (glfwGetKey(window, GLFW_KEY_D))
     {
-		velocity_ += right * speed_ * delta;
-        changed_ = true;
+		m_Velocity += right * m_Speed * delta;
+        m_Changed = true;
     }
 
-	position_ += velocity_;
-    velocity_ *= 0.5f;
+	m_Position += m_Velocity;
+    m_Velocity *= 0.5f;
 	    	
 }

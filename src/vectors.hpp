@@ -8,7 +8,7 @@ struct float3
 {
 	float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	float3(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z) {}
-	float3(float _val) : x(_val), y(_val), z(_val) {}
+	float3(float val) : x(val), y(val), z(val) {}
 
 	float length() { return sqrt(x*x + y*y + z*z); }
 	float3 normalize() { return float3(x / length(), y / length(), z / length()); }
@@ -30,7 +30,8 @@ struct float3
 
 	float3 operator- () { return float3(-x, -y, -z); }
 
-    float operator[] (size_t i) const { return i == 0 ? x : (i == 1 ? y : z); }
+	float operator[] (size_t i) const { return i == 0 ? x : (i == 1 ? y : z); }
+	float& operator[] (size_t i) { return i == 0 ? x : (i == 1 ? y : z); }
     friend std::ostream& operator<< (std::ostream &os, const float3 &vec) { return os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")"; }	
     
 	float x, y, z;

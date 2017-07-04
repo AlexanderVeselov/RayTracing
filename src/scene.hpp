@@ -1,5 +1,5 @@
-#ifndef SCENE_HPP
-#define SCENE_HPP
+#ifndef m_SceneHPP
+#define m_SceneHPP
 
 #include "vectors.hpp"
 #include "aabb.hpp"
@@ -21,8 +21,8 @@ class Scene
 public:
     Scene(const char* filename, size_t cell_resolution);
     void LoadTriangles();
-    void CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells);
-    size_t getCellResolution() const { return cell_resolution_; }
+    void CreateGrid();
+    size_t GetCellResolution() const { return m_CellResolution; }
 
     std::vector<Triangle> triangles;
     std::vector<cl_uint>  indices;
@@ -31,8 +31,9 @@ public:
 
 private:
     void LoadMtlFile(const char* filename);
-    const char* filename_;
-    size_t cell_resolution_;
+    const char* m_Filename;
+    size_t m_CellResolution;
+	Aabb m_SceneBox;
 
 };
 
@@ -60,4 +61,4 @@ private:
 
 };
 
-#endif // SCENE_HPP
+#endif // m_SceneHPP

@@ -29,20 +29,21 @@ public:
     {
     }
 
-    void project(float3 axis, float &fMin, float &fMax) const
+    void Project(float3 axis, float &min, float &max) const
     {
-        fMin = CL_FLT_MAX;
-        fMax = -CL_FLT_MAX;
+		min = CL_FLT_MAX;
+		max = -CL_FLT_MAX;
 
-        float3 points[3] = {
+        float3 points[3] =
+		{
             p1, p2, p3
         };
 
         for (size_t i = 0; i < 3; ++i)
         {
             float val = dot(points[i], axis);
-            fMin = std::min(fMin, val);
-            fMax = std::max(fMax, val);
+			min = std::min(min, val);
+			max = std::max(max, val);
         }
     }
 

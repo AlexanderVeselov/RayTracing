@@ -4,224 +4,417 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <ctime>
 
-Scene::Scene(const char* filename, size_t cell_resolution) : filename_(filename), cell_resolution_(cell_resolution)
+Scene::Scene(const char* filename, size_t cell_resolution) : m_Filename(filename), m_CellResolution(cell_resolution), m_SceneBox(0.0f, 0.0f)
 {
     LoadTriangles();
-	CreateGrid(cell_resolution_, indices, cells);
+	CreateGrid();
 }
 
-void Scene::CreateGrid(size_t resolution, std::vector<cl_uint> &indices, std::vector<CellData> &cells)
+void Scene::CreateGrid()
 {
-    std::vector<cl_uint> lower_indices;
-    std::vector<CellData> lower_cells;
-
-    if (resolution > 2)
-    {
-        CreateGrid(resolution / 2, lower_indices, lower_cells);
-    }
-    
-	typedef std::vector<Triangle>::const_iterator iter_t;
-
-	std::cout << "Creating uniform grid with resolution " << resolution << "..." << std::endl;
-	
-	Aabb scene_box(float3(0.0f), float3(64.0f));
-	
-	float InvResolution = 1.0f / static_cast<float>(resolution);
-	float3 dv = (scene_box.getMax() - scene_box.getMin()) / static_cast<float>(resolution);
-	
-	size_t curr_index = 0;
-	CellData current_cell = {0, 0};
-	
-	int iterations = resolution * resolution * resolution;
-	int curr_iteration = 0;
-	for (size_t z = 0; z < resolution; ++z)
-	for (size_t y = 0; y < resolution; ++y)
-	for (size_t x = 0; x < resolution; ++x)
+	//typedef std::vector<Triangle>::const_iterator iter_t;
+	std::vector<cl_uint> lower_indices;
+	std::vector<CellData> lower_cells;
+	clock_t t = clock();
+	int resolution = 2;
+	std::cout << "Creating uniform grid" << std::endl;
+	std::cout << "Scene bounding box min: " << m_SceneBox.min << " max: " << m_SceneBox.max << std::endl;
+	std::cout << "Resolution: ";
+	while (resolution <= m_CellResolution)
 	{
-		Aabb curr_box(scene_box.getMin() + float3(x*dv.x, y*dv.y, z*dv.z), scene_box.getMin() + float3((x+1)*dv.x, (y+1)*dv.y, (z+1)*dv.z));
+		std::cout << resolution << "... ";
+		float InvResolution = 1.0f / static_cast<float>(resolution);
+		float3 dv = (m_SceneBox.max - m_SceneBox.min) / static_cast<float>(resolution);
+		CellData current_cell = { 0, 0 };
 
-		size_t obj_index = 0, obj_count = 0;
-        if (resolution == 2)
-        {
-		    for (iter_t it = triangles.begin(); it != triangles.end(); ++it, ++obj_index)
-		    {
-                if (curr_box.triangleIntersect(*it))
-			    {
-				    indices.push_back(obj_index);
-				    ++obj_count;
-			    }
-		    }
-        }
-        else
-        {
-            CellData lower_cell = lower_cells[x / 2 + (y / 2) * (resolution / 2) + (z / 2) * (resolution / 2) * (resolution / 2)];
-            for (size_t i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i, ++obj_index)
-            {
-                if (curr_box.triangleIntersect(triangles[lower_indices[i]]))
-                {
-                    indices.push_back(lower_indices[i]);
-                    ++obj_count;
-                }
-            }
-        }
-		current_cell.start_index += current_cell.count;
-		current_cell.count = obj_count;
+		
+		lower_indices = indices;
+		lower_cells = cells;
+		indices.clear();
+		cells.clear();
 
-		cells.push_back(current_cell);
-
-        
-		if ((++curr_iteration) % 100000 == 0)
+		int totalCells = resolution * resolution * resolution;
+		for (size_t z = 0; z < resolution; ++z)
+		for (size_t y = 0; y < resolution; ++y)
+		for (size_t x = 0; x < resolution; ++x)
 		{
-			std::cout << static_cast<float>(curr_iteration) / static_cast<float>(iterations) * 100.0f << "%" << std::endl;
+			Aabb curr_box(m_SceneBox.min + float3(x*dv.x, y*dv.y, z*dv.z), m_SceneBox.min + float3((x + 1)*dv.x, (y + 1)*dv.y, (z + 1)*dv.z));
+
+			current_cell.start_index = indices.size();
+
+			if (resolution == 2)
+			{
+				for (size_t i = 0; i < triangles.size(); ++i)
+				{
+					if (curr_box.Intersects(triangles[i]))
+					{
+						indices.push_back(i);
+					}
+				}
+			}
+			else
+			{
+				CellData lower_cell = lower_cells[x / 2 + (y / 2) * (resolution / 2) + (z / 2) * (resolution / 2) * (resolution / 2)];
+				for (int i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i)
+				{
+					if (curr_box.Intersects(triangles[lower_indices[i]]))
+					{
+						indices.push_back(lower_indices[i]);
+					}
+				}
+			}
+			
+			current_cell.count = indices.size() - current_cell.start_index;
+			cells.push_back(current_cell);
+			
 		}
-        
+		resolution *= 2;
+
 	}
-	std::cout << "Grid created" << std::endl;
 	
+	std::cout << "Done (" << (clock() - t) << " ms elapsed)" << std::endl;
+
 }
+
+#include <cctype>
+
+class FileReader
+{
+public:
+	FileReader(const char* filename) : m_InputFile(filename), m_VectorValue(0.0f)
+	{
+		if (!m_InputFile)
+		{
+			std::cerr << "Failed to load " << filename << std::endl;
+		}
+	}
+
+	std::string GetStringValue() const
+	{
+		return m_StringValue;
+	}
+
+	float3 GetVectorValue() const
+	{
+		return m_VectorValue;
+	}
+
+protected:
+	float ReadFloatValue()
+	{
+		SkipSpaces();
+		float value = 0.0f;
+		bool minus = m_CurrentLine[m_CurrentChar] == '-';
+		if (minus) ++m_CurrentChar;
+		while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
+		{
+			value = value * 10.0f + (float)((int)m_CurrentLine[m_CurrentChar++] - 48);
+		}
+		if (m_CurrentLine[m_CurrentChar++] == '.')
+		{
+			size_t frac = 1;
+			while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
+			{
+				value += (float)((int)m_CurrentLine[m_CurrentChar++] - 48) / (pow(10, frac++));
+			}
+		}
+
+		return minus ? -value : value;
+		
+	}
+
+	int ReadIntValue()
+	{
+		SkipSpaces();
+		int value = 0;
+		bool minus = m_CurrentLine[m_CurrentChar] == '-';
+		if (minus) ++m_CurrentChar;
+
+		while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
+		{
+			value = value * 10 + ((int)m_CurrentLine[m_CurrentChar++] - 48);
+		}
+		return minus ? -value : value;
+	}
+
+	void ReadVectorValue()
+	{
+		m_VectorValue.x = ReadFloatValue();
+		m_VectorValue.y = ReadFloatValue();
+		m_VectorValue.z = ReadFloatValue();
+
+	}
+
+	void ReadStringValue()
+	{
+		SkipSpaces();
+		m_StringValue.clear();
+		while (m_CurrentChar < m_CurrentLine.size() && (m_CurrentLine[m_CurrentChar] >= 'a' && m_CurrentLine[m_CurrentChar] <= 'z' ||
+			m_CurrentLine[m_CurrentChar] >= 'A' && m_CurrentLine[m_CurrentChar] <= 'Z'))
+		{
+			m_StringValue += m_CurrentLine[m_CurrentChar++];
+		}
+	}
+
+	bool ReadLine()
+	{
+		do
+		{
+			if (!std::getline(m_InputFile, m_CurrentLine))
+			{
+				return false;
+			}
+		} while (m_CurrentLine.size() == 0);
+
+		m_CurrentChar = 0;
+		return true;
+	}
+
+	void SkipSpaces()
+	{
+		while (std::isspace(m_CurrentLine[m_CurrentChar])) { m_CurrentChar++; }
+	}
+
+	void SkipSymbol(char symbol)
+	{
+		SkipSpaces();
+		while (m_CurrentLine[m_CurrentChar] == symbol) { m_CurrentChar++; }
+	}
+
+private:
+	std::ifstream m_InputFile;
+	std::string m_CurrentLine;
+	std::string m_StringValue;
+	float3 m_VectorValue;
+	size_t m_CurrentChar;
+
+};
+
+class MtlReader : public FileReader
+{
+public:
+	enum MtlToken_t
+	{
+		MTL_MTLNAME,
+		MTL_DIFFUSE,
+		MTL_SPECULAR,
+		MTL_EMISSION,
+		MTL_INVALID,
+		MTL_EOF
+	};
+
+	MtlReader(const char* filename) : FileReader(filename)
+	{
+		std::cout << "Loading material library " << filename << std::endl;
+	}
+
+	MtlToken_t NextToken()
+	{
+		if (!ReadLine())
+		{
+			return MTL_EOF;
+		}
+		
+		ReadStringValue();
+		if (GetStringValue() == "newmtl")
+		{
+			ReadStringValue();
+			return MTL_MTLNAME;
+		}
+		else if (GetStringValue() == "Kd")
+		{
+			ReadVectorValue();
+			return MTL_DIFFUSE;
+		}
+		else if (GetStringValue() == "Ke")
+		{
+			ReadVectorValue();
+			return MTL_EMISSION;
+		}
+		else if (GetStringValue() == "Ns")
+		{
+			ReadVectorValue();
+			return MTL_SPECULAR;
+		}
+		else
+		{
+			return MTL_INVALID;
+		}
+
+	}
+	
+};
+
 
 void Scene::LoadMtlFile(const char* filename)
 {
-    std::ifstream input_file(filename);
-    std::cout << "Loading material file " << filename << std::endl;
+	MtlReader mtlReader(filename);
 
-    if (!input_file)
-    {
-        std::cerr << "Failed to load material file!" << std::endl;
-        return;
-    }
+	MtlReader::MtlToken_t token;
+	Material currentMaterial;
+	std::string materialName;
+	while ((token = mtlReader.NextToken() ) != MtlReader::MTL_EOF)
+	{
+		switch (token)
+		{
+		case MtlReader::MTL_MTLNAME:
+			materialName = mtlReader.GetStringValue();
+			break;
+		case MtlReader::MTL_DIFFUSE:
+			currentMaterial.diffuse = mtlReader.GetVectorValue();
+			std::cout << materialName << " diffuse " << currentMaterial.diffuse << std::endl;
+			break;
+		case MtlReader::MTL_SPECULAR:
+			currentMaterial.specular = mtlReader.GetVectorValue();
+			std::cout << materialName << " specular " << currentMaterial.specular << std::endl;
+			break;
+		case MtlReader::MTL_EMISSION:
+			currentMaterial.emission = mtlReader.GetVectorValue();
+			std::cout << materialName << " emission " << currentMaterial.emission << std::endl;
+			materials[materialName] = currentMaterial;
+			break;
+		}
+	}
 
-    std::string curr_line;
-    std::string curr_mtlname;
-    Material    curr_material;
-    while (std::getline(input_file, curr_line))
-    {
-        if (curr_line.size() == 0)
-        {
-            continue;
-        }
 
-        if (curr_line.substr(0, 6) == "newmtl")
-        {
-            curr_mtlname = curr_line.substr(7);
-        }
-
-        if (curr_line[1] == 'K' && curr_line[2] == 'd')
-        {
-            curr_line.erase(0, 4);
-            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_material.diffuse = float3(r, g, b);
-            std::cout << "Material " << curr_mtlname << " diffuse: " << curr_material.diffuse << std::endl;
-        }
-
-        if (curr_line[1] == 'N' && curr_line[2] == 's')
-        {
-            curr_line.erase(0, 4);
-            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            //curr_line.erase(0, curr_line.find(' ') + 1);
-            //float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            //curr_line.erase(0, curr_line.find(' ') + 1);
-            //float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_material.specular = float3(r, 0, 0);
-            std::cout << "Material " << curr_mtlname << " specular: " << curr_material.specular << std::endl;
-        }
-
-        if (curr_line[1] == 'K' && curr_line[2] == 'e')
-        {
-            curr_line.erase(0, 4);
-            float r = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float g = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float b = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_material.emission = float3(r, g, b);
-            std::cout << "Material " << curr_mtlname << " emission: " << curr_material.emission << std::endl;
-            materials.insert(std::pair<std::string, Material>(curr_mtlname, curr_material));
-        }
-
-    }
 }
+
+
+class ObjReader : public FileReader
+{
+public:
+	enum ObjToken_t
+	{
+		OBJ_MTLLIB,
+		OBJ_USEMTL,
+		OBJ_POSITION,
+		OBJ_TEXCOORD,
+		OBJ_NORMAL,
+		OBJ_FACE,
+		OBJ_INVALID,
+		OBJ_EOF
+	};
+
+	ObjReader(const char* filename) : FileReader(filename)
+	{
+		std::cout << "Loading object file " << filename << std::endl;
+		
+	}
+
+	ObjToken_t NextToken()
+	{
+		if (!ReadLine())
+		{
+			return OBJ_EOF;
+		}
+
+		ReadStringValue();
+		if (GetStringValue() == "mtllib")
+		{
+			ReadStringValue();
+			return OBJ_MTLLIB;
+		}
+		else if (GetStringValue() == "usemtl")
+		{
+			ReadStringValue();
+			return OBJ_USEMTL;
+		}
+		else if (GetStringValue() == "v")
+		{
+			ReadVectorValue();
+			return OBJ_POSITION;
+		}
+		else if (GetStringValue() == "vn")
+		{
+			ReadVectorValue();
+			return OBJ_NORMAL;
+		}
+		else if (GetStringValue() == "f")
+		{
+			for (size_t i = 0; i < 3; ++i)
+			{
+				m_VertexIndices[i] = ReadIntValue() - 1;
+				SkipSymbol('/');
+				m_TexcoordIndices[i] = ReadIntValue() - 1;
+				SkipSymbol('/');
+				m_NormalIndices[i] = ReadIntValue() - 1;
+
+			}
+			return OBJ_FACE;
+		}
+		else
+		{
+			return OBJ_INVALID;
+		}
+				
+	}
+	
+	void GetFaceIndices(int** iv, int** it, int** in)
+	{
+		*iv = m_VertexIndices;
+		*it = m_TexcoordIndices;
+		*in = m_NormalIndices;
+
+	}
+
+private:
+	// Face indices
+	int m_VertexIndices[3];
+	int m_TexcoordIndices[3];
+	int m_NormalIndices[3];
+
+};
 
 void Scene::LoadTriangles()
 {
-    std::ifstream input_file(filename_);
-
-    std::cout << "Loading object file " << filename_ << std::endl;
-	
-    if (!input_file)
-	{
-		std::cerr << "Failed to load object file " << filename_ << std::endl;
-		return;
-	}
+	ObjReader objReader(m_Filename);
     
     std::vector<float3> vertices;
     std::vector<float3> normals;
-    Material curr_material;
-    std::string curr_line;
-    while (std::getline(input_file, curr_line))
+
+	Material currentMaterial;
+	std::string materialName;
+	ObjReader::ObjToken_t token;
+
+
+	while ((token = objReader.NextToken()) != ObjReader::OBJ_EOF)
 	{
-        if (curr_line.size() == 0)
-        {
-            continue;
-        }
+		switch (token)
+		{
+		case ObjReader::OBJ_MTLLIB:
+			LoadMtlFile(("meshes/" + objReader.GetStringValue() + ".mtl").c_str());
+			break;
+		case ObjReader::OBJ_POSITION:
+			vertices.push_back(objReader.GetVectorValue());
+			for (int i = 0; i < 3; ++i)
+			{
+				m_SceneBox.min[i] = std::min(objReader.GetVectorValue().x, m_SceneBox.min[i]);
+				m_SceneBox.max[i] = std::max(objReader.GetVectorValue().x, m_SceneBox.max[i]);
+			}
 
-        if (curr_line.substr(0, 6) == "mtllib")
-        {
-            LoadMtlFile(("meshes/" + curr_line.substr(7)).c_str());
-        }
-
-        if (curr_line[0] == 'v' && curr_line[1] == ' ')
-        {
-            curr_line.erase(0, 3);
-            float x = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float y = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float z = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            vertices.push_back(float3(x, y, z));
-        }
-
-        if (curr_line[0] == 'v' && curr_line[1] == 'n')
-        {
-            curr_line.erase(0, 3);
-            float x = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float y = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            curr_line.erase(0, curr_line.find(' ') + 1);
-            float z = std::stof(curr_line.substr(0, curr_line.find(' ')));
-            normals.push_back(float3(x, y, z));
-        }
-
-        if (curr_line.substr(0, 6) == "usemtl")
-        {
-            curr_material = materials[curr_line.substr(7)];
-        }
-
-        if (curr_line[0] == 'f')
-        {
-            curr_line.erase(0, 2);
-            int iv[3], it[3], in[3];
-            for (size_t i = 0; i < 3; ++i)
-            {
-                iv[i] = std::stoi(curr_line.substr(0, curr_line.find('/'))) - 1;
-                curr_line.erase(0, curr_line.find('/') + 1);
-                it[i] = std::stoi(curr_line.substr(0, curr_line.find('/'))) - 1;
-                curr_line.erase(0, curr_line.find('/') + 1);
-                in[i] = std::stoi(curr_line.substr(0, curr_line.find('/'))) - 1;
-                curr_line.erase(0, curr_line.find(' ') + 1);
-
-            }
-
-            triangles.push_back(Triangle(vertices[iv[0]], vertices[iv[1]], vertices[iv[2]], normals[in[0]], normals[in[1]], normals[in[2]], curr_material));
-
-        }
+			break;
+		case ObjReader::OBJ_NORMAL:
+			normals.push_back(objReader.GetVectorValue());
+			break;
+		case ObjReader::OBJ_USEMTL:
+			currentMaterial = materials[objReader.GetStringValue()];
+			break;
+		case ObjReader::OBJ_FACE:
+			int *iv, *it, *in;
+			objReader.GetFaceIndices(&iv, &it, &in);
+			triangles.push_back(Triangle(vertices[iv[0]], vertices[iv[1]], vertices[iv[2]], normals[in[0]], normals[in[1]], normals[in[2]], currentMaterial));
+			break;
+		}
 	}
 
+	for (int i = 0; i < 3; ++i)
+	{
+		m_SceneBox.max[i] = 64;// pow(2, (int)log2(abs(m_SceneBox.max[i])) + 1) * ((m_SceneBox.max[i] > 0) ? 1 : ((m_SceneBox.max[i] < 0) ? -1 : 0));
+		m_SceneBox.min[i] = 0;// pow(2, (int)log2(abs(m_SceneBox.min[i])) + 1) * ((m_SceneBox.min[i] > 0) ? 1 : ((m_SceneBox.min[i] < 0) ? -1 : 0));
+	}
+	
     std::cout << "Load succesful (" << triangles.size() << " triangles)" << std::endl;
 
 }

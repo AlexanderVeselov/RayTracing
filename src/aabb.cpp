@@ -1,7 +1,7 @@
 #include "aabb.hpp"
 #include <CL/cl.h>
 
-bool Aabb::triangleIntersect(const Triangle &triangle) const
+bool Aabb::Intersects(const Triangle &triangle) const
 {
     float3 boxNormals[3] = {
         float3(1.0f, 0.0f, 0.0f),
@@ -14,8 +14,8 @@ bool Aabb::triangleIntersect(const Triangle &triangle) const
     float triangleMin, triangleMax;
     for (int i = 0; i < 3; ++i)
     {
-        triangle.project(boxNormals[i], triangleMin, triangleMax);
-        if (triangleMax < min_[i] || triangleMin > max_[i])
+        triangle.Project(boxNormals[i], triangleMin, triangleMax);
+        if (triangleMax < min[i] || triangleMin > max[i])
         {
             return false;
         }
@@ -34,7 +34,8 @@ bool Aabb::triangleIntersect(const Triangle &triangle) const
     }
     */
     // Test 3: Edges test
-    float3 triangleEdges[3] = {
+    float3 triangleEdges[3] =
+	{
         triangle.p1 - triangle.p2,
         triangle.p2 - triangle.p3,
         triangle.p3 - triangle.p1
@@ -47,8 +48,8 @@ bool Aabb::triangleIntersect(const Triangle &triangle) const
             float3 axis = cross(triangleEdges[i], boxNormals[j]);
             if (axis.length() > 0.00001f)
             {
-                project(axis, boxMin, boxMax);
-                triangle.project(axis, triangleMin, triangleMax);
+                Project(axis, boxMin, boxMax);
+                triangle.Project(axis, triangleMin, triangleMax);
                 if (boxMax < triangleMin || boxMin > triangleMax)
                 {
                     return false;
@@ -61,27 +62,27 @@ bool Aabb::triangleIntersect(const Triangle &triangle) const
     return true;
 }
 
-void Aabb::project(float3 axis, float &fMin, float &fMax) const
+void Aabb::Project(float3 axis, float &mins, float &maxs) const
 {
-    fMin = CL_FLT_MAX;
-    fMax = -CL_FLT_MAX;
+	mins = CL_FLT_MAX;
+	maxs = -CL_FLT_MAX;
 
     float3 points[8] = {
-        min_,
-        float3(min_.x, min_.y, max_.z),
-        float3(min_.x, max_.y, min_.z),
-        float3(min_.x, max_.y, max_.z),
-        float3(max_.x, min_.y, min_.z),
-        float3(max_.x, min_.y, max_.z),
-        float3(max_.x, max_.y, min_.z),
-        max_
+        min,
+        float3(min.x, min.y, max.z),
+        float3(min.x, max.y, min.z),
+        float3(min.x, max.y, max.z),
+        float3(max.x, min.y, min.z),
+        float3(max.x, min.y, max.z),
+        float3(max.x, max.y, min.z),
+        max
     };
 
     for (size_t i = 0; i < 8; ++i)
     {
         float val = dot(points[i], axis);
-        fMin = std::min(fMin, val);
-        fMax = std::max(fMax, val);
+		mins = std::min(mins, val);
+		maxs = std::max(maxs, val);
     }
 }
 

@@ -67,7 +67,7 @@ void seed_random(random_state *r, const uint seed) {
 	}
 }
 
-inline float3 sample_hemisphere_uniform(random_state *r, const float3 towards, float weight) {
+inline float3 sample_hemisphere(random_state *r, const float3 towards, float weight) {
     float u = sample_unit(r) * 2.0f - 1.0f;
     float v = sample_unit(r) * 2.0f * 3.14159265359f;
 	float w = sqrt(1.0f - pow(u, 2.0f));
@@ -75,12 +75,13 @@ inline float3 sample_hemisphere_uniform(random_state *r, const float3 towards, f
     return normalize((dot(sample, towards) < 0 ? -sample : sample) + towards * weight);
 }
 
+
 float3 reflect(float3 V, float3 N)
 {
 	return V - 2.0f * dot( V, N ) * N;
 }
 
-bool rayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* n, Material* mtl)
+bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* n, Material* mtl)
 {
 	// Vertices
 	float3 A = triangle->p1;
@@ -146,9 +147,9 @@ void DDA_prepare(Ray ray, float3* tmax, float3* step, float3* tdelta)
 {
 	float3 cell_min = floor(ray.origin / CELL_SIZE) * CELL_SIZE;
 	float3 cell_max = cell_min + CELL_SIZE;
-	float3 tmax_neg = (cell_min - ray.origin) / ray.dir;
-	float3 tmax_pos = (cell_max - ray.origin) / ray.dir;
-	*tmax			= (ray.dir < 0) ? tmax_neg : tmax_pos;
+	float3 tmaxneg = (cell_min - ray.origin) / ray.dir;
+	float3 tmaxpos = (cell_max - ray.origin) / ray.dir;
+	*tmax			= (ray.dir < 0) ? tmaxneg : tmaxpos;
 	*step			= (ray.dir < 0) ? (float3)(-CELL_SIZE, -CELL_SIZE, -CELL_SIZE) : (float3)(CELL_SIZE, CELL_SIZE, CELL_SIZE);
 	*tdelta			= fabs((float3)(CELL_SIZE, CELL_SIZE, CELL_SIZE) / ray.dir);
 }
@@ -209,7 +210,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
         
 		for (uint i = current_cell.start_index; i < current_cell.start_index + current_cell.count; ++i)
 		{
-            if (rayTriangle(&triangles[indices[i]], ray, &t, &n, &mtl))
+            if (RayTriangle(&triangles[indices[i]], ray, &t, &n, &mtl))
 			{
 				if (t < minT)
 				{
@@ -234,24 +235,26 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 	return out;
 }
 
-float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
-{    
-    IntersectData data[3];
+#define TRACE_DEPTH 3
+
+float3 Raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
+{
+	IntersectData data[TRACE_DEPTH];
     
     float3 Radiance = 0.0f;
     int intersections = 0;
-    for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < TRACE_DEPTH; ++i)
     {
         ++intersections;
         data[i] = Intersect(ray, triangles, indices, cells);
         if (!data[i].hit) break;
         if (data[i].material.specular.x > 0.0f)
         {
-            ray->dir = sample_hemisphere_uniform(rand, reflect(ray->dir, data[i].normal), data[i].material.specular.x);
+			ray->dir = sample_hemisphere(rand, reflect(ray->dir, data[i].normal), data[i].material.specular.x);
         }
         else
         {
-            ray->dir = sample_hemisphere_uniform(rand, data[i].normal, 0.0f);
+            ray->dir = sample_hemisphere(rand, data[i].normal, 0.0f);
         }
         ray->origin = data[i].pos + ray->dir * 0.0001f;
     }
@@ -260,13 +263,13 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
     {
         if (!data[i].hit)
         {
-            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z) * 1.25f + pow(max(dot(data[i].ray.dir, normalize((float3)(1.0f, 0.0f, 1.0f))), 0.0f), 256.0f) * 128.0f;
+            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z) * 1.25f + pow(max(dot(data[i].ray.dir, normalize((float3)(1.0f, 0.0f, 1.0f))), 0.0f), 64.0f) * 50.0f * (float3)(1.0f, 0.7f, 0.6f);
             //break;
         }
         else
         {
-            Radiance += data[i].material.emission * 100.0f;// * (data[i].normal * 0.5f + 0.5f);
-            Radiance *= data[i].material.diffuse;//data[i].normal * 0.5f + 0.5f;
+            Radiance *= data[i].material.diffuse;
+            Radiance += data[i].material.emission * 100.0f;
         }
     }
 
@@ -275,7 +278,7 @@ float3 raytrace(Ray *ray, random_state *rand, __global Triangle* triangles, __gl
 }
 
 __kernel void main(__global float4* result, __global int* random_int, uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
-					__global Triangle* triangles, __global uint* indices, __global CellData* cells, uint frameCount, uint device)
+					__global Triangle* triangles, __global uint* indices, __global CellData* cells, uint frameCount)//, uint device)
 {
 
 	float invWidth = 1 / (float)(width), invHeight = 1 / (float)(height);
@@ -298,11 +301,11 @@ __kernel void main(__global float4* result, __global int* random_int, uint width
 
     if (frameCount == 0)
     {
-        result[get_global_id(0)] = (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
+        result[get_global_id(0)] = (float4)(Raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f);
     }
     else
     {
-	    result[get_global_id(0)] = (result[get_global_id(0)] * (frameCount - 1) + (float4)(raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f)) / frameCount;
+	    result[get_global_id(0)] = (result[get_global_id(0)] * (frameCount - 1) + (float4)(Raytrace(&r, &randstate, triangles, indices, cells, 0), 1.0f)) / frameCount;
     }
 
     // For debug

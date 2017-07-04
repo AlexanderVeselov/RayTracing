@@ -7,7 +7,6 @@
 #include "vectors.hpp"
 #include "viewport.hpp"
 #include <GLFW/glfw3.h>
-#include <boost/thread/thread.hpp>
 
 class RayTracer
 {
@@ -18,19 +17,17 @@ public:
 private:
     void Update();
     void Render();
-    void testThread(size_t i);
+    //void testThread(size_t i);
     
-    size_t width_;
-    size_t height_;
+    size_t m_Width;
+    size_t m_Height;
 
-    std::vector<ClContext> contexts_;
-    GLFWwindow* window_;
-    Camera camera_;
-    Scene  scene_;
-    Viewport viewport_;
+    std::vector<ClContext> m_Contexts;
+    GLFWwindow* m_Window;
+    Camera m_Camera;
+    Scene  m_Scene;
+    Viewport m_Viewport;
 
-    boost::condition_variable cond_;
-    boost::mutex mutex_;
 
 };
 

@@ -5,24 +5,21 @@
 #include "triangle.hpp"
 
 // Purpose: Axis-aligned Bounding box
-class Aabb
+struct Aabb
 {
 public:
-	Aabb(float3 min, float3 max) : 
-		min_(min), max_(max)
+	Aabb(float3 mins, float3 maxs) : 
+		min(mins), max(maxs)
 	{}
 
-	// Getters
-	float3 getMin() const { return min_; }
-	float3 getMax() const { return max_; }
 
 	//bool SphereIntersect(const Sphere &sphere) const;
-    bool triangleIntersect(const Triangle &triangle) const;
+    bool Intersects(const Triangle &triangle) const;
 	
-    void project(float3 axis, float &fMin, float &fMax) const;
+    void Project(float3 axis, float &mins, float &maxs) const;
 
-private:
-	float3 min_, max_;
+	float3 min;
+	float3 max;
 
 };
 

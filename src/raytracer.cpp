@@ -3,24 +3,25 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <ctime>
 
 RayTracer::RayTracer(const char* filename) :
-    width_(640),
-    height_(480),
-    camera_(width_, height_, 0.0, 90.0f, 0.0005f, 1.0f),
-    scene_(filename, 64),
-    viewport_(camera_, width_, height_, 4)
+    m_Width(128),
+    m_Height(128),
+    m_Camera(m_Width, m_Height, 0.0, 90.0f, 0.0005f, 1.0f),
+    m_Scene(filename, 64),
+    m_Viewport(m_Camera, m_Width, m_Height, 1)
 {
     glfwInit();
     // Load kernel file
     std::ifstream input_file("src/kernel.cl");
     if (!input_file)
     {
-        std::cerr << "Cannot load kernel file" << std::endl;
+        std::cerr << "Failed to load kernel file!" << std::endl;
     }
     
     std::ostringstream buf;
-    buf << "#define GRID_RES " << scene_.getCellResolution() << std::endl;
+    buf << "#define GRID_RES " << m_Scene.GetCellResolution() << std::endl;
 
     std::string curr_line;
     std::string source;
@@ -30,9 +31,9 @@ RayTracer::RayTracer(const char* filename) :
         source += curr_line + "\n";
     }
 
-    int* random_array = new int[width_ * height_];
+    int* random_array = new int[m_Width * m_Height];
 
-    for (size_t i = 0; i < width_ * height_; ++i)
+    for (size_t i = 0; i < m_Width * m_Height; ++i)
     {
         random_array[i] = rand();
     }
@@ -41,74 +42,64 @@ RayTracer::RayTracer(const char* filename) :
     cl::Platform::get(&all_platforms);
     for (size_t i = 0; i < all_platforms.size(); ++i)
     {
-        ClContext context = ClContext(all_platforms[i], source, width_, height_, scene_.getCellResolution());
-        context.setupBuffers(scene_);
+        ClContext context = ClContext(all_platforms[i], source, m_Width, m_Height, m_Scene.GetCellResolution());
+        context.SetupBuffers(m_Scene);
 
-        if (context.isValid())
+        if (context.IsValid())
         {
-            contexts_.push_back(context);
+            m_Contexts.push_back(context);
         }
     }
 
-    window_ = glfwCreateWindow(width_, height_, "Ray Tracing Test", NULL, NULL);
-    glfwMakeContextCurrent(window_);
-
+    m_Window = glfwCreateWindow(m_Width, m_Height, "Ray Tracing Test", NULL, NULL);
+    glfwMakeContextCurrent(m_Window);
 }
 
 void RayTracer::Start()
 {
     
-    int* random_array = new int[width_ * height_];
+    int* random_array = new int[m_Width * m_Height];
 
-    for (size_t i = 0; i < width_ * height_; ++i)
+    //for (size_t i = 0; i < m_Contexts.size(); ++i)
+    //{
+    //    boost::thread thread(&RayTracer::testThread, this, 0);
+    //}
+    //
+	time_t t = clock();
+    while (!glfwWindowShouldClose(m_Window))
     {
-        random_array[i] = rand();
-    }
-    for (size_t i = 0; i < contexts_.size(); ++i)
-    {
-        contexts_[i].writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
-    }
-
-    //for (size_t i = 0; i < contexts_.size(); ++i)
-    {
-        boost::thread thread(&RayTracer::testThread, this, 0);
-    }
-    
-    while (!glfwWindowShouldClose(window_))
-    {
-        boost::unique_lock<boost::mutex> lock(mutex_);
-        cond_.wait(lock);
+        //boost::unique_lock<boost::mutex> lock(mutex_);
+        //cond_.wait(lock);
         //std::cout << "Draw thread" << std::endl;
-	    camera_.Update(window_, 1.0f);
-        Render();
-        
-        for (size_t i = 0; i < width_ * height_; ++i)
-        {
-            random_array[i] = rand();
-        }
-
-        for (size_t i = 0; i < contexts_.size(); ++i)
-        {
-            contexts_[i].writeRandomBuffer(width_ * height_ * sizeof(int), random_array);
-        }
-
-        glfwSwapBuffers(window_);
+		for (size_t i = 0; i < m_Width * m_Height; ++i)
+		{
+			random_array[i] = rand();
+		}
+		m_Contexts[0].WriteRandomBuffer(m_Width * m_Height * sizeof(int), random_array);
+	    m_Camera.Update(m_Window, 1.0f);
+		m_Viewport.Update(m_Contexts[0]);
+		m_Viewport.Draw();
+        glfwSwapBuffers(m_Window);
         glfwPollEvents();
+
+		glfwSetWindowTitle(m_Window, ("Ray Tracing Test FPS: " + std::to_string(1.0 / ((float)(clock() - t) / CLOCKS_PER_SEC))).c_str());
+		t = clock();
     }
     glfwTerminate();
 
 }
 
-void RayTracer::testThread(size_t i)
-{
-    while (!glfwWindowShouldClose(window_))
-    {
-        viewport_.Update(contexts_[i], i, cond_);
-    }
-}
+//void RayTracer::testThread(size_t i)
+//{
+//    while (!glfwWindowShouldClose(m_Window))
+//    {
+//        m_Viewport.Update(m_Contexts[i], i, cond_);
+//        if (i == 0) ++gpu;
+//        else ++cpu;
+//    }
+//}
 
 void RayTracer::Render()
 {
-    viewport_.Draw();
 
 }

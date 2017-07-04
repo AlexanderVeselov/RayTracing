@@ -1,5 +1,5 @@
-#ifndef CAMERA_HPP
-#define CAMERA_HPP
+#ifndef m_CameraHPP
+#define m_CameraHPP
 
 #include "vectors.hpp"
 #include <GLFW/glfw3.h>
@@ -13,29 +13,29 @@ public:
 	void CursorCallback(float xpos, float ypos);
 
 	// Getters...
-	float3 getPos()         const { return position_; }
-	float3 getFrontVector() const { return front_; }
-	float3 getUpVector()    const { return up_; }
+	float3 GetPosition()         const { return m_Position; }
+	float3 GetFrontVector() const { return m_Front; }
+	float3 GetUpVector()    const { return m_Up; }
 
-    bool isChanged()        const { return changed_; }
+    bool isChanged()        const { return m_Changed; }
 
 private:
-	int width_;
-    int height_;
+	int m_Width;
+    int m_Height;
 
-	float3 position_;
-    float3 velocity_;
-    float3 front_;
-    float3 up_;
+	float3 m_Position;
+    float3 m_Velocity;
+    float3 m_Front;
+    float3 m_Up;
 
-	float pitch_;
-    float yaw_;
+	float m_Pitch;
+    float m_Yaw;
     
-	float fov_;
-    float speed_;
-	float sensivity_;
-    bool changed_;
+	float m_Fov;
+    float m_Speed;
+	float m_Sensivity;
+    bool m_Changed;
 
 };
 
-#endif // CAMERA_HPP
+#endif // m_CameraHPP
