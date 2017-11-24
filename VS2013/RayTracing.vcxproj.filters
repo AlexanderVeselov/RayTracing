@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{2d1fd304-a0cd-4084-9276-313917df0592}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include Files">
+      <UniqueIdentifier>{520d8889-1e99-486f-999f-dfb30ea9e16c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kernel Files">
+      <UniqueIdentifier>{e9eb25f5-8823-46b5-89a9-34c73c6c0806}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\camera.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\scene.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\aabb.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\triangle.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\viewport.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\render.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mathlib.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\inputsystem.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\devcontext.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\exception.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\aabb.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\viewport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\render.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\inputsystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\devcontext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\kernel.cl">
+      <Filter>Kernel Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

@@ -1,7 +1,7 @@
 #ifndef TRIANGLE_HPP
 #define TRIANGLE_HPP
 
-#include "vectors.hpp"
+#include "mathlib.hpp"
 #include <CL/cl.h>
 #include <algorithm>
 
@@ -31,19 +31,19 @@ public:
 
     void Project(float3 axis, float &min, float &max) const
     {
-		min = CL_FLT_MAX;
-		max = -CL_FLT_MAX;
+        min = CL_FLT_MAX;
+        max = -CL_FLT_MAX;
 
         float3 points[3] =
-		{
+        {
             p1, p2, p3
         };
 
         for (size_t i = 0; i < 3; ++i)
         {
             float val = dot(points[i], axis);
-			min = std::min(min, val);
-			max = std::max(max, val);
+            min = std::min(min, val);
+            max = std::max(max, val);
         }
     }
 

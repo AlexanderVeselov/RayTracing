@@ -1,7 +1,7 @@
 #ifndef m_SceneHPP
 #define m_SceneHPP
 
-#include "vectors.hpp"
+#include "mathlib.hpp"
 #include "aabb.hpp"
 #include "triangle.hpp"
 #include <CL/cl.hpp>
@@ -11,8 +11,8 @@
 
 struct CellData
 {
-	cl_uint start_index;
-	cl_uint	count;
+    cl_uint start_index;
+    cl_uint    count;
 
 };
 
@@ -33,7 +33,7 @@ private:
     void LoadMtlFile(const char* filename);
     const char* m_Filename;
     size_t m_CellResolution;
-	Aabb m_SceneBox;
+    Aabb m_SceneBox;
 
 };
 
@@ -41,23 +41,23 @@ private:
 class Sphere
 {
 public:
-	Sphere(float3 Position, float Radius) :
-		pos(Position),
-		color(float3(Position.z, Position.y, Position.x).normalize()),
-		r(Radius)
-	{}
+    Sphere(float3 Position, float Radius) :
+        pos(Position),
+        color(float3(Position.z, Position.y, Position.x).normalize()),
+        r(Radius)
+    {}
 
-	// Getters...
-	float3 GetPosition() const { return pos;	}
-	float3 GetColor()    const { return color;	}
-	float  GetRadius()   const { return r;		}
+    // Getters...
+    float3 GetPosition() const { return pos;    }
+    float3 GetColor()    const { return color;    }
+    float  GetRadius()   const { return r;        }
 
 private:
-	float3 pos;
-	float3 color;
-	float  r;
-	// Padded to align on 4 floats due to technical reasons
-	float  unused[3];
+    float3 pos;
+    float3 color;
+    float  r;
+    // Padded to align on 4 floats due to technical reasons
+    float  unused[3];
 
 };
 

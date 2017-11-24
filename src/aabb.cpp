@@ -35,7 +35,7 @@ bool Aabb::Intersects(const Triangle &triangle) const
     */
     // Test 3: Edges test
     float3 triangleEdges[3] =
-	{
+    {
         triangle.p1 - triangle.p2,
         triangle.p2 - triangle.p3,
         triangle.p3 - triangle.p1
@@ -64,8 +64,8 @@ bool Aabb::Intersects(const Triangle &triangle) const
 
 void Aabb::Project(float3 axis, float &mins, float &maxs) const
 {
-	mins = CL_FLT_MAX;
-	maxs = -CL_FLT_MAX;
+    mins = CL_FLT_MAX;
+    maxs = -CL_FLT_MAX;
 
     float3 points[8] = {
         min,
@@ -81,32 +81,32 @@ void Aabb::Project(float3 axis, float &mins, float &maxs) const
     for (size_t i = 0; i < 8; ++i)
     {
         float val = dot(points[i], axis);
-		mins = std::min(mins, val);
-		maxs = std::max(maxs, val);
+        mins = std::min(mins, val);
+        maxs = std::max(maxs, val);
     }
 }
 
 /*
 bool AABB::SphereIntersect(const Sphere &sphere) const
 {
-	float3 s_pos = sphere.GetPosition();
-	float dist_sqr = 0.0f;
+    float3 s_pos = sphere.GetPosition();
+    float dist_sqr = 0.0f;
 
-	if (s_pos.x < min.x)
-		dist_sqr += sqr(s_pos.x - min.x);
-	else if (s_pos.x > max.x)
-		dist_sqr += sqr(s_pos.x - max.x);
+    if (s_pos.x < min.x)
+        dist_sqr += sqr(s_pos.x - min.x);
+    else if (s_pos.x > max.x)
+        dist_sqr += sqr(s_pos.x - max.x);
 
-	if (s_pos.y < min.y)
-		dist_sqr += sqr(s_pos.y - min.y);
-	else if (s_pos.y > max.y)
-		dist_sqr += sqr(s_pos.y - max.y);
+    if (s_pos.y < min.y)
+        dist_sqr += sqr(s_pos.y - min.y);
+    else if (s_pos.y > max.y)
+        dist_sqr += sqr(s_pos.y - max.y);
 
-	if (s_pos.z < min.z)
-		dist_sqr += sqr(s_pos.z - min.z);
-	else if (s_pos.z > max.z)
-		dist_sqr += sqr(s_pos.z - max.z);
+    if (s_pos.z < min.z)
+        dist_sqr += sqr(s_pos.z - min.z);
+    else if (s_pos.z > max.z)
+        dist_sqr += sqr(s_pos.z - max.z);
 
-	return dist_sqr < sqr(sphere.GetRadius());
+    return dist_sqr < sqr(sphere.GetRadius());
 }
 */

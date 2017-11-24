@@ -1,26 +1,25 @@
-#ifndef m_ViewportHPP
-#define m_ViewportHPP
+#ifndef VIEWPORT_HPP
+#define VIEWPORT_HPP
 
-#include "cl_context.hpp"
-#include "camera.hpp"
+#include "devcontext.hpp"
 #include <CL/cl.h>
 
 class Viewport
 {
 public:
-    Viewport(const Camera& camera, size_t width, size_t height, size_t rectCount);
+    Viewport(size_t width, size_t height);
     void Draw() const;
-    void Update(ClContext &context);
+    void Update(std::shared_ptr<ClContext> context);
+    size_t GetWidth() const { return m_Width; }
+    size_t GetHeight() const { return m_Height; }
+    float3* GetPixels() const { return m_Pixels; }
 
 private:
-    const Camera& m_Camera;
     size_t m_Width;
     size_t m_Height;
-    size_t m_RectCount;
-    size_t m_CurrentRect;
     size_t m_FrameCount;
-    cl_float4* m_Pixels;
+    float3* m_Pixels;
 
 };
 
-#endif // m_ViewportHPP
+#endif // VIEWPORT_HPP

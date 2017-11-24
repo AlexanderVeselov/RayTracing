@@ -5,6 +5,6 @@
 *.suo
 *.sdf
 
-VS2010/Debug/
-VS2010/ipch/
-VS2010/Release/
+VS2013/Debug/
+VS2013/ipch/
+VS2013/Release/
