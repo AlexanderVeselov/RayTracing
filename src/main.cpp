@@ -101,7 +101,7 @@ int main()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-
+        
         try
         {
             render->RenderFrame();
@@ -111,6 +111,10 @@ int main()
             std::cerr << "Caught exception: " << ex.message() << std::endl;
             return 0;
         }
+        char caption[32];
+        sprintf(caption, "Ray Tracing: %f FPS", 1.0 / render->GetDeltaTime());
+        SetWindowText(hwnd, caption);
+
     }
 
    // render->Shutdown();

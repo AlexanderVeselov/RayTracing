@@ -93,10 +93,10 @@ private:
 
 };
 
-class ClException : public Exception
+class CLException : public Exception
 {
 public:
-    ClException(const std::string& message, int errorCode)
+    CLException(const std::string& message, int errorCode)
         : Exception(message + " ("+ GetClErrorString(errorCode) + ")") {}
 
 };

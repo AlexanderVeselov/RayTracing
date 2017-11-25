@@ -100,6 +100,11 @@ public:
         return m_VectorValue;
     }
 
+    float3 GetFloatValue() const
+    {
+        return m_VectorValue;
+    }
+
 protected:
     float ReadFloatValue()
     {
@@ -120,7 +125,8 @@ protected:
             }
         }
 
-        return minus ? -value : value;
+        m_FloatValue = minus ? -value : value;
+        return m_FloatValue;
         
     }
 
@@ -187,6 +193,7 @@ private:
     std::string m_CurrentLine;
     std::string m_StringValue;
     float3 m_VectorValue;
+    float m_FloatValue;
     size_t m_CurrentChar;
 
 };
@@ -234,7 +241,7 @@ public:
         }
         else if (GetStringValue() == "Ns")
         {
-            ReadVectorValue();
+            ReadFloatValue();
             return MTL_SPECULAR;
         }
         else

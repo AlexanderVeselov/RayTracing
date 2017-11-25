@@ -1,24 +1,22 @@
 #ifndef VIEWPORT_HPP
 #define VIEWPORT_HPP
 
-#include "devcontext.hpp"
-#include <CL/cl.h>
+#include "mathlib.hpp"
 
-class Viewport
+struct Viewport
 {
 public:
-    Viewport(size_t width, size_t height);
-    void Draw() const;
-    void Update(std::shared_ptr<ClContext> context);
-    size_t GetWidth() const { return m_Width; }
-    size_t GetHeight() const { return m_Height; }
-    float3* GetPixels() const { return m_Pixels; }
+    Viewport(size_t x, size_t y, size_t width, size_t height)
+        : x(x), y(y), width(width), height(height)
+    {
+        pixels = new float3[width * height];
+    }
 
-private:
-    size_t m_Width;
-    size_t m_Height;
-    size_t m_FrameCount;
-    float3* m_Pixels;
+    ~Viewport() { if (pixels) delete[] pixels; }
+
+    size_t x, y;
+    size_t width, height;
+    float3* pixels;
 
 };
 

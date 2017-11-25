@@ -30,7 +30,6 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\render.cpp" />
     <ClCompile Include="..\src\scene.cpp" />
-    <ClCompile Include="..\src\viewport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\kernel.cl" />
