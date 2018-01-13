@@ -18,6 +18,7 @@ public:
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
     void ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize) const;
+    void Finish() const { m_Queue.finish(); }
 
     const cl::Context& GetContext() const { return m_Context; }
 

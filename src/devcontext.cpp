@@ -6,8 +6,6 @@
 #include <string>
 #include <fstream>
 
-#pragma OPENCL EXTENSION cl_khr_icd : enable
-
 CLContext::CLContext(const cl::Platform& platform)
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
@@ -24,8 +22,7 @@ CLContext::CLContext(const cl::Platform& platform)
     };
 
     std::vector<cl::Device> platform_devices;
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
-    
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);    
     if (platform_devices.empty())
     {
         throw Exception("No devices found!");
@@ -38,7 +35,10 @@ CLContext::CLContext(const cl::Platform& platform)
         std::cout << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
         std::cout << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
         std::cout << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
-        std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
+        //std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
+        std::cout << "Image support: " << (platform_devices[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
+        std::cout << "2D Image max width: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
+        std::cout << "2D Image max height: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << std::endl;
     }
 
     cl_int errCode;
@@ -83,7 +83,6 @@ void CLContext::ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize)
     {
         throw CLException("Failed to enqueue kernel", errCode);
     }
-    m_Queue.finish();
 
 }
 

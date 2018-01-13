@@ -11,7 +11,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\aabb.hpp" />
     <ClInclude Include="..\src\camera.hpp" />
     <ClInclude Include="..\src\devcontext.hpp" />
     <ClInclude Include="..\src\exception.hpp" />
@@ -19,15 +18,15 @@
     <ClInclude Include="..\src\mathlib.hpp" />
     <ClInclude Include="..\src\render.hpp" />
     <ClInclude Include="..\src\scene.hpp" />
-    <ClInclude Include="..\src\triangle.hpp" />
+    <ClInclude Include="..\src\shared_structs.hpp" />
     <ClInclude Include="..\src\viewport.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\aabb.cpp" />
     <ClCompile Include="..\src\camera.cpp" />
     <ClCompile Include="..\src\devcontext.cpp" />
     <ClCompile Include="..\src\inputsystem.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\mathlib.cpp" />
     <ClCompile Include="..\src\render.cpp" />
     <ClCompile Include="..\src\scene.cpp" />
   </ItemGroup>

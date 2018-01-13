@@ -67,8 +67,8 @@ HWND InitMainWindow()
         WS_OVERLAPPED | WS_SYSMENU,         // window style
         100,                                // x-position of the window
         100,                                // y-position of the window
-        640,                               // width of the window
-        480,                                // height of the window
+        1280,                               // width of the window
+        720,                                // height of the window
         NULL,                               // we have no parent window, NULL
         NULL,                               // we aren't using menus, NULL
         hInstance,                          // application handle
@@ -111,10 +111,7 @@ int main()
             std::cerr << "Caught exception: " << ex.message() << std::endl;
             return 0;
         }
-        char caption[32];
-        sprintf(caption, "Ray Tracing: %f FPS", 1.0 / render->GetDeltaTime());
-        SetWindowText(hwnd, caption);
-
+        
     }
 
    // render->Shutdown();

@@ -19,9 +19,17 @@ typedef struct
 
 typedef struct
 {
-    float3 p1, p2, p3;
-    float3 n1, n2, n3;
-    Material material;
+    float3 position;
+    float3 texcoord;
+    float3 normal;
+    float3 tangent_s;
+    float3 tangent_t;
+} Vertex;
+
+typedef struct
+{
+    Vertex v1, v2, v3;
+    //uint mtlIndex;
 } Triangle;
 
 typedef struct
@@ -30,11 +38,11 @@ typedef struct
     float3 dir;
 } Ray;
 
-
 typedef struct
 {
     bool hit;
     float3 pos;
+    float3 texcoord;
     float3 normal;
     __global Triangle* object;
     Ray ray;
@@ -46,19 +54,13 @@ typedef struct
     uint count;
 } CellData;
 
-typedef struct
+float3 reflect(float3 v, float3 n)
 {
-    ulong a;
-    ulong b;
-    ulong c;
-} random_state;
-
-float3 reflect(float3 V, float3 N)
-{
-    return V - 2.0f * dot( V, N ) * N;
+    return v - 2.0f * dot(v, n) * n;
 }
+#define ALGORITHM2
 
-/*
+#ifdef ALGORITHM1
 bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* n)
 {
     // Vertices
@@ -119,12 +121,12 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
 
     return true;
 }
-*/
 
-bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* n)
+#else
+bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, float3* texcoord, float3* n)
 {
-    float3 e1 = triangle->p2 - triangle->p1;
-    float3 e2 = triangle->p3 - triangle->p1;
+    float3 e1 = triangle->v2.position - triangle->v1.position;
+    float3 e2 = triangle->v3.position - triangle->v1.position;
     // Calculate planes normal vector
     float3 pvec = cross(r->dir, e2);
     float det = dot(e1, pvec);
@@ -134,8 +136,8 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
     {
         return false;
     }
-    float inv_det = 1.0 / det;
-    float3 tvec = r->origin - triangle->p1;
+    float inv_det = 1.0f / det;
+    float3 tvec = r->origin - triangle->v1.position;
     float u = dot(tvec, pvec) * inv_det;
     if (u < 0.0f || u > 1.0f)
     {
@@ -150,10 +152,12 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
     }
 
     *t = dot(e2, qvec) * inv_det;
-    *n = normalize(u * triangle->n2 + v * triangle->n3 + (1.0f - u - v) * triangle->n1);
-    
+    *n = normalize(u * triangle->v2.normal + v * triangle->v3.normal + (1.0f - u - v) * triangle->v1.normal);
+    *texcoord = u * triangle->v2.texcoord + v * triangle->v3.texcoord + (1.0f - u - v) * triangle->v1.texcoord;
+
     return true;
 }
+#endif
 
 void DDA_prepare(Ray ray, float3* tmax, float3* step, float3* tdelta)
 {
@@ -163,7 +167,7 @@ void DDA_prepare(Ray ray, float3* tmax, float3* step, float3* tdelta)
     float3 tmaxpos = (cell_max - ray.origin) / ray.dir;
     *tmax            = (ray.dir < 0) ? tmaxneg : tmaxpos;
     *step            = (ray.dir < 0) ? (float3)(-CELL_SIZE, -CELL_SIZE, -CELL_SIZE) : (float3)(CELL_SIZE, CELL_SIZE, CELL_SIZE);
-    *tdelta            = fabs((float3)(CELL_SIZE, CELL_SIZE, CELL_SIZE) / ray.dir);
+    *tdelta          = fabs((float3)(CELL_SIZE, CELL_SIZE, CELL_SIZE) / ray.dir);
 }
 
 void DDA_step(float3* current_pos, float3* tmax, float3 step, float3 tdelta)
@@ -208,7 +212,8 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
     float3 current_pos = CELL_TO_POS(POS_TO_CELL(ray->origin));
     
     float t;
-    float3 n;
+    float3 texcoord;
+    float3 normal;
     float minT = kMaxRenderDist;
     
     while (current_pos.x >= 0 && current_pos.x < GRID_MAX
@@ -220,14 +225,15 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
         
         for (uint i = current_cell.start_index; i < current_cell.start_index + current_cell.count; ++i)
         {
-            if (RayTriangle(&triangles[indices[i]], ray, &t, &n))
+            if (RayTriangle(&triangles[indices[i]], ray, &t, &texcoord, &normal))
             {
                 if (t < minT)
                 {
                     minT = t;
                     out.pos = ray->origin + ray->dir * t;
                     out.object = &triangles[indices[i]];
-                    out.normal = n;
+                    out.texcoord = texcoord;
+                    out.normal = normal;
                     out.hit = true;
                 }
             }
@@ -246,12 +252,14 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 float3 Raytrace(Ray *ray, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
 {
     IntersectData data = Intersect(ray, triangles, indices, cells);
-    return data.normal;    
+    return data.texcoord;
 }
 
 __kernel void main
 (
+    // Output
     __global float3* result,
+    // Input
     __global Triangle* triangles,
     __global uint* indices,
     __global CellData* cells,
@@ -259,25 +267,32 @@ __kernel void main
     uint height,
     float3 cameraPos,
     float3 cameraFront,
-    float3 cameraUp
+    float3 cameraUp,
+    __read_only image2d_t tex
 )
 {
-    float invWidth = 1 / (float)(width), invHeight = 1 / (float)(height);
+    const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+
+    float invWidth = 1.0f / (float)(width), invHeight = 1 / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
     float fov = 90.0f;
     float angle = tan(3.1415f * 0.5f * fov / 180.0f);
     
     float x = (float)(get_global_id(0) % width);
-
     float y = (float)(get_global_id(0) / width);
-    x = (2 * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio; 
+
+    //result[get_global_id(0)] = read_imagef(tex, smp, (float2)(x * invWidth, y * invHeight)).xyz;
+    
+    x = (2 * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
     y = -(1 - 2 * ((y + 0.5f) * invHeight)) * angle;
     
     Ray r;
     r.origin = cameraPos;
     float3 dir = normalize(-x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
     r.dir = dir;
-
-    result[get_global_id(0)] = Raytrace(&r, triangles, indices, cells, 0);
+        
+    float2 coords = Raytrace(&r, triangles, indices, cells, 0).xy;
+        
+    result[get_global_id(0)] = read_imagef(tex, smp, coords).xyz;
  
 }

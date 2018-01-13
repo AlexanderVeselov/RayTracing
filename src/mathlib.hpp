@@ -104,6 +104,24 @@ inline float distance(const float3& a, const float3& b)
     return (b - a).length();
 }
 
+struct Triangle;
+
+struct Bounds3
+{
+public:
+    Bounds3(float3 min, float3 max) :
+        min(min), max(max)
+    {}
+    
+    bool Intersects(const Triangle &triangle) const;
+    void Project(float3 axis, float &mins, float &maxs) const;
+
+    float3 min;
+    float3 max;
+
+};
+
+
 struct Matrix
 {
     static Matrix LookAtLH(const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));

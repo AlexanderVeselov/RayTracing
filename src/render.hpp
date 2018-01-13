@@ -7,6 +7,7 @@
 #include "viewport.hpp"
 #include <Windows.h>
 #include <memory>
+#include <ctime>
 
 enum RenderKernelArgument_t
 {
@@ -18,7 +19,8 @@ enum RenderKernelArgument_t
     HEIGHT,
     CAM_ORIGIN,
     CAM_FRONT,
-    CAM_UP
+    CAM_UP,
+    TEXTURE0
 
 };
 
@@ -30,7 +32,7 @@ public:
     void   Shutdown();
 
     const  HWND GetHWND() const { return m_hWnd; }
-    double GetCurtime() { return GetTickCount() * 0.001; }
+    double GetCurtime() { return (double)clock() / (double)CLOCKS_PER_SEC; }
     double GetDeltaTime() { return GetCurtime() - m_PreviousFrameTime; }
 
     HDC    GetDisplayContext() const { return m_DisplayContext; }
@@ -65,6 +67,7 @@ private:
     cl::Buffer m_SceneBuffer;
     cl::Buffer m_IndexBuffer;
     cl::Buffer m_CellBuffer;
+    cl::Image2D m_Texture0;
 
 };
 

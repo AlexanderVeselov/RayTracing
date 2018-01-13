@@ -3,18 +3,11 @@
 
 #include "mathlib.hpp"
 #include "aabb.hpp"
-#include "triangle.hpp"
+#include "shared_structs.hpp"
 #include <CL/cl.hpp>
 #include <algorithm>
 #include <vector>
 #include <map>
-
-struct CellData
-{
-    cl_uint start_index;
-    cl_uint    count;
-
-};
 
 class Scene
 {
@@ -33,7 +26,7 @@ private:
     void LoadMtlFile(const char* filename);
     const char* m_Filename;
     size_t m_CellResolution;
-    Aabb m_SceneBox;
+    Bounds3 m_SceneBounds;
 
 };
 

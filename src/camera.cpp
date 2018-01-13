@@ -53,7 +53,7 @@ void Camera::Update()
         std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback + std::sinf(m_Yaw - MATH_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed * render->GetDeltaTime();
     m_Front = float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
 
-
+    std::cout << m_Origin << std::endl;
     float3 right = cross(m_Front, m_Up).normalize();
     float3 up = cross(right, m_Front);
 

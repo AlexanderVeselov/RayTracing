@@ -18,12 +18,6 @@
     <ClInclude Include="..\src\scene.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\aabb.hpp">
-      <Filter>Include Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\triangle.hpp">
-      <Filter>Include Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\render.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
@@ -42,6 +36,9 @@
     <ClInclude Include="..\src\viewport.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\shared_structs.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp">
@@ -53,9 +50,6 @@
     <ClCompile Include="..\src\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\aabb.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\render.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -63,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\devcontext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mathlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
