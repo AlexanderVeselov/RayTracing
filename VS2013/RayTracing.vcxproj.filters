@@ -39,6 +39,9 @@
     <ClInclude Include="..\src\shared_structs.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\kernel_bvh.cl">
+      <Filter>Kernel Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp">
@@ -64,7 +67,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\src\kernel.cl">
+    <None Include="..\src\kernel_grid.cl">
       <Filter>Kernel Files</Filter>
     </None>
   </ItemGroup>

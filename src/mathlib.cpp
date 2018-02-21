@@ -21,8 +21,8 @@ bool Bounds3::Intersects(const Triangle &triangle) const
     }
     
     // Test 2: Plane/AABB overlap test
-    //float3 triangleNormal = cross(triangle.p2 - triangle.p1, triangle.p3 - triangle.p1).normalize();
-    //float triangleOffset = dot(triangleNormal, triangle.p1);
+    //float3 triangleNormal = Cross(triangle.p2 - triangle.p1, triangle.p3 - triangle.p1).normalize();
+    //float triangleOffset = Dot(triangleNormal, triangle.p1);
     float boxMin, boxMax;
     /*
     Project(triangleNormal, boxMin, boxMax);
@@ -43,8 +43,8 @@ bool Bounds3::Intersects(const Triangle &triangle) const
     {
         for (size_t j = 0; j < 3; ++j)
         {
-            float3 axis = cross(triangleEdges[i], boxNormals[j]);
-            if (axis.length() > 0.00001f)
+            float3 axis = Cross(triangleEdges[i], boxNormals[j]);
+            if (axis.Length() > 0.00001f)
             {
                 Project(axis, boxMin, boxMax);
                 triangle.Project(axis, triangleMin, triangleMax);
@@ -78,7 +78,7 @@ void Bounds3::Project(float3 axis, float &mins, float &maxs) const
 
     for (size_t i = 0; i < 8; ++i)
     {
-        float val = dot(points[i], axis);
+        float val = Dot(points[i], axis);
         mins = std::min(mins, val);
         maxs = std::max(maxs, val);
     }

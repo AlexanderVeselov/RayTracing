@@ -39,6 +39,7 @@ CLContext::CLContext(const cl::Platform& platform)
         std::cout << "Image support: " << (platform_devices[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
         std::cout << "2D Image max width: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
         std::cout << "2D Image max height: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << std::endl;
+        std::cout << "Preferred vector width: " << platform_devices[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
     }
 
     cl_int errCode;

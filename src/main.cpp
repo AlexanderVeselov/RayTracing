@@ -101,7 +101,7 @@ int main()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        
+
         try
         {
             render->RenderFrame();
@@ -109,12 +109,13 @@ int main()
         catch (Exception& ex)
         {
             std::cerr << "Caught exception: " << ex.message() << std::endl;
+            system("PAUSE");
             return 0;
         }
         
     }
 
-   // render->Shutdown();
+    render->Shutdown();
 
     return msg.wParam;
 

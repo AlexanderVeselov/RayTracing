@@ -1,5 +1,5 @@
-#ifndef m_SceneHPP
-#define m_SceneHPP
+#ifndef SCENE_HPP
+#define SCENE_HPP
 
 #include "mathlib.hpp"
 #include "aabb.hpp"
@@ -12,25 +12,68 @@
 class Scene
 {
 public:
-    Scene(const char* filename, size_t cell_resolution);
-    void LoadTriangles();
-    void CreateGrid();
-    size_t GetCellResolution() const { return m_CellResolution; }
-
-    std::vector<Triangle> triangles;
-    std::vector<cl_uint>  indices;
-    std::vector<CellData> cells;
-    std::map<std::string, Material> materials;
-
+    Scene(const char* filename);
+    virtual void SetupBuffers() = 0;
+    virtual void DrawDebug() = 0;
+    const std::vector<Triangle>& GetTriangles() const;
+    
 private:
+    void LoadTriangles(const char* filename);
     void LoadMtlFile(const char* filename);
-    const char* m_Filename;
-    size_t m_CellResolution;
-    Bounds3 m_SceneBounds;
+    std::map<std::string, Material> m_Materials;
+
+protected:
+    std::vector<Triangle> m_Triangles;
+    cl::Buffer m_TriangleBuffer;
 
 };
 
-// Purpose: Base primitive in raytracer
+class UniformGridScene : public Scene
+{
+public:
+    UniformGridScene(const char* filename);
+    virtual void SetupBuffers();
+    virtual void DrawDebug();
+
+private:
+    void CreateGrid(unsigned int cellResolution);
+
+    std::vector<unsigned int> m_Indices;
+    std::vector<CellData> m_Cells;
+    cl::Buffer m_IndexBuffer;
+    cl::Buffer m_CellBuffer;
+
+};
+
+struct BVHBuildNode;
+struct BVHPrimitiveInfo;
+
+class BVHScene : public Scene
+{
+public:
+    BVHScene(const char* filename, int maxPrimitivesInNode);
+    virtual void SetupBuffers();
+    virtual void DrawDebug();
+
+private:
+    BVHBuildNode *BVHScene::RecursiveBuild(
+        std::vector<BVHPrimitiveInfo> &primitiveInfo,
+        int start,
+        int end, int *totalNodes,
+        std::vector<Triangle> &orderedTriangles);
+
+    int BVHScene::FlattenBVHTree(BVHBuildNode *node, int *offset);
+
+private:
+    std::vector<LinearBVHNode> m_Nodes;
+    int m_MaxPrimitivesInNode;
+    cl::Buffer m_NodeBuffer;
+    BVHBuildNode* m_Root;
+
+};
+
+
+/*
 class Sphere
 {
 public:
@@ -53,5 +96,6 @@ private:
     float  unused[3];
 
 };
+*/
 
-#endif // m_SceneHPP
+#endif // SCENE_HPP

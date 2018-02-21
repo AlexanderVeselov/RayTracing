@@ -11,7 +11,7 @@ public:
     Camera(std::shared_ptr<Viewport> viewport);
     void Update();
 
-    float3 GetOrigin()    const { return m_Origin; }
+    float3 GetOrigin()      const { return m_Origin; }
     float3 GetFrontVector() const { return m_Front; }
     float3 GetUpVector()    const { return m_Up; }
 

@@ -249,10 +249,58 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
 }
 
 
+#define TRACE_DEPTH 3
+
 float3 Raytrace(Ray *ray, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
 {
-    IntersectData data = Intersect(ray, triangles, indices, cells);
-    return data.texcoord;
+    IntersectData data[TRACE_DEPTH];
+
+    float3 Radiance = 0.0f;
+        int intersections = 0;
+    for (int i = 0; i < TRACE_DEPTH; ++i)
+    {
+        ++intersections;
+        data[i] = Intersect(ray, triangles, indices, cells);
+        if (!data[i].hit) break;
+
+        ray->origin = data[i].pos + ray->dir * 0.0001f;
+        ray->dir = reflect(ray->dir, data[i].normal);
+    }
+
+    for (int i = intersections - 1; i >= 0; --i)
+    {
+        if (!data[i].hit)
+        {
+            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z) * 1.25f + pow(max(dot(data[i].ray.dir, normalize((float3)(1.0f, 0.0f, 1.0f))), 0.0f), 64.0f) * 50.0f * (float3)(1.0f, 0.7f, 0.6f);
+            //break;
+        }
+        else
+        {
+            Radiance *= 0.75f;
+        }
+    }
+
+    return Radiance;
+}
+
+Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp)
+{
+    float invWidth = 1.0f / (float)(width), invHeight = 1 / (float)(height);
+    float aspectratio = (float)(width) / (float)(height);
+    float fov = 90.0f;
+    float angle = tan(3.1415f * 0.5f * fov / 180.0f);
+
+    float x = (float)(get_global_id(0) % width);
+    float y = (float)(get_global_id(0) / width);
+
+    x = (2 * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
+    y = -(1 - 2 * ((y + 0.5f) * invHeight)) * angle;
+
+    Ray r;
+    r.origin = cameraPos;
+    float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
+    r.dir = dir;
+    return r;
 }
 
 __kernel void main
@@ -272,27 +320,12 @@ __kernel void main
 )
 {
     const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
-
-    float invWidth = 1.0f / (float)(width), invHeight = 1 / (float)(height);
-    float aspectratio = (float)(width) / (float)(height);
-    float fov = 90.0f;
-    float angle = tan(3.1415f * 0.5f * fov / 180.0f);
-    
-    float x = (float)(get_global_id(0) % width);
-    float y = (float)(get_global_id(0) / width);
-
-    //result[get_global_id(0)] = read_imagef(tex, smp, (float2)(x * invWidth, y * invHeight)).xyz;
-    
-    x = (2 * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
-    y = -(1 - 2 * ((y + 0.5f) * invHeight)) * angle;
-    
-    Ray r;
-    r.origin = cameraPos;
-    float3 dir = normalize(-x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
-    r.dir = dir;
         
-    float2 coords = Raytrace(&r, triangles, indices, cells, 0).xy;
-        
+    Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp);        
+    result[get_global_id(0)] = Raytrace(&ray, triangles, indices, cells, 0);
+    /*
+    float2 coords = Raytrace(&ray, triangles, indices, cells, 0).xy;
+
     result[get_global_id(0)] = read_imagef(tex, smp, coords).xyz;
- 
+ */
 }

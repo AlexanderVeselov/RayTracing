@@ -14,8 +14,8 @@ public:
 
     ~Viewport() { if (pixels) delete[] pixels; }
 
-    size_t x, y;
-    size_t width, height;
+    unsigned int x, y;
+    unsigned int width, height;
     float3* pixels;
 
 };

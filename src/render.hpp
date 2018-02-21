@@ -9,6 +9,26 @@
 #include <memory>
 #include <ctime>
 
+#define BVH_INTERSECTION
+
+#ifdef BVH_INTERSECTION
+enum RenderKernelArgument_t
+{
+    BUFFER_OUT = 0,
+    BUFFER_SCENE,
+    BUFFER_NODE,
+    WIDTH,
+    HEIGHT,
+    CAM_ORIGIN,
+    CAM_FRONT,
+    CAM_UP,
+    TEXTURE0,
+    
+    // Not using now
+    BUFFER_INDEX,
+    BUFFER_CELL
+};
+#else
 enum RenderKernelArgument_t
 {
     BUFFER_OUT = 0,
@@ -20,34 +40,39 @@ enum RenderKernelArgument_t
     CAM_ORIGIN,
     CAM_FRONT,
     CAM_UP,
-    TEXTURE0
+    TEXTURE0,
+
+    // Not using now
+    BUFFER_NODE
 
 };
+#endif
 
 class Render
 {
 public:
-    void   Init(HWND hWnd);
-    void   RenderFrame();
-    void   Shutdown();
+    void         Init(HWND hWnd);
+    void         RenderFrame();
+    void         Shutdown();
 
-    const  HWND GetHWND() const { return m_hWnd; }
-    double GetCurtime() { return (double)clock() / (double)CLOCKS_PER_SEC; }
-    double GetDeltaTime() { return GetCurtime() - m_PreviousFrameTime; }
+    const HWND   GetHWND()           const;
+    double       GetCurtime()        const;
+    double       GetDeltaTime()      const;
+    unsigned int GetGlobalWorkSize() const;
 
-    HDC    GetDisplayContext() const { return m_DisplayContext; }
-    HGLRC  GetGLContext() const { return m_GLContext; }
-    std::shared_ptr<CLContext> GetCLContext() const { return m_CLContext; }
-    std::shared_ptr<CLKernel> GetCLKernel() const { return m_RenderKernel; }
+    HDC          GetDisplayContext() const;
+    HGLRC        GetGLContext()      const;
+
+    std::shared_ptr<CLContext> GetCLContext() const;
+    std::shared_ptr<CLKernel>  GetCLKernel()  const;
 
 private:
-    // Private methods
     void InitGL();
     void SetupBuffers();
     void FrameBegin();
     void FrameEnd();
-
-    // Class fields
+    
+private:
     HWND m_hWnd;
     // Timing
     double m_StartFrameTime;
@@ -64,9 +89,6 @@ private:
     std::shared_ptr<Viewport>   m_Viewport;
     // Buffers
     cl::Buffer m_OutputBuffer;
-    cl::Buffer m_SceneBuffer;
-    cl::Buffer m_IndexBuffer;
-    cl::Buffer m_CellBuffer;
     cl::Image2D m_Texture0;
 
 };

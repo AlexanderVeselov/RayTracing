@@ -8,6 +8,8 @@
 #include <gl/GL.h>
 #include <gl/GLU.h>
 
+#pragma comment( lib, "glu32.lib" )
+
 static Render g_Render;
 Render* render = &g_Render;
 
@@ -146,8 +148,12 @@ void Render::Init(HWND hwnd)
     unsigned int width = hwndRect.right - hwndRect.left, height = hwndRect.bottom - hwndRect.top;
     m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
     m_Camera = std::make_shared<Camera>(m_Viewport);
-    m_Scene = std::make_shared<Scene>("meshes/cube.obj", 64);
-            
+#ifdef BVH_INTERSECTION
+    m_Scene = std::make_shared<BVHScene>("meshes/car.obj", 32);
+#else
+    m_Scene = std::make_shared<UniformGridScene>("meshes/car.obj");
+#endif
+    
     std::vector<cl::Platform> all_platforms;
     cl::Platform::get(&all_platforms);
     if (all_platforms.empty())
@@ -159,7 +165,11 @@ void Render::Init(HWND hwnd)
 
     std::vector<cl::Device> platform_devices;
     all_platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
-    m_RenderKernel = std::make_shared<CLKernel>("src/kernel.cl", platform_devices);
+#ifdef BVH_INTERSECTION
+    m_RenderKernel = std::make_shared<CLKernel>("src/kernel_bvh.cl", platform_devices);
+#else
+    m_RenderKernel = std::make_shared<CLKernel>("src/kernel_grid.cl", platform_devices);
+#endif
 
     SetupBuffers();
     
@@ -169,37 +179,18 @@ void Render::SetupBuffers()
 {
     GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(size_t));
     GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(size_t));
-    size_t globalWorkSize = m_Viewport->width * m_Viewport->height;
 
     cl_int errCode;
-    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_WRITE_ONLY, globalWorkSize * sizeof(float3), 0, &errCode);
+    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_WRITE_ONLY, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
     if (errCode)
     {
-        throw CLException("Failed to output buffer", errCode);
+        throw CLException("Failed to create output buffer", errCode);
     }
     GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
     
-    m_SceneBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Scene->triangles.size() * sizeof(Triangle), m_Scene->triangles.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to scene buffer", errCode);
-    }
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_SceneBuffer, sizeof(cl::Buffer));
+    m_Scene->SetupBuffers();
 
-    m_IndexBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Scene->indices.size() * sizeof(cl_uint), m_Scene->indices.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to index buffer", errCode);
-    }
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_INDEX, &m_IndexBuffer, sizeof(cl::Buffer));
-
-    m_CellBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Scene->cells.size() * sizeof(CellData), m_Scene->cells.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to cell buffer", errCode);
-    }
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_CELL, &m_CellBuffer, sizeof(cl::Buffer));
-    
+    // Texture Buffers
     cl::ImageFormat imageFormat;
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
@@ -219,10 +210,57 @@ void Render::SetupBuffers()
     m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, 256, 256, 0, ptr, &errCode);
     if (errCode)
     {
-        throw CLException("Failed create image", errCode);
+        throw CLException("Failed to create image", errCode);
     }
     GetCLKernel()->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
 
+}
+
+const  HWND Render::GetHWND() const
+{
+    return m_hWnd;
+}
+
+double Render::GetCurtime() const
+{
+    return (double)clock() / (double)CLOCKS_PER_SEC;
+}
+
+double Render::GetDeltaTime() const
+{
+    return GetCurtime() - m_PreviousFrameTime;
+}
+
+unsigned int Render::GetGlobalWorkSize() const
+{
+    if (m_Viewport)
+    {
+        return m_Viewport->width * m_Viewport->height;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+HDC Render::GetDisplayContext() const
+{
+    return m_DisplayContext;
+}
+
+HGLRC Render::GetGLContext() const
+{
+    return m_GLContext;
+}
+
+std::shared_ptr<CLContext> Render::GetCLContext() const
+{
+    return m_CLContext;
+}
+
+std::shared_ptr<CLKernel> Render::GetCLKernel() const
+{
+    return m_RenderKernel;
 }
 
 void Render::FrameBegin()
@@ -244,12 +282,26 @@ void Render::RenderFrame()
 
     m_Camera->Update();
 
-    unsigned int globalWorksize = m_Viewport->width * m_Viewport->height;
+    unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);
     GetCLContext()->ReadBuffer(m_OutputBuffer, m_Viewport->pixels, sizeof(float3) * globalWorksize);
     GetCLContext()->Finish();
 
     glDrawPixels(m_Viewport->width, m_Viewport->height, GL_RGBA, GL_FLOAT, m_Viewport->pixels);
+        
+    //glMatrixMode(GL_PROJECTION);
+    //glLoadIdentity();
+    //gluPerspective(90.0, 1280.0 / 720.0, 1, 1024);
+    //glMatrixMode(GL_MODELVIEW);
+    //glLoadIdentity();
+    //float3 eye = m_Camera->GetOrigin();
+    //float3 center = m_Camera->GetFrontVector() + eye;
+    //gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
+    //
+    //m_Scene->DrawDebug();
+
+
+
     glFinish();
 
     SwapBuffers(m_DisplayContext);
