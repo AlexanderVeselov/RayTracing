@@ -1,6 +1,10 @@
 #define MAX_RENDER_DIST 20000.0f
 #define MACHINE_EPSILON 1.192092896e-07f
 #define GAMMA_3 3.576279966e-07f
+#define PI 3.14159265359f
+#define TWO_PI 6.28318530718f
+#define INV_PI 0.31830988618f
+#define INV_TWO_PI 0.15915494309f
 
 typedef struct
 {
@@ -15,7 +19,6 @@ typedef struct
     float3 texcoord;
     float3 normal;
     float3 tangent_s;
-    float3 tangent_t;
 } Vertex;
 
 typedef struct
@@ -40,6 +43,7 @@ typedef struct
     float3 pos;
     float3 texcoord;
     float3 normal;
+    int steps;
     const __global Triangle* object;
 } IntersectData;
 
@@ -70,6 +74,76 @@ Ray InitRay(float3 origin, float3 dir)
     return r;
 }
 
+unsigned int HashUInt32(unsigned int x)
+{
+#if 0
+    x = (x ^ 61) ^ (x >> 16);
+    x = x + (x << 3);
+    x = x ^ (x >> 4);
+    x = x * 0x27d4eb2d;
+    x = x ^ (x >> 15);
+    return x;
+#else
+    return 1103515245 * x + 12345;
+#endif
+}
+
+float GetRandomFloat(unsigned int* seed)
+{
+    *seed = (*seed ^ 61) ^ (*seed >> 16);
+    *seed = *seed + (*seed << 3);
+    *seed = *seed ^ (*seed >> 4);
+    *seed = *seed * 0x27d4eb2d;
+    *seed = *seed ^ (*seed >> 15);
+    *seed = 1103515245 * (*seed) + 12345;
+
+    return (float)(*seed) * 2.3283064365386963e-10f;
+}
+
+float3 SampleHemisphere(float3 normal, unsigned int* seed)
+{
+    float rand1 = TWO_PI * GetRandomFloat(seed);
+    float rand2 = GetRandomFloat(seed);
+    float rand2s = sqrt(rand2);
+
+    float3 w = normal;
+    float3 axis = fabs(w.x) > 0.1f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 u = normalize(cross(axis, w));
+    float3 v = cross(w, u);
+
+    return normalize(u * cos(rand1)*rand2s + v*sin(rand1)*rand2s + w*sqrt(1.0f - rand2));
+}
+
+float RadicalInverse_VdC(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return (float)(bits) * 2.3283064365386963e-10f; // / 0x100000000
+}
+
+float2 Hammersley2d(uint i, uint N)
+{
+    return (float2)((float)(i) / (float)(N), RadicalInverse_VdC(i));
+}
+
+float3 SampleHammersley(float3 normal, unsigned int frameNum)
+{
+    float2 rand12 = Hammersley2d(frameNum, 1000);
+
+    float rand1 = TWO_PI * rand12.x;
+    float rand2 = rand12.y;
+    float rand2s = sqrt(rand2);
+
+    float3 w = normal;
+    float3 axis = fabs(w.x) > 0.1f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 u = normalize(cross(axis, w));
+    float3 v = cross(w, u);
+
+    return normalize(u * cos(rand1)*rand2s + v*sin(rand1)*rand2s + w*sqrt(1.0f - rand2));
+}
 
 float3 reflect(float3 v, float3 n)
 {
@@ -186,48 +260,39 @@ bool RayTriangle(const Ray* r, const __global Triangle* triangle, IntersectData*
 #endif
 
 
-bool RayBounds(const __global Bounds3* bounds, const Ray* ray, float* tNear, float* tFar)
+bool RayBounds(const __global Bounds3* bounds, const Ray* ray, float t)
 {
-    float t0 = 0.0f, t1 = MAX_RENDER_DIST;
-    float nearx = (bounds->pos[ray->sign[0]].x - ray->origin.x) * ray->invDir.x;    
-    float farx = (bounds->pos[1 - ray->sign[0]].x - ray->origin.x) * ray->invDir.x;
-    t0 = max(t0, nearx);
-    t1 = min(t1, farx);
-    if (t0 > t1) return false;
+    float t0 = max(0.0f, (bounds->pos[ray->sign[0]].x - ray->origin.x) * ray->invDir.x);
+    float t1 = min(t, (bounds->pos[1 - ray->sign[0]].x - ray->origin.x) * ray->invDir.x);
 
-    float neary = (bounds->pos[ray->sign[1]].y - ray->origin.y) * ray->invDir.y;
-    float fary = (bounds->pos[1 - ray->sign[1]].y - ray->origin.y) * ray->invDir.y;
-    t0 = max(t0, neary);
-    t1 = min(t1, fary);
-    if (t0 > t1) return false;
+    t0 = max(t0, (bounds->pos[ray->sign[1]].y - ray->origin.y) * ray->invDir.y);
+    t1 = min(t1, (bounds->pos[1 - ray->sign[1]].y - ray->origin.y) * ray->invDir.y);
 
-    float nearz = (bounds->pos[ray->sign[2]].z - ray->origin.z) * ray->invDir.z;
-    float farz = (bounds->pos[1 - ray->sign[2]].z - ray->origin.z) * ray->invDir.z;
-    t0 = max(t0, nearz);
-    t1 = min(t1, farz);
-    if (t0 > t1) return false;
+    t0 = max(t0, (bounds->pos[ray->sign[2]].z - ray->origin.z) * ray->invDir.z);
+    t1 = min(t1, (bounds->pos[1 - ray->sign[2]].z - ray->origin.z) * ray->invDir.z);
 
-    *tNear = t0;
-    *tFar = t1;    
-    return true;
+    return (t1 >= t0);
 
 }
 
-IntersectData IntersectBVH(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes)
+IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes)
 {
     IntersectData isect;
     isect.hit = false;
     isect.ray = *ray;
     isect.t = MAX_RENDER_DIST;
+    isect.steps = 0;
     
+    float t;
     // Follow ray through BVH nodes to find primitive intersections
     int toVisitOffset = 0, currentNodeIndex = 0;
-    int nodesToVisit[8];
-    for (int i = 0; i < 64; ++i)
+    int nodesToVisit[64];
+    while (true)
     {
-        const __global LinearBVHNode* node = &nodes[currentNodeIndex];
-        float tNear, tFar;
-        if (RayBounds(&node->bounds, ray, &tNear, &tFar))
+        __global LinearBVHNode* node = &nodes[currentNodeIndex];
+        ++isect.steps;
+
+        if (RayBounds(&node->bounds, ray, isect.t))
         {
             // Leaf node
             if (node->nPrimitives > 0)
@@ -238,18 +303,12 @@ IntersectData IntersectBVH(Ray *ray, __global Triangle* triangles, __global Line
                     RayTriangle(ray, &triangles[node->offset + i], &isect);
                 }
 
-                //if (tNear < isect.t)
-                //{
-                //    isect.t = tNear;
-                //}
-
                 if (toVisitOffset == 0) break;
                 currentNodeIndex = nodesToVisit[--toVisitOffset];
             }
             else
             {
-                // Put far BVH node on _nodesToVisit_ stack, advance to near
-                // node
+                // Put far BVH node on _nodesToVisit_ stack, advance to near node
                 if (ray->sign[node->axis])
                 {
                     nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
@@ -272,65 +331,98 @@ IntersectData IntersectBVH(Ray *ray, __global Triangle* triangles, __global Line
     return isect;
 }
 
-#define TRACE_DEPTH 3
 
-//float3 RaytraceBVH(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes)
-//{
-//    IntersectData data[TRACE_DEPTH];
-//
-//    float3 Radiance = 0.0f;
-//    int intersections = 0;
-//    for (int i = 0; i < TRACE_DEPTH; ++i)
-//    {
-//        ++intersections;
-//        data[i] = IntersectBVH(ray, triangles, nodes);
-//        if (!data[i].hit) break;
-//        
-//        float3 pos = data[i].pos + ray->dir * 0.0001f;
-//        float3 dir = reflect(ray->dir, data[i].normal);
-//        *ray = InitRay(pos, dir);
-//
-//    }
-//
-//    for (int i = intersections - 1; i >= 0; --i)
-//    {
-//        if (!data[i].hit)
-//        {
-//            Radiance += mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), data[i].ray.dir.z) * 1.25f + pow(max(dot(data[i].ray.dir, normalize((float3)(1.0f, 0.0f, 1.0f))), 0.0f), 64.0f) * 50.0f * (float3)(1.0f, 0.7f, 0.6f);
-//            //break;
-//        }
-//        else
-//        {
-//            Radiance *= 0.75f;
-//        }
-//    }
-//    return Radiance;
-//
-//    //IntersectData data = IntersectBVH(ray, triangles, nodes);
-//
-//
-//    //return data.pos / 64.0f;
-//
-//}
-
-
-float3 RaytraceBVH(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes)
+float3 OrenNayar(float3 wo, float3 wi, float3 normal)
 {
-    IntersectData data = IntersectBVH(ray, triangles, nodes);
-    float3 sss;
-    float3 pos = ray->origin + ray->dir * data.t;
-    return fract(pos / 4.0f, &sss);
+    float roughness = 0.7f;
+    float albedo = 0.9f;
+
+    float LdotV = dot(wi, wo);
+    float NdotL = dot(wi, normal);
+    float NdotV = dot(normal, wo);
+
+    float s = LdotV - NdotL * NdotV;
+    float t = mix(1.0, max(NdotL, NdotV), step(0.0f, s));
+
+    float sigma2 = roughness * roughness;
+    float A = 1.0f + sigma2 * (albedo / (sigma2 + 0.13f) + 0.5f / (sigma2 + 0.33f));
+    float B = 0.45f * sigma2 / (sigma2 + 0.09f);
+
+    return albedo * max(0.0f, NdotL) * (A + B * s / t) / PI;
 }
 
-Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp)
+float3 Phong(float3 wo, float3 wi, float3 normal, float3 albedo)
+{
+    return pow(max(dot(reflect(wi, normal), wo), 0.0f), 32.0f) * 4.0f + albedo;
+}
+
+float3 BlinnPhong(float3 wo, float3 wi, float3 normal, float3 albedo)
+{
+    //return pow(min(max(dot(normalize(wo + wi), normal), 0.0f), 1.0f), 4.0f) * 25.0f + 0.5f;
+    return 0.5f;
+}
+
+float3 SampleSky(__read_only image2d_t tex, float3 dir)
+{
+    const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+
+    // Convert (normalized) dir to spherical coordinates.
+    float2 coords = (float2)(atan2(dir.x, dir.y) + PI, acos(dir.z));
+    coords.x = coords.x < 0.0f ? coords.x + TWO_PI : coords.x;
+    coords.x *= INV_TWO_PI;
+    coords.y *= INV_PI;
+
+    return read_imagef(tex, smp, coords).xyz * 1.5f;
+
+}
+
+float3 Render(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes, unsigned int* seed, unsigned int frameNum, __read_only image2d_t tex)
+{
+    float3 radiance = 0.0f;
+    float3 mask = 1.0f;
+            
+    for (int i = 0; i < 5; ++i)
+    {
+        if (mask.x < 0.05f) break;
+        IntersectData isect = Intersect(ray, triangles, nodes);
+
+        if (!isect.hit)
+        {
+            //radiance += mask * mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), ray->dir.z) * 1.25f + pow(max(dot(ray->dir, normalize((float3)(0.75f, 0.25f, 1.0f))), 0.0f), 256.0f) * 100.0f * (float3)(1.0f, 0.8f, 0.7f);
+            //radiance += mask * (float3)(0.8f, 0.9f, 1.0f) * 1.5f;//mix((float3)(0.75f, 0.75f, 0.75f), (float3)(0.5f, 0.75f, 1.0f), ray->dir.z) * 1.25f;
+            radiance += mask * SampleSky(tex, ray->dir);
+            break;
+        }
+        
+        // Coat
+        float3 newdir;
+        if (GetRandomFloat(seed) < 0.98f)
+            newdir = SampleHemisphere(isect.normal, seed);
+        else
+            newdir = reflect(ray->dir, isect.normal);
+
+        //float3 newdir = SampleHemisphere(isect.normal, seed);
+
+        float3 albedo = (sin(isect.texcoord.x * 64) > 0) * (sin(isect.texcoord.y * 64) > 0) + (sin(isect.texcoord.x * 64 + PI) > 0) * (sin(isect.texcoord.y * 64 + PI) > 0);
+        mask *= Phong(newdir, ray->dir, isect.normal, albedo);
+        //mask *= dot(newdir, isect.normal);
+
+        *ray = InitRay(isect.pos + isect.normal, newdir);
+
+    }
+
+    return radiance;
+}
+
+Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp, unsigned int* seed)
 {
     float invWidth = 1.0f / (float)(width), invHeight = 1.0f / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
     float fov = 90.0f * 3.1415f / 180.0f;
     float angle = tan(0.5f * fov);
 
-    float x = (float)(get_global_id(0) % width);
-    float y = (float)(get_global_id(0) / width);
+    float x = (float)(get_global_id(0) % width) + GetRandomFloat(seed) - 0.5f;
+    float y = (float)(get_global_id(0) / width) + GetRandomFloat(seed) - 0.5f;
 
     x = (2.0f * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
     y = -(1.0f - 2.0f * ((y + 0.5f) * invHeight)) * angle;
@@ -343,8 +435,8 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
 __kernel void main
 (
     // Output
-    __global float3* result,
     // Input
+    __global float3* result,
     __global Triangle* triangles,
     __global LinearBVHNode* nodes,
     uint width,
@@ -352,19 +444,27 @@ __kernel void main
     float3 cameraPos,
     float3 cameraFront,
     float3 cameraUp,
+    unsigned int frameCount,
+    unsigned int frameSeed,
     __read_only image2d_t tex
 )
 {
     const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
         
-    Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp);
 
-    //result[get_global_id(0)] = RaytraceBVH(&ray, triangles, nodes) / 32;
-    result[get_global_id(0)] = RaytraceBVH(&ray, triangles, nodes);
-    //float2 coords = RaytraceBVH(&ray, triangles, nodes).xy;
-        
-    //result[get_global_id(0)] = read_imagef(tex, smp, coords).xyz;
- 
+    unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
+    
+    Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
 
+    float3 radiance = Render(&ray, triangles, nodes, &seed, frameCount, tex);
+
+    if (frameCount == 0)
+    {
+        result[get_global_id(0)] = radiance;
+    }
+    else
+    {
+        result[get_global_id(0)] = (result[get_global_id(0)] * (frameCount - 1) + radiance) / frameCount;
+    }
 
 }

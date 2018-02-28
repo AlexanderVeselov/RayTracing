@@ -12,6 +12,7 @@ Camera::Camera(std::shared_ptr<Viewport> viewport)
     m_Pitch(MATH_PIDIV2),
     m_Yaw(-MATH_PI),
     m_Speed(32.0f),
+    m_FrameCount(0),
     m_Changed(false),
     m_Up(0.0f, 0.0f, 1.0f)
 {
@@ -19,7 +20,7 @@ Camera::Camera(std::shared_ptr<Viewport> viewport)
 
 void Camera::Update()
 {
-    m_Changed = false;
+    //m_Changed = false;
     static POINT point = { 0, 0 };
     unsigned short x, y;
     input->GetMousePos(&x, &y);
@@ -35,6 +36,7 @@ void Camera::Update()
         m_Pitch = clamp(m_Pitch, 0.0f + epsilon, MATH_PI - epsilon);
         input->SetMousePos(point.x, point.y);
         m_Changed = true;
+        m_FrameCount = 0;
     }
     else
     {
@@ -47,6 +49,7 @@ void Camera::Update()
     if (frontback != 0 || strafe != 0)
     {
         m_Changed = true;
+        m_FrameCount = 0;
     }
     
     m_Origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback - std::cosf(m_Yaw - MATH_PIDIV2) * strafe,
@@ -59,5 +62,12 @@ void Camera::Update()
     render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &m_Origin, sizeof(float3));
     render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_FRONT, &m_Front, sizeof(float3));
     render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
+    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &m_FrameCount, sizeof(unsigned int));
+    unsigned int seed = rand();
+    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+
+    std::cout << m_FrameCount << std::endl;
+
+    ++m_FrameCount;
 
 }

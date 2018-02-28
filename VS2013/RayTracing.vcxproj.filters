@@ -42,6 +42,9 @@
     <ClInclude Include="..\src\kernel_bvh.cl">
       <Filter>Kernel Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\hdr.hpp">
+      <Filter>Include Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp">
@@ -63,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\mathlib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\hdr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

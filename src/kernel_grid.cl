@@ -41,6 +41,7 @@ typedef struct
 typedef struct
 {
     bool hit;
+    float t;
     float3 pos;
     float3 texcoord;
     float3 normal;
@@ -205,6 +206,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
     IntersectData out;
     out.hit = false;
     out.ray = *ray;
+    out.t = kMaxRenderDist;
 
     float3 tmax, step, tdelta;
     DDA_prepare(*ray, &tmax, &step, &tdelta);
@@ -214,7 +216,6 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
     float t;
     float3 texcoord;
     float3 normal;
-    float minT = kMaxRenderDist;
     
     while (current_pos.x >= 0 && current_pos.x < GRID_MAX
         && current_pos.y >= 0 && current_pos.y < GRID_MAX
@@ -227,10 +228,10 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global uint* i
         {
             if (RayTriangle(&triangles[indices[i]], ray, &t, &texcoord, &normal))
             {
-                if (t < minT)
+                if (t < out.t)
                 {
-                    minT = t;
                     out.pos = ray->origin + ray->dir * t;
+                    out.t = t;
                     out.object = &triangles[indices[i]];
                     out.texcoord = texcoord;
                     out.normal = normal;
@@ -282,6 +283,15 @@ float3 Raytrace(Ray *ray, __global Triangle* triangles, __global uint* indices, 
 
     return Radiance;
 }
+
+//float3 Raytrace(Ray *ray, __global Triangle* triangles, __global uint* indices, __global CellData* cells, int traceDepth)
+//{
+//    IntersectData data = Intersect(ray, triangles, indices, cells);
+//    float3 sss;
+//    float3 pos = ray->origin + ray->dir * data.t;
+//        return fract(pos / 4.0f, &sss);
+//}
+
 
 Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp)
 {

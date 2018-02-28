@@ -14,6 +14,7 @@
     <ClInclude Include="..\src\camera.hpp" />
     <ClInclude Include="..\src\devcontext.hpp" />
     <ClInclude Include="..\src\exception.hpp" />
+    <ClInclude Include="..\src\hdr.hpp" />
     <ClInclude Include="..\src\inputsystem.hpp" />
     <ClInclude Include="..\src\mathlib.hpp" />
     <ClInclude Include="..\src\render.hpp">
@@ -26,6 +27,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp" />
     <ClCompile Include="..\src\devcontext.cpp" />
+    <ClCompile Include="..\src\hdr.cpp" />
     <ClCompile Include="..\src\inputsystem.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\mathlib.cpp" />

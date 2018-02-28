@@ -2,6 +2,7 @@
 #include "mathlib.hpp"
 #include "inputsystem.hpp"
 #include "exception.hpp"
+#include "hdr.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -149,9 +150,9 @@ void Render::Init(HWND hwnd)
     m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
     m_Camera = std::make_shared<Camera>(m_Viewport);
 #ifdef BVH_INTERSECTION
-    m_Scene = std::make_shared<BVHScene>("meshes/car.obj", 32);
+    m_Scene = std::make_shared<BVHScene>("meshes/car.obj", 4);
 #else
-    m_Scene = std::make_shared<UniformGridScene>("meshes/car.obj");
+    m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
 #endif
     
     std::vector<cl::Platform> all_platforms;
@@ -175,13 +176,14 @@ void Render::Init(HWND hwnd)
     
 }
 
+HDRImage image;
 void Render::SetupBuffers()
 {
     GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(size_t));
     GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(size_t));
 
     cl_int errCode;
-    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_WRITE_ONLY, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
+    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
     if (errCode)
     {
         throw CLException("Failed to create output buffer", errCode);
@@ -194,20 +196,10 @@ void Render::SetupBuffers()
     cl::ImageFormat imageFormat;
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
-    float3* ptr = new float3[256 * 256];
-    for (unsigned int i = 0; i < 256; ++i)
-    for (unsigned int j = 0; j < 256; ++j)
-    {
-        if ((i / 32) % 2 != (j / 32) % 2)
-        {
-            ptr[i * 256 + j] = float3((float)i / 256.0f, (float)j / 256.0f, 0.0f);
-        }
-        else
-        {
-            ptr[i * 256 + j] = float3(0.0f, (float)i / 256.0f, (float)j / 256.0f);
-        }
-    }
-    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, 256, 256, 0, ptr, &errCode);
+
+    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
+    
+    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
     if (errCode)
     {
         throw CLException("Failed to create image", errCode);
@@ -289,19 +281,17 @@ void Render::RenderFrame()
 
     glDrawPixels(m_Viewport->width, m_Viewport->height, GL_RGBA, GL_FLOAT, m_Viewport->pixels);
         
-    //glMatrixMode(GL_PROJECTION);
-    //glLoadIdentity();
-    //gluPerspective(90.0, 1280.0 / 720.0, 1, 1024);
-    //glMatrixMode(GL_MODELVIEW);
-    //glLoadIdentity();
-    //float3 eye = m_Camera->GetOrigin();
-    //float3 center = m_Camera->GetFrontVector() + eye;
-    //gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(90.0, 1280.0 / 720.0, 1, 1024);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    float3 eye = m_Camera->GetOrigin();
+    float3 center = m_Camera->GetFrontVector() + eye;
+    gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
     //
     //m_Scene->DrawDebug();
-
-
-
+    //
     glFinish();
 
     SwapBuffers(m_DisplayContext);

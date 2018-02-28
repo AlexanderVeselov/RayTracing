@@ -163,7 +163,7 @@ public:
     float SurfaceArea() const { float3 d = Diagonal(); return 2 * (d.x * d.y + d.x * d.z + d.y * d.z); }
     float Volume() const { float3 d = Diagonal(); return d.x * d.y * d.z; }
 
-    int MaximumExtent() const
+    unsigned int MaximumExtent() const
     {
         float3 d = Diagonal();
         if (d.x > d.y && d.x > d.z)

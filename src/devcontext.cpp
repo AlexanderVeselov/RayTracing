@@ -35,6 +35,7 @@ CLContext::CLContext(const cl::Platform& platform)
         std::cout << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
         std::cout << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
         std::cout << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
+        std::cout << "Max constant buffer size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << std::endl;
         //std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
         std::cout << "Image support: " << (platform_devices[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
         std::cout << "2D Image max width: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
@@ -73,7 +74,7 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     cl_int errCode = m_Queue.enqueueReadBuffer(buffer, false, 0, size, data);
     if (errCode)
     {
-        throw CLException("Failed to read pixel buffer", errCode);
+        throw CLException("Failed to read buffer", errCode);
     }
 }
 

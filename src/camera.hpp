@@ -29,6 +29,8 @@ private:
     float m_Yaw;    
     float m_Speed;
 
+    unsigned int m_FrameCount;
+
     bool m_Changed;
 
 };

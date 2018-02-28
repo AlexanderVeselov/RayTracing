@@ -4,6 +4,8 @@
 *.tlog
 *.suo
 *.sdf
+*.obj
+*.mtl
 
 VS2013/Debug/
 VS2013/ipch/

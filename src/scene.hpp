@@ -2,7 +2,6 @@
 #define SCENE_HPP
 
 #include "mathlib.hpp"
-#include "aabb.hpp"
 #include "shared_structs.hpp"
 #include <CL/cl.hpp>
 #include <algorithm>
@@ -51,22 +50,22 @@ struct BVHPrimitiveInfo;
 class BVHScene : public Scene
 {
 public:
-    BVHScene(const char* filename, int maxPrimitivesInNode);
+    BVHScene(const char* filename, unsigned int maxPrimitivesInNode);
     virtual void SetupBuffers();
     virtual void DrawDebug();
 
 private:
     BVHBuildNode *BVHScene::RecursiveBuild(
         std::vector<BVHPrimitiveInfo> &primitiveInfo,
-        int start,
-        int end, int *totalNodes,
+        unsigned int start,
+        unsigned int end, unsigned int *totalNodes,
         std::vector<Triangle> &orderedTriangles);
 
-    int BVHScene::FlattenBVHTree(BVHBuildNode *node, int *offset);
+    unsigned int BVHScene::FlattenBVHTree(BVHBuildNode *node, unsigned int *offset);
 
 private:
     std::vector<LinearBVHNode> m_Nodes;
-    int m_MaxPrimitivesInNode;
+    unsigned int m_MaxPrimitivesInNode;
     cl::Buffer m_NodeBuffer;
     BVHBuildNode* m_Root;
 

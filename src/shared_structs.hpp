@@ -33,7 +33,6 @@ struct Vertex
     float3 texcoord;
     float3 normal;
     float3 tangent_s;
-    float3 tangent_t;
 
 };
 
