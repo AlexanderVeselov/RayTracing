@@ -1,4 +1,6 @@
-# Realtime Ray Tracing engine based on OpenCL
+# Realtime GPU Path Tracing engine based on OpenCL
+
+![](screenshots/20.PNG)
 
 ## Pre-Requisites:
 #### OpenCL SDKs
