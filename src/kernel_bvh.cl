@@ -372,7 +372,7 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz * 1.5f;
+    return read_imagef(tex, smp, coords).xyz * 2.5f;
 
 }
 
@@ -404,8 +404,7 @@ float3 Render(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* no
         //float3 newdir = SampleHemisphere(isect.normal, seed);
 
         float3 albedo = (sin(isect.texcoord.x * 64) > 0) * (sin(isect.texcoord.y * 64) > 0) + (sin(isect.texcoord.x * 64 + PI) > 0) * (sin(isect.texcoord.y * 64 + PI) > 0);
-        mask *= Phong(newdir, ray->dir, isect.normal, albedo);
-        //mask *= dot(newdir, isect.normal);
+        mask *= Phong(newdir, ray->dir, isect.normal, albedo) * dot(newdir, isect.normal);
 
         *ray = InitRay(isect.pos + isect.normal, newdir);
 

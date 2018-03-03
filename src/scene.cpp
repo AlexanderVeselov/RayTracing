@@ -12,284 +12,6 @@
 #include <cctype>
 #include <gl/GL.h>
 
-class FileReader
-{
-public:
-    FileReader(const char* filename) : m_InputFile(filename), m_VectorValue(0.0f)
-    {
-        if (!m_InputFile)
-        {
-            std::cerr << "Failed to load " << filename << std::endl;
-        }
-    }
-
-    std::string GetStringValue() const
-    {
-        return m_StringValue;
-    }
-
-    float3 GetVectorValue() const
-    {
-        return m_VectorValue;
-    }
-
-    float3 GetFloatValue() const
-    {
-        return m_VectorValue;
-    }
-
-protected:
-    float ReadFloatValue()
-    {
-        SkipSpaces();
-        float value = 0.0f;
-        bool minus = m_CurrentLine[m_CurrentChar] == '-';
-        if (minus) ++m_CurrentChar;
-        while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
-        {
-            value = value * 10.0f + (float)((int)m_CurrentLine[m_CurrentChar++] - 48);
-        }
-        if (m_CurrentLine[m_CurrentChar++] == '.')
-        {
-            size_t frac = 1;
-            while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
-            {
-                value += (float)((int)m_CurrentLine[m_CurrentChar++] - 48) / (std::powf(10.0f, frac++));
-            }
-        }
-
-        m_FloatValue = minus ? -value : value;
-        return m_FloatValue;
-        
-    }
-
-    int ReadIntValue()
-    {
-        SkipSpaces();
-        int value = 0;
-        bool minus = m_CurrentLine[m_CurrentChar] == '-';
-        if (minus) ++m_CurrentChar;
-
-        while (m_CurrentChar < m_CurrentLine.size() && m_CurrentLine[m_CurrentChar] >= '0' && m_CurrentLine[m_CurrentChar] <= '9')
-        {
-            value = value * 10 + ((int)m_CurrentLine[m_CurrentChar++] - 48);
-        }
-        return minus ? -value : value;
-    }
-
-    void ReadVectorValue()
-    {
-        m_VectorValue.x = ReadFloatValue();
-        m_VectorValue.y = ReadFloatValue();
-        m_VectorValue.z = ReadFloatValue();
-
-    }
-
-    void ReadStringValue()
-    {
-        SkipSpaces();
-        m_StringValue.clear();
-
-        if (m_CurrentChar < m_CurrentLine.size() && IsIdentifierStart(m_CurrentLine[m_CurrentChar]))
-        {
-            m_StringValue += m_CurrentLine[m_CurrentChar++];
-            while (m_CurrentChar < m_CurrentLine.size() && IsIdentifierBody(m_CurrentLine[m_CurrentChar]))
-            {
-                m_StringValue += m_CurrentLine[m_CurrentChar++];
-            }
-        }
-
-    }
-
-    bool ReadLine()
-    {
-        do
-        {
-            if (!std::getline(m_InputFile, m_CurrentLine))
-            {
-                return false;
-            }
-        } while (m_CurrentLine.size() == 0);
-
-        m_CurrentChar = 0;
-        return true;
-    }
-
-    bool IsIdentifierStart(char symbol)
-    {
-        return symbol >= 'a' && symbol <= 'z' ||
-            symbol >= 'A' && symbol <= 'Z' || symbol == '_';
-    }
-
-    bool IsIdentifierBody(char symbol)
-    {
-        return IsIdentifierStart(symbol) || symbol >= '0' && symbol <= '9';
-    }
-
-    void SkipSpaces()
-    {
-        while (std::isspace(m_CurrentLine[m_CurrentChar])) { m_CurrentChar++; }
-    }
-
-    void SkipSymbol(char symbol)
-    {
-        SkipSpaces();
-        while (m_CurrentLine[m_CurrentChar] == symbol) { m_CurrentChar++; }
-    }
-
-private:
-    std::ifstream m_InputFile;
-    std::string m_CurrentLine;
-    std::string m_StringValue;
-    float3 m_VectorValue;
-    float m_FloatValue;
-    size_t m_CurrentChar;
-
-};
-
-class MtlReader : public FileReader
-{
-public:
-    enum MtlToken_t
-    {
-        MTL_MTLNAME,
-        MTL_DIFFUSE,
-        MTL_SPECULAR,
-        MTL_EMISSION,
-        MTL_INVALID,
-        MTL_EOF
-    };
-
-    MtlReader(const char* filename) : FileReader(filename)
-    {
-        std::cout << "Loading material library " << filename << std::endl;
-    }
-
-    MtlToken_t NextToken()
-    {
-        if (!ReadLine())
-        {
-            return MTL_EOF;
-        }
-        
-        ReadStringValue();
-        if (GetStringValue() == "newmtl")
-        {
-            ReadStringValue();
-            return MTL_MTLNAME;
-        }
-        else if (GetStringValue() == "Kd")
-        {
-            ReadVectorValue();
-            return MTL_DIFFUSE;
-        }
-        else if (GetStringValue() == "Ke")
-        {
-            ReadVectorValue();
-            return MTL_EMISSION;
-        }
-        else if (GetStringValue() == "Ns")
-        {
-            ReadFloatValue();
-            return MTL_SPECULAR;
-        }
-        else
-        {
-            return MTL_INVALID;
-        }
-
-    }
-    
-};
-
-class ObjReader : public FileReader
-{
-public:
-    enum ObjToken_t
-    {
-        OBJ_MTLLIB,
-        OBJ_USEMTL,
-        OBJ_POSITION,
-        OBJ_TEXCOORD,
-        OBJ_NORMAL,
-        OBJ_FACE,
-        OBJ_INVALID,
-        OBJ_EOF
-    };
-
-    ObjReader(const char* filename) : FileReader(filename)
-    {
-        std::cout << "Loading object file " << filename << std::endl;
-        
-    }
-
-    ObjToken_t NextToken()
-    {
-        if (!ReadLine())
-        {
-            return OBJ_EOF;
-        }
-
-        ReadStringValue();
-        if (GetStringValue() == "mtllib")
-        {
-            ReadStringValue();
-            return OBJ_MTLLIB;
-        }
-        else if (GetStringValue() == "usemtl")
-        {
-            ReadStringValue();
-            return OBJ_USEMTL;
-        }
-        else if (GetStringValue() == "v")
-        {
-            ReadVectorValue();
-            return OBJ_POSITION;
-        }
-        else if (GetStringValue() == "vn")
-        {
-            ReadVectorValue();
-            return OBJ_NORMAL;
-        }
-        else if (GetStringValue() == "vt")
-        {
-            ReadVectorValue();
-            return OBJ_TEXCOORD;
-        }
-        else if (GetStringValue() == "f")
-        {
-            for (size_t i = 0; i < 3; ++i)
-            {
-                m_VertexIndices[i] = ReadIntValue() - 1;
-                SkipSymbol('/');
-                m_TexcoordIndices[i] = ReadIntValue() - 1;
-                SkipSymbol('/');
-                m_NormalIndices[i] = ReadIntValue() - 1;
-
-            }
-            return OBJ_FACE;
-        }
-        else
-        {
-            return OBJ_INVALID;
-        }
-    }
-    
-    void GetFaceIndices(unsigned int** iv, unsigned int** it, unsigned int** in)
-    {
-        *iv = m_VertexIndices;
-        *it = m_TexcoordIndices;
-        *in = m_NormalIndices;
-    }
-
-private:
-    // Face indices
-    unsigned int m_VertexIndices[3];
-    unsigned int m_TexcoordIndices[3];
-    unsigned int m_NormalIndices[3];
-
-};
-
 Scene::Scene(const char* filename)
 {
     LoadTriangles(filename);
@@ -298,34 +20,6 @@ Scene::Scene(const char* filename)
 const std::vector<Triangle>& Scene::GetTriangles() const
 {
     return m_Triangles;
-}
-
-void Scene::LoadMtlFile(const char* filename)
-{
-    MtlReader mtlReader(filename);
-
-    MtlReader::MtlToken_t token;
-    Material currentMaterial;
-    std::string materialName;
-    while ((token = mtlReader.NextToken()) != MtlReader::MTL_EOF)
-    {
-        switch (token)
-        {
-        case MtlReader::MTL_MTLNAME:
-            materialName = mtlReader.GetStringValue();
-            break;
-        case MtlReader::MTL_DIFFUSE:
-            currentMaterial.diffuse = mtlReader.GetVectorValue();
-            break;
-        case MtlReader::MTL_SPECULAR:
-            currentMaterial.specular = mtlReader.GetVectorValue();
-            break;
-        case MtlReader::MTL_EMISSION:
-            currentMaterial.emission = mtlReader.GetVectorValue();
-            m_Materials[materialName] = currentMaterial;
-            break;
-        }
-    }
 }
 
 //void ComputeTangentSpace(Vertex& v1, Vertex& v2, Vertex& v3)
@@ -366,48 +60,65 @@ void Scene::LoadMtlFile(const char* filename)
 
 void Scene::LoadTriangles(const char* filename)
 {
-    ObjReader objReader(filename);
-
     std::vector<float3> positions;
     std::vector<float3> normals;
     std::vector<float2> texcoords;
 
     Material currentMaterial;
 
-    ObjReader::ObjToken_t token;
-    while ((token = objReader.NextToken()) != ObjReader::OBJ_EOF)
+    std::cout << "Loading object file " << filename << std::endl;
+
+    double startTime = render->GetCurtime();
+
+    FILE* file = fopen(filename, "r");
+    if (!file)
     {
-        switch (token)
+        throw Exception("Failed to open scene file!");
+    }
+    
+    while (true)
+    {
+        char lineHeader[128];
+        int res = fscanf(file, "%s", lineHeader);
+        if (res == EOF)
         {
-        case ObjReader::OBJ_MTLLIB:
-            LoadMtlFile(("meshes/" + objReader.GetStringValue() + ".mtl").c_str());
             break;
-        case ObjReader::OBJ_POSITION:
-            positions.push_back(objReader.GetVectorValue());
-            // Union bounds
-            break;
-        case ObjReader::OBJ_TEXCOORD:
-            texcoords.push_back(float2(objReader.GetVectorValue().x, 1.0f - objReader.GetVectorValue().y));
-            break;
-        case ObjReader::OBJ_NORMAL:
-            normals.push_back(objReader.GetVectorValue());
-            break;
-        case ObjReader::OBJ_USEMTL:
-            currentMaterial = m_Materials[objReader.GetStringValue()];
-            break;
-        case ObjReader::OBJ_FACE:
-            unsigned int *iv, *it, *in;
-            objReader.GetFaceIndices(&iv, &it, &in);
+        }
+        if (strcmp(lineHeader, "v") == 0)
+        {
+            float3 vertex;
+            fscanf(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
+            positions.push_back(vertex);
+        }
+        else if (strcmp(lineHeader, "vt") == 0)
+        {
+            float2 uv;
+            fscanf(file, "%f %f\n", &uv.x, &uv.y);
+            texcoords.push_back(uv);
+        }
+        else if (strcmp(lineHeader, "vn") == 0)
+        {
+            float3 normal;
+            fscanf(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
+            normals.push_back(normal);
+        }
+        else if (strcmp(lineHeader, "f") == 0)
+        {
+            unsigned int iv[3], it[3], in[3];
+            int count = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &iv[0], &it[0], &in[0], &iv[1], &it[1], &in[1], &iv[2], &it[2], &in[2]);
+            if (count != 9)
+            {
+                throw Exception("Failed to load face!");
+            }
             m_Triangles.push_back(Triangle(
-                Vertex(positions[iv[0]], texcoords[it[0]], normals[in[0]]),
-                Vertex(positions[iv[1]], texcoords[it[1]], normals[in[1]]),
-                Vertex(positions[iv[2]], texcoords[it[2]], normals[in[2]])
+                Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
+                Vertex(positions[iv[1] - 1], texcoords[it[1] - 1], normals[in[1] - 1]),
+                Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1])
                 ));
-            break;
         }
     }
     
-    std::cout << "Load succesful (" << m_Triangles.size() << " m_Triangles)" << std::endl;
+    std::cout << "Load succesful (" << m_Triangles.size() << " triangles, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
 
 }
 
@@ -605,6 +316,9 @@ struct BucketInfo
 BVHScene::BVHScene(const char* filename, unsigned int maxPrimitivesInNode)
     : Scene(filename), m_MaxPrimitivesInNode(maxPrimitivesInNode)
 {
+    std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
+
+    double startTime = render->GetCurtime();
     std::vector<BVHPrimitiveInfo> primitiveInfo(m_Triangles.size());
     for (unsigned int i = 0; i < m_Triangles.size(); ++i)
     {
@@ -618,7 +332,7 @@ BVHScene::BVHScene(const char* filename, unsigned int maxPrimitivesInNode)
 
     //primitiveInfo.resize(0);
     std::cout << "BVH created with " << totalNodes << " nodes for " << m_Triangles.size()
-        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB)" << std::endl;
+        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
 
     // Compute representation of depth-first traversal of BVH tree
     m_Nodes.resize(totalNodes);

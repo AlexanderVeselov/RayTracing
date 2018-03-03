@@ -150,7 +150,7 @@ void Render::Init(HWND hwnd)
     m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
     m_Camera = std::make_shared<Camera>(m_Viewport);
 #ifdef BVH_INTERSECTION
-    m_Scene = std::make_shared<BVHScene>("meshes/car.obj", 4);
+    m_Scene = std::make_shared<BVHScene>("meshes/kamaz.obj", 4);
 #else
     m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
 #endif
@@ -208,7 +208,7 @@ void Render::SetupBuffers()
 
 }
 
-const  HWND Render::GetHWND() const
+const HWND Render::GetHWND() const
 {
     return m_hWnd;
 }
@@ -289,9 +289,9 @@ void Render::RenderFrame()
     float3 eye = m_Camera->GetOrigin();
     float3 center = m_Camera->GetFrontVector() + eye;
     gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
-    //
+
     //m_Scene->DrawDebug();
-    //
+
     glFinish();
 
     SwapBuffers(m_DisplayContext);

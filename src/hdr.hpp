@@ -9,14 +9,16 @@ Info:		Load HDR image and convert to a set of float32 RGB triplet.
 from http://www.flipcode.com/archives/HDR_Image_Reader.shtml
 ************************************************************************************/
 
-class HDRImage {
+class HDRImage
+{
 public:
     int width, height;
     // each pixel takes 4 32-bit floats, each component can be of any value...
     float* colors;
 };
 
-class HDRLoader {
+class HDRLoader
+{
 public:
     static bool Load(const char *fileName, HDRImage &res);
 };

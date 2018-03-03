@@ -56,7 +56,7 @@ CLContext::CLContext(const cl::Platform& platform)
         throw CLException("Failed to create queue", errCode);
     }
 
-    std::cout << "Context successfully created" << std::endl;
+    std::cout << "Successfully created context " << std::endl;
 
 }
 
