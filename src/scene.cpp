@@ -15,6 +15,7 @@
 Scene::Scene(const char* filename)
 {
     LoadTriangles(filename);
+
 }
 
 const std::vector<Triangle>& Scene::GetTriangles() const
@@ -60,6 +61,13 @@ const std::vector<Triangle>& Scene::GetTriangles() const
 
 void Scene::LoadTriangles(const char* filename)
 {
+    char mtlname[80];
+    memset(mtlname, 0, 80);
+    strncpy(mtlname, filename, strlen(filename) - 4);
+    strcat(mtlname, ".mtl");
+
+    LoadMaterials(mtlname);
+
     std::vector<float3> positions;
     std::vector<float3> normals;
     std::vector<float2> texcoords;
@@ -76,6 +84,8 @@ void Scene::LoadTriangles(const char* filename)
         throw Exception("Failed to open scene file!");
     }
     
+    unsigned int materialIndex = -1;
+
     while (true)
     {
         char lineHeader[128];
@@ -102,6 +112,20 @@ void Scene::LoadTriangles(const char* filename)
             fscanf(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
             normals.push_back(normal);
         }
+        else if (strcmp(lineHeader, "usemtl") == 0)
+        {
+            char str[80];
+            fscanf(file, "%s\n", str);
+            for (unsigned int i = 0; i < m_MaterialNames.size(); ++i)
+            {
+                if (strcmp(str, m_MaterialNames[i].c_str()) == 0)
+                {
+                    materialIndex = i;
+                    break;
+                }
+            }
+
+        }
         else if (strcmp(lineHeader, "f") == 0)
         {
             unsigned int iv[3], it[3], in[3];
@@ -113,13 +137,65 @@ void Scene::LoadTriangles(const char* filename)
             m_Triangles.push_back(Triangle(
                 Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
                 Vertex(positions[iv[1] - 1], texcoords[it[1] - 1], normals[in[1] - 1]),
-                Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1])
+                Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1]),
+                materialIndex
                 ));
         }
     }
     
     std::cout << "Load succesful (" << m_Triangles.size() << " triangles, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
 
+}
+
+void Scene::LoadMaterials(const char* filename)
+{
+    FILE* file = fopen(filename, "r");
+    if (!file)
+    {
+        throw Exception("Failed to open material file!");
+    }
+    
+    while (true)
+    {
+        char buf[128];
+        int res = fscanf(file, "%s", buf);
+        if (res == EOF)
+        {
+            break;
+        }
+        if (strcmp(buf, "newmtl") == 0)
+        {
+            char str[80];
+            fscanf(file, "%s\n", str);
+            m_MaterialNames.push_back(str);
+            m_Materials.push_back(Material());            
+        }
+        else if (strcmp(buf, "type") == 0)
+        {
+            fscanf(file, "%d\n", &m_Materials.back().type);
+        }
+        else if (strcmp(buf, "diff") == 0)
+        {
+            fscanf(file, "%f %f %f\n", &m_Materials.back().diffuse.x, &m_Materials.back().diffuse.y, &m_Materials.back().diffuse.z);
+        }
+        else if (strcmp(buf, "spec") == 0)
+        {
+            fscanf(file, "%f %f %f\n", &m_Materials.back().specular.x, &m_Materials.back().specular.y, &m_Materials.back().specular.z);
+        }
+        else if (strcmp(buf, "emit") == 0)
+        {
+            fscanf(file, "%f %f %f\n", &m_Materials.back().emission.x, &m_Materials.back().emission.y, &m_Materials.back().emission.z);
+        }
+        else if (strcmp(buf, "rough") == 0)
+        {
+            fscanf(file, "%f\n", &m_Materials.back().roughness);
+        }
+        else if (strcmp(buf, "ior") == 0)
+        {
+            fscanf(file, "%f\n", &m_Materials.back().ior);
+        }
+    }
+    std::cout << "Material count: " << m_Materials.size() << std::endl;
 }
 
 UniformGridScene::UniformGridScene(const char* filename)
@@ -359,7 +435,17 @@ void BVHScene::SetupBuffers()
     {
         throw CLException("Failed to create BVH node buffer", errCode);
     }
+
     render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &m_NodeBuffer, sizeof(cl::Buffer));
+
+    m_MaterialBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create material buffer", errCode);
+    }
+
+    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &m_MaterialBuffer, sizeof(cl::Buffer));
+
     
 }
 

@@ -17,6 +17,7 @@ enum RenderKernelArgument_t
     BUFFER_OUT = 0,
     BUFFER_SCENE,
     BUFFER_NODE,
+    BUFFER_MATERIAL,
     WIDTH,
     HEIGHT,
     CAM_ORIGIN,

@@ -1,7 +1,5 @@
--- fn WriteFile =
--- (	
-
-
+fn WriteFile =
+(	
 	filename = GetSaveFileName types: "Wavefront OBJ (*.OBJ) |*.obj|"
 	if filename == undefined then
 	(
@@ -15,7 +13,9 @@
 		label 'lbl' "" pos:[8,32] width:240 height:15 enabled:true align:#left
 	)
 	CreateDialog progressDialog
-	
+
+	Format "# 3ds Max Wavefront OBJ Exporter by Alexander Veselov\n" to:outputFile
+	Format "# File Created: %\n\n\n\n" localTime to:outputFile
 	for obj in Geometry do
 	(
 		tmesh = obj.mesh
@@ -24,8 +24,6 @@
 	-- 	print ("Material: "+mtl.diffuseMap.filename)
 	-- 	print mtl.diffuse
 		
-		Format "# 3ds Max Wavefront OBJ Exporter by Alexander Veselov\n" to:outputFile
-		Format "# File Created: %\n\n\n\n" localTime to:outputFile
 		Format "#\n# object %\n#\n\n" obj.name to:outputFile
 		
 		progressDialog.lbl.caption = "Writing vertices..."
@@ -65,7 +63,11 @@
 		Format "# % texture coords\n\n" numTexCoords to:outputFile
 		
 		progressDialog.lbl.caption = "Writing faces..."
-		Format "g %\n\n" obj.name to:outputFile
+		Format "g %\n" (substituteString obj.name " " "_") to:outputFile
+		
+		if obj.material != undefined then Format "usemtl %" (substituteString obj.material.name " " "_") to:outputFile
+		Format "\n" to:outputFile
+
 		nIndex = 1
 		for f = 1 to tmesh.numfaces do
 		(
@@ -88,20 +90,37 @@
 		Format "# % faces\n\n" tmesh.numfaces to:outputFile
 		
 	)
-	progressDialog.lbl.caption = "Export complete"
 	
 	close outputFile
--- )
+	
+	progressDialog.lbl.caption = "Export complete"	
+	DestroyDialog progressDialog
+)
 
--- rollout exportMesh "Export Mesh" width:162 height:52
+rollout ExportMesh "Export OBJ" width:256 height:80
+(
+	button 'btn2' "Export" pos:[56,32] width:144 height:32 align:#left
+	checkbox 'chk1' "Export Materials" pos:[8,8] width:144 height:16 checked:true align:#left
+	
+	on btn2 pressed do
+	(
+		WriteFile()
+	)
+)
+CreateDialog ExportMesh
+
+
+
+-- rollout ExportMesh "Export Mesh" width:256 height:72
 -- (
--- 	button 'btn2' "Export" pos:[16,16] width:136 height:32 align:#left
-
--- 	on btn2 pressed  do
+-- 	button 'btn2' "Export" pos:[56,32] width:144 height:32 align:#left
+-- 	checkbox 'chk1' "Export Materials" pos:[8,8] width:144 height:16 checked:true align:#left
+-- 	
+-- 	on btn2 pressed do
 -- 	(
 -- 		WriteFile()
 -- 	)
 -- )
 
--- RF = NewRolloutFloater "Obj Exporter" 256 300
--- AddRollout exportMesh RF
+-- RF = NewRolloutFloater "Obj Exporter" 270 300
+-- AddRollout exportMesh 

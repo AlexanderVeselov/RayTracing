@@ -1,0 +1,19 @@
+# 3ds Max MTL Exporter by Alexander Veselov
+# File Created: 10.03.2018 22:25:16
+
+newmtl 01___Default
+type 1
+diff 0.588235 0.588235 0.588235
+spec 0.0 0.0 0.0
+rough 0.9
+ior 1.5
+emit 0.0 0.0 0.0
+
+newmtl 02___Default
+type 1
+diff 0.0 0.0 0.0
+spec 1.90588 1.56078 0.494118
+rough 0.3
+ior 1.5
+emit 0.0 0.0 0.0
+

@@ -18,12 +18,14 @@ public:
     
 private:
     void LoadTriangles(const char* filename);
-    void LoadMtlFile(const char* filename);
-    std::map<std::string, Material> m_Materials;
+    void LoadMaterials(const char* filename);
+    std::vector<std::string> m_MaterialNames;
 
 protected:
     std::vector<Triangle> m_Triangles;
+    std::vector<Material> m_Materials;
     cl::Buffer m_TriangleBuffer;
+    cl::Buffer m_MaterialBuffer;
 
 };
 
