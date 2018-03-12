@@ -197,7 +197,7 @@ void Render::SetupBuffers()
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
 
-    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
+    HDRLoader::Load("textures/CGSkies_0036_free.hdr", image);
     
     m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
     if (errCode)
@@ -273,6 +273,8 @@ void Render::RenderFrame()
     glClear(GL_COLOR_BUFFER_BIT);
 
     m_Camera->Update();
+
+    //if (m_Camera->GetFrameCount() > 50) return;
 
     unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);

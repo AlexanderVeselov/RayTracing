@@ -16,6 +16,7 @@ public:
     float3 GetUpVector()    const { return m_Up; }
 
     bool IsChanged()        const { return m_Changed; }
+    unsigned int GetFrameCount() const { return m_FrameCount; }
 
 private:
     std::shared_ptr<Viewport> m_Viewport;

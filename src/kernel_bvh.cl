@@ -26,6 +26,13 @@ typedef struct
     const __global Triangle* object;
 } IntersectData;
 
+typedef struct
+{
+    __global Triangle* triangles;
+    __global LinearBVHNode* nodes;
+    __global Material* materials;
+} Scene;
+
 Ray InitRay(float3 origin, float3 dir)
 {
     dir = normalize(dir);
@@ -74,7 +81,7 @@ float3 SampleHemisphere(float3 normal, unsigned int* seed)
     float rand2s = sqrt(rand2);
 
     float3 w = normal;
-    float3 axis = fabs(w.x) > 0.1f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 axis = fabs(w.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
     float3 u = normalize(cross(axis, w));
     float3 v = cross(w, u);
 
@@ -211,7 +218,7 @@ bool RayBounds(const __global Bounds3* bounds, const Ray* ray, float t)
 
 }
 
-IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes)
+IntersectData Intersect(Ray *ray, const Scene* scene)
 {
     IntersectData isect;
     isect.hit = false;
@@ -225,7 +232,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global LinearB
     int nodesToVisit[64];
     while (true)
     {
-        __global LinearBVHNode* node = &nodes[currentNodeIndex];
+        __global LinearBVHNode* node = &scene->nodes[currentNodeIndex];
         ++isect.steps;
 
         if (RayBounds(&node->bounds, ray, isect.t))
@@ -236,7 +243,7 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global LinearB
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < node->nPrimitives; ++i)
                 {
-                    RayTriangle(ray, &triangles[node->offset + i], &isect);
+                    RayTriangle(ray, &scene->triangles[node->offset + i], &isect);
                 }
 
                 if (toVisitOffset == 0) break;
@@ -267,55 +274,18 @@ IntersectData Intersect(Ray *ray, __global Triangle* triangles, __global LinearB
     return isect;
 }
 
-float chiGGX(float v)
+float3 Sample_f(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
 {
-    return v > 0 ? 1 : 0;
-}
+    *wi = SampleHemisphere(normal, seed);
+    *pdf = INV_TWO_PI;
+    float3 wh = normalize(wo + *wi);
 
-float DistributionGGX(float nDotWh, float alpha)
-{
-    float alpha2 = alpha * alpha;
-    float nDotWh2 = nDotWh * nDotWh;
-    float den = nDotWh * alpha2 + (1 - nDotWh2);
-    return (chiGGX(nDotWh) * alpha2) / (PI * den * den);
-}
-
-float GeometryGGX(float hDotWo, float nDotWo, float alpha)
-{
-    float VoH2 = max(hDotWo, 0.0f);
-    float chi = chiGGX(VoH2 / max(nDotWo, 0.0f));
-    VoH2 = VoH2 * VoH2;
-    float tan2 = (1 - VoH2) / VoH2;
-    return (chi * 2) / (1 + sqrt(1 + alpha * alpha * tan2));
-}
-
-float3 FresnelSchlick(float hDotWo, float3 F0)
-{
-    return F0 + (1.0f - F0) * pow(1.0f - hDotWo, 5.0f);
-}
-
-float3 Brdf(float3 wo, float3 wi, float3 normal, float3 albedo, const __global Material* material)
-{
-    float3 wh = wo + wi;
-    if (wh.x == 0.0f || wh.y == 0.0f || wh.z == 0.0f) return 0.0f;
-    wh = normalize(wh);
-        
-    //float alpha = 1.0 - material->roughness;
-    //alpha *= alpha;
-
-    //return pow(max(0.0f, dot(normal, wh)), alpha * 2000.0f) * 16.0f / dot(wo, wh) * material->specular + material->diffuse;
-
-    float nDotWo = dot(normal, wo);
-    float nDotWi = dot(normal, wi);
-
-    float alpha = material->roughness;
+    float alpha = 1.0f - material->roughness;
     alpha *= alpha;
-    
-    float3 specularity = (DistributionGGX(dot(normal, wh), alpha) * FresnelSchlick(dot(wi, wh), material->specular) * GeometryGGX(dot(wo, wh), nDotWo, alpha)) / (4 * (nDotWo * nDotWi));
-    return specularity + material->diffuse;
-    
-}
 
+    return pow(max(0.0f, dot(normal, wh)), alpha * 1000.0f) * 16.0f * material->specular + material->diffuse * INV_PI;
+
+}
 
 float3 SampleSky(__read_only image2d_t tex, float3 dir)
 {
@@ -327,19 +297,23 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz * 1.5f;
+    return read_imagef(tex, smp, coords).xyz;
 
 }
 
-float3 Render(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* nodes, __global Material* materials, unsigned int* seed, unsigned int frameNum, __read_only image2d_t tex)
+float3 saturate(float3 value)
+{
+    return min(max(value, 0.0f), 1.0f);
+}
+
+float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only image2d_t tex)
 {
     float3 radiance = 0.0f;
     float3 beta = 1.0f;
-
-    for (int i = 0; i < 5; ++i)
+        
+    for (int i = 0; i < 4; ++i)
     {
-        if (beta.x < 0.05f) break;
-        IntersectData isect = Intersect(ray, triangles, nodes);
+        IntersectData isect = Intersect(ray, scene);
 
         if (!isect.hit)
         {
@@ -347,23 +321,15 @@ float3 Render(Ray *ray, __global Triangle* triangles, __global LinearBVHNode* no
             break;
         }
         
-        //radiance += beta * materials[isect.object->mtlIndex].emission * 100.0f;
+        const __global Material* material = &scene->materials[isect.object->mtlIndex];
+        radiance += beta * material->emission * 100.0f;
 
-        // Coat
-        //float3 wi;
-        //if (GetRandomFloat(seed) < 0.7f)
-        //    wi = SampleHemisphere(isect.normal, seed);
-        //else
-        //    wi = reflect(ray->dir, isect.normal);
-        //
-        // Input, output direction
-        float3 wi = SampleHemisphere(isect.normal, seed);
+        float3 wi;
         float3 wo = -ray->dir;
+        float pdf;
+        float3 f = Sample_f(wo, &wi, &pdf, isect.normal, material, seed);
 
-        float3 albedo = (sin(isect.texcoord.x * 32) > 0) * (sin(isect.texcoord.y * 32) > 0) + (sin(isect.texcoord.x * 32 + PI) > 0) * (sin(isect.texcoord.y * 32 + PI) > 0);
-
-        beta *= Brdf(wo, wi, isect.normal, albedo, &materials[isect.object->mtlIndex]);// *(1.0f - fabs(dot(wi, isect.normal)));
-
+        beta *= f * fabs(dot(wi, isect.normal)) / pdf;
         *ray = InitRay(isect.pos, wi);
 
     }
@@ -389,14 +355,24 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     return InitRay(cameraPos, dir);
 }
 
+#define GAMMA_CORRECTION
+
 float3 ToGamma(float3 value)
 {
+#ifdef GAMMA_CORRECTION
     return pow(value, 1.0f / 2.2f);
+#else
+    return value;
+#endif
 }
 
 float3 FromGamma(float3 value)
 {
+#ifdef GAMMA_CORRECTION
     return pow(value, 2.2f);
+#else
+    return value;
+#endif
 }
 
 __kernel void main
@@ -417,14 +393,12 @@ __kernel void main
     __read_only image2d_t tex
 )
 {
-    const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
-        
+    Scene scene = { triangles, nodes, materials };
 
     unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
     
     Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
-
-    float3 radiance = Render(&ray, triangles, nodes, materials, &seed, frameCount, tex);
+    float3 radiance = Render(&ray, &scene, &seed, tex);
 
     if (frameCount == 0)
     {
