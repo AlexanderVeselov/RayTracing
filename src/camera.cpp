@@ -8,9 +8,9 @@
 Camera::Camera(std::shared_ptr<Viewport> viewport)
     :
     m_Viewport(viewport),
-    m_Origin(0.0f, -64.0f, 64.0f),
+    m_Origin(0.0f, 32.0f, 32.0f),
     m_Pitch(MATH_PIDIV4 * 3),
-    m_Yaw(MATH_PIDIV2),
+    m_Yaw(-MATH_PIDIV2),
     m_Speed(32.0f),
     m_FrameCount(0),
     m_Up(0.0f, 0.0f, 1.0f)

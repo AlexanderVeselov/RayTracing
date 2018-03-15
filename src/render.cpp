@@ -150,7 +150,7 @@ void Render::Init(HWND hwnd)
     m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
     m_Camera = std::make_shared<Camera>(m_Viewport);
 #ifdef BVH_INTERSECTION
-    m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", 4);
+    m_Scene = std::make_shared<BVHScene>("meshes/spheres.obj", 4);
 #else
     m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
 #endif
@@ -274,7 +274,7 @@ void Render::RenderFrame()
 
     m_Camera->Update();
 
-    //if (m_Camera->GetFrameCount() > 50) return;
+    //if (m_Camera->GetFrameCount() > 256) return;
 
     unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);

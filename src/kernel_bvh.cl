@@ -22,7 +22,6 @@ typedef struct
     float3 pos;
     float3 texcoord;
     float3 normal;
-    int steps;
     const __global Triangle* object;
 } IntersectData;
 
@@ -74,23 +73,22 @@ float GetRandomFloat(unsigned int* seed)
     return (float)(*seed) * 2.3283064365386963e-10f;
 }
 
-float3 SampleHemisphere(float3 normal, unsigned int* seed)
-{
-    float rand1 = TWO_PI * GetRandomFloat(seed);
-    float rand2 = GetRandomFloat(seed);
-    float rand2s = sqrt(rand2);
-
-    float3 w = normal;
-    float3 axis = fabs(w.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
-    float3 u = normalize(cross(axis, w));
-    float3 v = cross(w, u);
-
-    return normalize(u * cos(rand1)*rand2s + v*sin(rand1)*rand2s + w*sqrt(1.0f - rand2));
-}
-
 float3 reflect(float3 v, float3 n)
 {
     return v - 2.0f * dot(v, n) * n;
+}
+
+float3 SampleHemisphereCosine(float3 n, unsigned int* seed)
+{
+    float phi = TWO_PI * GetRandomFloat(seed);
+    float sinThetaSqr = GetRandomFloat(seed);
+    float sinTheta = sqrt(sinThetaSqr);
+
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 s = cross(n, t);
+
+    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*sqrt(1.0f - sinThetaSqr));
 }
 
 #define ALGORITHM2
@@ -224,7 +222,6 @@ IntersectData Intersect(Ray *ray, const Scene* scene)
     isect.hit = false;
     isect.ray = *ray;
     isect.t = MAX_RENDER_DIST;
-    isect.steps = 0;
     
     float t;
     // Follow ray through BVH nodes to find primitive intersections
@@ -233,7 +230,6 @@ IntersectData Intersect(Ray *ray, const Scene* scene)
     while (true)
     {
         __global LinearBVHNode* node = &scene->nodes[currentNodeIndex];
-        ++isect.steps;
 
         if (RayBounds(&node->bounds, ray, isect.t))
         {
@@ -274,21 +270,9 @@ IntersectData Intersect(Ray *ray, const Scene* scene)
     return isect;
 }
 
-float3 Sample_f(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
-{
-    *wi = SampleHemisphere(normal, seed);
-    *pdf = INV_TWO_PI;
-    float3 wh = normalize(wo + *wi);
-
-    float alpha = 1.0f - material->roughness;
-    alpha *= alpha;
-
-    return pow(max(0.0f, dot(normal, wh)), alpha * 1000.0f) * 16.0f * material->specular + material->diffuse * INV_PI;
-
-}
-
 float3 SampleSky(__read_only image2d_t tex, float3 dir)
 {
+    return 1.0f;
     const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
 
     // Convert (normalized) dir to spherical coordinates.
@@ -297,13 +281,27 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz;
+    return read_imagef(tex, smp, coords).xyz * 2.0f;
 
 }
 
 float3 saturate(float3 value)
 {
     return min(max(value, 0.0f), 1.0f);
+}
+
+float3 Sample_f(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+{
+    *wi = SampleHemisphereCosine(normal, seed);
+    *pdf = dot(*wi, normal) * INV_PI;
+
+    float3 wh = normalize(wo + *wi);
+
+    float alpha = 1.0f - material->roughness;
+    alpha *= alpha;
+
+    return pow(max(0.0f, dot(normal, wh)), alpha * 1000.0f) * 16.0f * material->specular + material->diffuse * INV_PI;
+
 }
 
 float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only image2d_t tex)
@@ -329,7 +327,7 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
         float pdf;
         float3 f = Sample_f(wo, &wi, &pdf, isect.normal, material, seed);
 
-        beta *= f * fabs(dot(wi, isect.normal)) / pdf;
+        beta *= f * dot(wi, isect.normal) / pdf;
         *ray = InitRay(isect.pos, wi);
 
     }
@@ -344,8 +342,8 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     float fov = 90.0f * 3.1415f / 180.0f;
     float angle = tan(0.5f * fov);
 
-    float x = (float)(get_global_id(0) % width) + GetRandomFloat(seed) - 0.5f;
-    float y = (float)(get_global_id(0) / width) + GetRandomFloat(seed) - 0.5f;
+    float x = (float)(get_global_id(0) % width) +GetRandomFloat(seed) - 0.5f;
+    float y = (float)(get_global_id(0) / width) +GetRandomFloat(seed) - 0.5f;
 
     x = (2.0f * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
     y = -(1.0f - 2.0f * ((y + 0.5f) * invHeight)) * angle;
