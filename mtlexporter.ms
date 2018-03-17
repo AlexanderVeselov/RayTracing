@@ -13,7 +13,7 @@ fn HandleStandardMaterial mtl outputFile =
 	Format "spec % % %\n" (mtl.specular.r / 255.0 * mtl.specularLevel / 100.0) (mtl.specular.g / 255.0 * mtl.specularLevel / 100.0) (
 		mtl.specular.b / 255.0 * mtl.specularLevel / 100.0) to:outputFile
 	Format "rough %\n" ((100 - mtl.Glossiness) / 100) to:outputFile
-	Format "ior %\n" (mtl.ior) to:outputFile
+	Format "ior %\n" (pow ((1 - mtl.ior) / (1 + mtl.ior)) 2) to:outputFile
 	Format "emit % % %\n" (mtl.selfIllumColor.r / 255.0) (mtl.selfIllumColor.g / 255.0) (mtl.selfIllumColor.b / 255.0) to:outputFile
 	Format "\n" to:outputFile
 )

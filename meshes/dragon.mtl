@@ -4,16 +4,16 @@
 newmtl 01___Default
 type 1
 diff 0.588235 0.588235 0.588235
-spec 0.0 0.0 0.0
-rough 0.9
+spec 0.1 0.1 0.1
+rough 0.5
 ior 1.5
 emit 0.0 0.0 0.0
 
 newmtl 02___Default
 type 1
 diff 0.0 0.0 0.0
-spec 1.90588 1.56078 0.494118
-rough 0.3
+spec 0.95 0.78 0.25
+rough 0.025
 ior 1.5
 emit 0.0 0.0 0.0
 

@@ -75,7 +75,7 @@ float GetRandomFloat(unsigned int* seed)
 
 float3 reflect(float3 v, float3 n)
 {
-    return v - 2.0f * dot(v, n) * n;
+    return -v + 2.0f * dot(v, n) * n;
 }
 
 float3 SampleHemisphereCosine(float3 n, unsigned int* seed)
@@ -272,7 +272,7 @@ IntersectData Intersect(Ray *ray, const Scene* scene)
 
 float3 SampleSky(__read_only image2d_t tex, float3 dir)
 {
-    return 1.0f;
+    //return 0.0f;
     const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
 
     // Convert (normalized) dir to spherical coordinates.
@@ -281,7 +281,7 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz * 2.0f;
+    return read_imagef(tex, smp, coords).xyz * 3.0f;
 
 }
 
@@ -290,17 +290,105 @@ float3 saturate(float3 value)
     return min(max(value, 0.0f), 1.0f);
 }
 
-float3 Sample_f(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+
+float DistributionBlinn(float3 normal, float3 wh, float alpha)
 {
-    *wi = SampleHemisphereCosine(normal, seed);
-    *pdf = dot(*wi, normal) * INV_PI;
+    return (alpha + 2.0f) * pow(max(0.0f, dot(normal, wh)), alpha) * INV_TWO_PI;    
+}
 
-    float3 wh = normalize(wo + *wi);
+float DistributionBeckmann(float3 normal, float3 wh, float alpha)
+{
+    float cosTheta2 = dot(normal, wh);
+    cosTheta2 *= cosTheta2;
+    float alpha2 = alpha*alpha;
 
-    float alpha = 1.0f - material->roughness;
-    alpha *= alpha;
+    return exp(-(1.0f / cosTheta2 - 1.0f) / alpha2) * INV_PI / (alpha2 * cosTheta2 * cosTheta2);
+}
 
-    return pow(max(0.0f, dot(normal, wh)), alpha * 1000.0f) * 16.0f * material->specular + material->diffuse * INV_PI;
+float DistributionGGX(float cosTheta, float alpha)
+{
+    float alpha2 = alpha*alpha;
+    return alpha2 * INV_PI / pow(cosTheta * cosTheta * (alpha2 - 1.0f) + 1.0f, 2.0f);
+}
+
+float3 SampleBlinn(float3 n, float alpha, unsigned int* seed)
+{
+    float phi = TWO_PI * GetRandomFloat(seed);
+    float cosTheta = pow(GetRandomFloat(seed), 1.0f / (alpha + 1.0f));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 s = cross(n, t);
+
+    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*cosTheta);
+
+}
+
+float3 SampleBeckmann(float3 n, float alpha, unsigned int* seed)
+{
+    float phi = TWO_PI * GetRandomFloat(seed);
+    float cosTheta = sqrt(1.0f / (1.0f - alpha * alpha * log(GetRandomFloat(seed))));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 s = cross(n, t);
+
+    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*cosTheta);
+
+}
+
+float3 SampleGGX(float3 n, float alpha, float* cosTheta, unsigned int* seed)
+{
+    float phi = TWO_PI * GetRandomFloat(seed);
+    float xi = GetRandomFloat(seed);
+    *cosTheta = sqrt((1.0f - xi) / (xi * (alpha * alpha - 1.0f) + 1.0f));
+    float sinTheta = sqrt(max(0.0f, 1.0f - (*cosTheta) * (*cosTheta)));
+
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 s = cross(n, t);
+
+    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*(*cosTheta));;
+}
+
+float FresnelShlick(float f0, float nDotWi)
+{
+    return f0 + (1.0f - f0) * pow(1.0f - nDotWi, 5.0f);
+
+}
+//#define BLINN
+
+float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+{
+    if (GetRandomFloat(seed) > 0.5f) // Magic number
+    {
+#ifdef BLINN
+        float alpha = 2.0f / pow(material->roughness, 2.0f) - 2.0f;
+        float3 wh = SampleBlinn(normal, alpha, seed);
+#else
+        float alpha = material->roughness;
+        float cosTheta;
+        float3 wh = SampleGGX(normal, alpha, &cosTheta, seed);
+#endif
+        *wi = reflect(wo, wh);
+        if (dot(*wi, normal) < 0.0f) return 0.0f;
+#ifdef BLINN
+        float D = DistributionBlinn(normal, wh, alpha);
+#else
+        float D = DistributionGGX(cosTheta, alpha);
+#endif
+        *pdf = D * cosTheta / (4.0f * dot(wo, wh));
+        // Actually, _material->ior_ isn't ior value, this is f0 value for now
+        return D * FresnelShlick(material->ior, dot(*wi, wh)) / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
+    }
+    else
+    {
+        *wi = SampleHemisphereCosine(normal, seed);
+        *pdf = dot(*wi, normal) * INV_PI;
+        return material->diffuse * INV_PI;
+    }
 
 }
 
@@ -308,8 +396,8 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
 {
     float3 radiance = 0.0f;
     float3 beta = 1.0f;
-        
-    for (int i = 0; i < 4; ++i)
+            
+    for (int i = 0; i < 5; ++i)
     {
         IntersectData isect = Intersect(ray, scene);
 
@@ -320,15 +408,16 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
         }
         
         const __global Material* material = &scene->materials[isect.object->mtlIndex];
-        radiance += beta * material->emission * 100.0f;
+        radiance += beta * material->emission * 50.0f;
 
         float3 wi;
         float3 wo = -ray->dir;
-        float pdf;
-        float3 f = Sample_f(wo, &wi, &pdf, isect.normal, material, seed);
-
+        float pdf = 0.0f;
+        float3 f = SampleBrdf(wo, &wi, &pdf, isect.normal, material, seed);
+        if (pdf <= 0.0f) break;
+        
         beta *= f * dot(wi, isect.normal) / pdf;
-        *ray = InitRay(isect.pos, wi);
+        *ray = InitRay(isect.pos + wi * 0.1, wi);
 
     }
 
@@ -339,18 +428,26 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
 {
     float invWidth = 1.0f / (float)(width), invHeight = 1.0f / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
-    float fov = 90.0f * 3.1415f / 180.0f;
+    float fov = 45.0f * 3.1415f / 180.0f;
     float angle = tan(0.5f * fov);
 
-    float x = (float)(get_global_id(0) % width) +GetRandomFloat(seed) - 0.5f;
-    float y = (float)(get_global_id(0) / width) +GetRandomFloat(seed) - 0.5f;
+    float x = (float)(get_global_id(0) % width) + GetRandomFloat(seed) - 0.5f;
+    float y = (float)(get_global_id(0) / width) + GetRandomFloat(seed) - 0.5f;
 
     x = (2.0f * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
     y = -(1.0f - 2.0f * ((y + 0.5f) * invHeight)) * angle;
 
     float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
 
-    return InitRay(cameraPos, dir);
+    // Simple Depth of Field
+    float3 pointAimed = cameraPos + 60.0f * dir;
+    float2 dofDir = (float2)(GetRandomFloat(seed), GetRandomFloat(seed));
+    dofDir = normalize(dofDir * 2.0f - 1.0f);
+    float r = 0.75f;
+    float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
+    
+    return InitRay(newPos, normalize(pointAimed - newPos));
+    //return InitRay(cameraPos, dir);
 }
 
 #define GAMMA_CORRECTION
@@ -397,7 +494,7 @@ __kernel void main
     
     Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
     float3 radiance = Render(&ray, &scene, &seed, tex);
-
+        
     if (frameCount == 0)
     {
         result[get_global_id(0)] = ToGamma(radiance);

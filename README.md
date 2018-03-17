@@ -1,6 +1,6 @@
 # Realtime GPU Path Tracing engine based on OpenCL
 
-![](screenshots/20.PNG)
+![](screenshots/cornell_box_2.jpg)
 
 ## Pre-Requisites:
 #### OpenCL SDKs
