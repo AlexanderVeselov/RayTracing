@@ -281,7 +281,7 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz * 3.0f;
+    return read_imagef(tex, smp, coords).xyz * 2.0f;
 
 }
 
@@ -358,36 +358,65 @@ float FresnelShlick(float f0, float nDotWi)
     return f0 + (1.0f - f0) * pow(1.0f - nDotWi, 5.0f);
 
 }
+
+float3 SampleDiffuse(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+{
+    *wi = SampleHemisphereCosine(normal, seed);
+    *pdf = dot(*wi, normal) * INV_PI;
+    return material->diffuse * INV_PI;
+}
+
 //#define BLINN
+float3 SampleSpecular(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+{
+#ifdef BLINN
+    float alpha = 2.0f / pow(material->roughness, 2.0f) - 2.0f;
+    float3 wh = SampleBlinn(normal, alpha, seed);
+#else
+    float alpha = material->roughness;
+    float cosTheta;
+    float3 wh = SampleGGX(normal, alpha, &cosTheta, seed);
+#endif
+        *wi = reflect(wo, wh);
+    if (dot(*wi, normal) * dot(wo, normal) < 0.0f) return 0.0f;
+#ifdef BLINN
+    float D = DistributionBlinn(normal, wh, alpha);
+#else
+    float D = DistributionGGX(cosTheta, alpha);
+#endif
+    *pdf = D * cosTheta / (4.0f * dot(wo, wh));
+
+    // Actually, _material->ior_ isn't ior value, this is f0 value for now
+    return D * FresnelShlick(material->ior, dot(*wi, wh)) / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
+}
 
 float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
 {
-    if (GetRandomFloat(seed) > 0.5f) // Magic number
+    bool doSpecular = dot(material->specular, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+    bool doDiffuse  = dot(material->diffuse,  (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+
+    if (doSpecular && !doDiffuse)
     {
-#ifdef BLINN
-        float alpha = 2.0f / pow(material->roughness, 2.0f) - 2.0f;
-        float3 wh = SampleBlinn(normal, alpha, seed);
-#else
-        float alpha = material->roughness;
-        float cosTheta;
-        float3 wh = SampleGGX(normal, alpha, &cosTheta, seed);
-#endif
-        *wi = reflect(wo, wh);
-        if (dot(*wi, normal) < 0.0f) return 0.0f;
-#ifdef BLINN
-        float D = DistributionBlinn(normal, wh, alpha);
-#else
-        float D = DistributionGGX(cosTheta, alpha);
-#endif
-        *pdf = D * cosTheta / (4.0f * dot(wo, wh));
-        // Actually, _material->ior_ isn't ior value, this is f0 value for now
-        return D * FresnelShlick(material->ior, dot(*wi, wh)) / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
+        return SampleSpecular(wo, wi, pdf, normal, material, seed);
+    }
+    else if (!doSpecular && doDiffuse)
+    {
+        return SampleDiffuse(wo, wi, pdf, normal, material, seed);
+    }
+    else if (doSpecular && doDiffuse)
+    {
+        if (GetRandomFloat(seed) > 0.5f)
+        {
+            return SampleSpecular(wo, wi, pdf, normal, material, seed) * 2.0f;
+        }
+        else
+        {
+            return SampleDiffuse(wo, wi, pdf, normal, material, seed) * 2.0f;
+        }
     }
     else
     {
-        *wi = SampleHemisphereCosine(normal, seed);
-        *pdf = dot(*wi, normal) * INV_PI;
-        return material->diffuse * INV_PI;
+        return 0.0f;
     }
 
 }
@@ -403,7 +432,8 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
 
         if (!isect.hit)
         {
-            radiance += beta * max(SampleSky(tex, ray->dir), 0.0f);
+            float3 val = beta * max(SampleSky(tex, ray->dir), 0.0f);
+            radiance += val;
             break;
         }
         
@@ -415,13 +445,14 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
         float pdf = 0.0f;
         float3 f = SampleBrdf(wo, &wi, &pdf, isect.normal, material, seed);
         if (pdf <= 0.0f) break;
-        
-        beta *= f * dot(wi, isect.normal) / pdf;
-        *ray = InitRay(isect.pos + wi * 0.1, wi);
+
+        float3 mul = f * dot(wi, isect.normal) / pdf;
+        beta *= mul;
+        *ray = InitRay(isect.pos + wi * 0.01f, wi);
 
     }
-
-    return radiance;
+    
+    return max(radiance, 0.0f);
 }
 
 Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp, unsigned int* seed)
@@ -442,8 +473,8 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     // Simple Depth of Field
     float3 pointAimed = cameraPos + 60.0f * dir;
     float2 dofDir = (float2)(GetRandomFloat(seed), GetRandomFloat(seed));
-    dofDir = normalize(dofDir * 2.0f - 1.0f);
-    float r = 0.75f;
+    dofDir = normalize(dofDir * 2.0f - 1.0f) * GetRandomFloat(seed);
+    float r = 1.0f;
     float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
     
     return InitRay(newPos, normalize(pointAimed - newPos));
