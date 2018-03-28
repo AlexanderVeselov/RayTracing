@@ -281,7 +281,7 @@ float3 SampleSky(__read_only image2d_t tex, float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz * 2.0f;
+    return read_imagef(tex, smp, coords).xyz;
 
 }
 
@@ -356,14 +356,15 @@ float3 SampleGGX(float3 n, float alpha, float* cosTheta, unsigned int* seed)
 float FresnelShlick(float f0, float nDotWi)
 {
     return f0 + (1.0f - f0) * pow(1.0f - nDotWi, 5.0f);
-
 }
 
-float3 SampleDiffuse(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+float3 SampleDiffuse(float3 wo, float3* wi, float* pdf, float3 texcoord, float3 normal, const __global Material* material, unsigned int* seed)
 {
     *wi = SampleHemisphereCosine(normal, seed);
     *pdf = dot(*wi, normal) * INV_PI;
-    return material->diffuse * INV_PI;
+
+    float3 albedo = (sin(texcoord.x * 64) > 0) * (sin(texcoord.y * 64) > 0) + (sin(texcoord.x * 64 + PI) > 0) * (sin(texcoord.y * 64 + PI) > 0) * 2.0f;
+    return albedo * material->diffuse * INV_PI;
 }
 
 //#define BLINN
@@ -385,15 +386,14 @@ float3 SampleSpecular(float3 wo, float3* wi, float* pdf, float3 normal, const __
     float D = DistributionGGX(cosTheta, alpha);
 #endif
     *pdf = D * cosTheta / (4.0f * dot(wo, wh));
-
     // Actually, _material->ior_ isn't ior value, this is f0 value for now
-    return D * FresnelShlick(material->ior, dot(*wi, wh)) / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
+    return D / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
 }
 
-float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 normal, const __global Material* material, unsigned int* seed)
+float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 texcoord, float3 normal, const __global Material* material, unsigned int* seed)
 {
     bool doSpecular = dot(material->specular, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
-    bool doDiffuse  = dot(material->diffuse,  (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+    bool doDiffuse = dot(material->diffuse, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
 
     if (doSpecular && !doDiffuse)
     {
@@ -401,7 +401,7 @@ float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 normal, const __glob
     }
     else if (!doSpecular && doDiffuse)
     {
-        return SampleDiffuse(wo, wi, pdf, normal, material, seed);
+        return SampleDiffuse(wo, wi, pdf, texcoord, normal, material, seed);
     }
     else if (doSpecular && doDiffuse)
     {
@@ -411,7 +411,7 @@ float3 SampleBrdf(float3 wo, float3* wi, float* pdf, float3 normal, const __glob
         }
         else
         {
-            return SampleDiffuse(wo, wi, pdf, normal, material, seed) * 2.0f;
+            return SampleDiffuse(wo, wi, pdf, texcoord, normal, material, seed) * 2.0f;
         }
     }
     else
@@ -443,7 +443,7 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
         float3 wi;
         float3 wo = -ray->dir;
         float pdf = 0.0f;
-        float3 f = SampleBrdf(wo, &wi, &pdf, isect.normal, material, seed);
+        float3 f = SampleBrdf(wo, &wi, &pdf, isect.texcoord, isect.normal, material, seed);
         if (pdf <= 0.0f) break;
 
         float3 mul = f * dot(wi, isect.normal) / pdf;
@@ -453,6 +453,17 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
     }
     
     return max(radiance, 0.0f);
+}
+
+float2 PointInHexagon(unsigned int* seed)
+{
+    float2 hexPoints[3] = { (float2)(-1.0f, 0.0f), (float2)(0.5f, 0.866f), (float2)(0.5f, -0.866f) };
+    int x = floor(GetRandomFloat(seed) * 3.0f);
+    float2 v1 = hexPoints[x];
+    float2 v2 = hexPoints[(x + 1) % 3];
+    float p1 = GetRandomFloat(seed);
+    float p2 = GetRandomFloat(seed);
+    return (float2)(p1 * v1.x + p2 * v2.x, p1 * v1.y + p2 * v2.y);
 }
 
 Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp, unsigned int* seed)
@@ -472,8 +483,9 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
 
     // Simple Depth of Field
     float3 pointAimed = cameraPos + 60.0f * dir;
-    float2 dofDir = (float2)(GetRandomFloat(seed), GetRandomFloat(seed));
-    dofDir = normalize(dofDir * 2.0f - 1.0f) * GetRandomFloat(seed);
+    //float2 dofDir = (float2)(GetRandomFloat(seed), GetRandomFloat(seed));
+    //dofDir = normalize(dofDir * 2.0f - 1.0f) * GetRandomFloat(seed);
+    float2 dofDir = PointInHexagon(seed);
     float r = 1.0f;
     float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
     

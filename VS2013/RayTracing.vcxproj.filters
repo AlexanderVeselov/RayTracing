@@ -42,7 +42,7 @@
     <ClInclude Include="..\src\kernel_bvh.cl">
       <Filter>Kernel Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\hdr.hpp">
+    <ClInclude Include="..\src\image_loader.hpp">
       <Filter>Include Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -68,7 +68,10 @@
     <ClCompile Include="..\src\mathlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\hdr.cpp">
+    <ClCompile Include="..\src\hdrloader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ddsloader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

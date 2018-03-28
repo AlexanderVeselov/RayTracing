@@ -2,7 +2,7 @@
 #include "mathlib.hpp"
 #include "inputsystem.hpp"
 #include "exception.hpp"
-#include "hdr.hpp"
+#include "image_loader.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -150,7 +150,7 @@ void Render::Init(HWND hwnd)
     m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
     m_Camera = std::make_shared<Camera>(m_Viewport);
 #ifdef BVH_INTERSECTION
-    m_Scene = std::make_shared<BVHScene>("meshes/box.obj", 4);
+    m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", 4);
 #else
     m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
 #endif
@@ -176,7 +176,7 @@ void Render::Init(HWND hwnd)
     
 }
 
-HDRImage image;
+Image image;
 void Render::SetupBuffers()
 {
     GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(size_t));
@@ -197,8 +197,9 @@ void Render::SetupBuffers()
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
 
-    HDRLoader::Load("textures/studio.hdr", image);
-    
+    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
+    //HDRLoader::Load("textures/studio.hdr", image);
+
     m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
     if (errCode)
     {
@@ -274,7 +275,7 @@ void Render::RenderFrame()
 
     m_Camera->Update();
 
-    //if (m_Camera->GetFrameCount() > 128) return;
+    //if (m_Camera->GetFrameCount() > 64) return;
 
     unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);

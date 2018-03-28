@@ -134,7 +134,7 @@ void Scene::LoadTriangles(const char* filename)
             {
                 throw Exception("Failed to load face!");
             }
-            m_Triangles.push_back(Triangle(
+            m_Triangles.emplace_back(Triangle(
                 Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
                 Vertex(positions[iv[1] - 1], texcoords[it[1] - 1], normals[in[1] - 1]),
                 Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1]),
@@ -168,7 +168,7 @@ void Scene::LoadMaterials(const char* filename)
             char str[80];
             fscanf(file, "%s\n", str);
             m_MaterialNames.push_back(str);
-            m_Materials.push_back(Material());            
+            m_Materials.emplace_back(Material());            
         }
         else if (strcmp(buf, "type") == 0)
         {
