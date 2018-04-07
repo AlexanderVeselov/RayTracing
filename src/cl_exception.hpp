@@ -1,7 +1,8 @@
-#ifndef EXCEPTION_HPP
-#define EXCEPTION_HPP
+#ifndef CL_EXCEPTION_HPP
+#define CL_EXCEPTION_HPP
 
 #include <string>
+#include <exception>
 
 inline const char* GetClErrorString(int error)
 {
@@ -82,23 +83,12 @@ inline const char* GetClErrorString(int error)
 
 }
 
-class Exception
-{
-public:
-    Exception(const std::string& message) : m_Message(message) {}
-    std::string message() const { return m_Message; }
-
-private:
-    std::string m_Message;
-
-};
-
-class CLException : public Exception
+class CLException : public std::exception
 {
 public:
     CLException(const std::string& message, int errorCode)
-        : Exception(message + " ("+ GetClErrorString(errorCode) + ")") {}
+        : std::exception((message + " (" + GetClErrorString(errorCode) + ")").c_str()) {}
 
 };
 
-#endif // EXCEPTION_HPP
+#endif // CL_EXCEPTION_HPP

@@ -13,7 +13,7 @@
   <ItemGroup>
     <ClInclude Include="..\src\camera.hpp" />
     <ClInclude Include="..\src\devcontext.hpp" />
-    <ClInclude Include="..\src\exception.hpp" />
+    <ClInclude Include="..\src\cl_exception.hpp" />
     <ClInclude Include="..\src\image_loader.hpp" />
     <ClInclude Include="..\src\inputsystem.hpp" />
     <ClInclude Include="..\src\mathlib.hpp" />
@@ -26,7 +26,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\camera.cpp" />
-    <ClCompile Include="..\src\ddsloader.cpp" />
     <ClCompile Include="..\src\devcontext.cpp" />
     <ClCompile Include="..\src\hdrloader.cpp" />
     <ClCompile Include="..\src\inputsystem.cpp" />
@@ -40,9 +39,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
       <FileType>Document</FileType>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\src\kernel_grid.cl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{B577E027-4BC3-4D0C-9B58-5021B4A1A673}</ProjectGuid>

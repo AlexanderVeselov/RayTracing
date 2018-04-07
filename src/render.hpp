@@ -11,46 +11,6 @@
 
 #define BVH_INTERSECTION
 
-#ifdef BVH_INTERSECTION
-enum RenderKernelArgument_t
-{
-    BUFFER_OUT = 0,
-    BUFFER_SCENE,
-    BUFFER_NODE,
-    BUFFER_MATERIAL,
-    WIDTH,
-    HEIGHT,
-    CAM_ORIGIN,
-    CAM_FRONT,
-    CAM_UP,
-    FRAME_COUNT,
-    FRAME_SEED,
-    TEXTURE0,
-    
-    // Not using now
-    BUFFER_INDEX,
-    BUFFER_CELL
-};
-#else
-enum RenderKernelArgument_t
-{
-    BUFFER_OUT = 0,
-    BUFFER_SCENE,
-    BUFFER_INDEX,
-    BUFFER_CELL,
-    WIDTH,
-    HEIGHT,
-    CAM_ORIGIN,
-    CAM_FRONT,
-    CAM_UP,
-    TEXTURE0,
-
-    // Not using now
-    BUFFER_NODE
-
-};
-#endif
-
 class Render
 {
 public:
@@ -83,9 +43,9 @@ private:
     // Contexts
     HDC m_DisplayContext;
     HGLRC m_GLContext;
-    std::shared_ptr<CLContext> m_CLContext;
+    std::shared_ptr<CLContext>  m_CLContext;
     // Kernels
-    std::shared_ptr<CLKernel> m_RenderKernel;
+    std::shared_ptr<CLKernel>   m_RenderKernel;
     // Scene
     std::shared_ptr<Camera>     m_Camera;
     std::shared_ptr<Scene>      m_Scene;

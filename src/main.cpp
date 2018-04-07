@@ -1,6 +1,6 @@
 #include "render.hpp"
 #include "inputsystem.hpp"
-#include "exception.hpp"
+#include "cl_exception.hpp"
 #include <Windows.h>
 
 #define WINDOW_CLASS "WindowClass1"
@@ -87,9 +87,9 @@ int main()
     {
         render->Init(hwnd);
     }
-    catch (Exception& ex)
+    catch (std::exception& ex)
     {
-        std::cerr << "Caught exception: " << ex.message() << std::endl;
+        std::cerr << "Caught exception: " << ex.what() << std::endl;
         return 0;
     }
 
@@ -106,9 +106,9 @@ int main()
         {
             render->RenderFrame();
         }
-        catch (Exception& ex)
+        catch (const std::exception& ex)
         {
-            std::cerr << "Caught exception: " << ex.message() << std::endl;
+            std::cerr << "Caught exception: " << ex.what() << std::endl;
             system("PAUSE");
             return 0;
         }

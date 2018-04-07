@@ -1,14 +1,13 @@
 #include "scene.hpp"
 #include "mathlib.hpp"
 #include "render.hpp"
-#include "exception.hpp"
+#include "cl_exception.hpp"
 #include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <sstream>
 #include <ctime>
-#include <unordered_map>
 #include <cctype>
 #include <gl/GL.h>
 
@@ -81,7 +80,7 @@ void Scene::LoadTriangles(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw Exception("Failed to open scene file!");
+        throw std::exception("Failed to open scene file!");
     }
     
     unsigned int materialIndex = -1;
@@ -132,9 +131,9 @@ void Scene::LoadTriangles(const char* filename)
             int count = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &iv[0], &it[0], &in[0], &iv[1], &it[1], &in[1], &iv[2], &it[2], &in[2]);
             if (count != 9)
             {
-                throw Exception("Failed to load face!");
+                throw std::exception("Failed to load face!");
             }
-            m_Triangles.emplace_back(Triangle(
+            m_Triangles.push_back(Triangle(
                 Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
                 Vertex(positions[iv[1] - 1], texcoords[it[1] - 1], normals[in[1] - 1]),
                 Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1]),
@@ -152,7 +151,7 @@ void Scene::LoadMaterials(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw Exception("Failed to open material file!");
+        throw std::exception("Failed to open material file!");
     }
     
     while (true)
@@ -168,7 +167,7 @@ void Scene::LoadMaterials(const char* filename)
             char str[80];
             fscanf(file, "%s\n", str);
             m_MaterialNames.push_back(str);
-            m_Materials.emplace_back(Material());            
+            m_Materials.push_back(Material());
         }
         else if (strcmp(buf, "type") == 0)
         {
@@ -323,7 +322,7 @@ void UniformGridScene::CreateGrid(unsigned int cellResolution)
                     else
                     {
                         CellData lower_cell = lower_cells[x / 2 + (y / 2) * (resolution / 2) + (z / 2) * (resolution / 2) * (resolution / 2)];
-                        for (int i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i)
+                        for (unsigned int i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i)
                         {
                             if (cellBound.Intersects(GetTriangles()[lower_indices[i]]))
                             {
@@ -451,8 +450,8 @@ void BVHScene::SetupBuffers()
 
 void DrawTree(BVHBuildNode* node, float x, float y, int depth)
 {
-    float size_x = 0.025;
-    float size_y = 0.03;
+    float size_x = 0.025f;
+    float size_y = 0.03f;
     if (node->children[0])
     {
         DrawTree(node->children[0], x - 1.0f / y, y + 1, depth * 2);
@@ -574,7 +573,7 @@ BVHBuildNode* BVHScene::RecursiveBuild(
     {
         // Create leaf
         int firstPrimOffset = orderedTriangles.size();
-        for (int i = start; i < end; ++i)
+        for (unsigned int i = start; i < end; ++i)
         {
             int primNum = primitiveInfo[i].primitiveNumber;
             orderedTriangles.push_back(m_Triangles[primNum]);
@@ -666,7 +665,7 @@ BVHBuildNode* BVHScene::RecursiveBuild(
                 }
 
                 // Either create leaf or split primitives at selected SAH bucket
-                float leafCost = nPrimitives;
+                float leafCost = float(nPrimitives);
                 if (nPrimitives > m_MaxPrimitivesInNode || minCost < leafCost)
                 {
                     BVHPrimitiveInfo *pmid = std::partition( &primitiveInfo[start], &primitiveInfo[end - 1] + 1,

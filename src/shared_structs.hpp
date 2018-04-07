@@ -91,6 +91,7 @@ typedef struct CellData
     unsigned int count;
 } CellData;
 
+
 typedef struct LinearBVHNode
 {
 #ifdef __cplusplus

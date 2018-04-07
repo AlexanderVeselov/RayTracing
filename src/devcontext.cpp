@@ -1,5 +1,5 @@
 #include "devcontext.hpp"
-#include "exception.hpp"
+#include "cl_exception.hpp"
 #include "render.hpp"
 #include <iostream>
 #include <vector>
@@ -25,7 +25,7 @@ CLContext::CLContext(const cl::Platform& platform)
     platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);    
     if (platform_devices.empty())
     {
-        throw Exception("No devices found!");
+        throw std::exception("No devices found!");
     }
 
     for (unsigned int i = 0; i < platform_devices.size(); ++i)
@@ -93,7 +93,7 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
     std::ifstream input_file(filename);
     if (!input_file)
     {
-        throw Exception("Failed to load kernel file!");
+        throw std::exception("Failed to load kernel file!");
     }
     
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
@@ -116,9 +116,9 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
 
 }
 
-void CLKernel::SetArgument(size_t argIndex, const void* data, size_t size)
+void CLKernel::SetArgument(RenderKernelArgument_t argIndex, const void* data, size_t size)
 {
-    cl_int errCode = m_Kernel.setArg(argIndex, size, data);
+    cl_int errCode = m_Kernel.setArg(static_cast<unsigned int>(argIndex), size, data);
     if (errCode)
     {
         throw CLException("Failed to set kernel argument", errCode);

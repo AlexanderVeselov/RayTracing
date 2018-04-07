@@ -1,7 +1,7 @@
 #include "render.hpp"
 #include "mathlib.hpp"
 #include "inputsystem.hpp"
-#include "exception.hpp"
+#include "cl_exception.hpp"
 #include "image_loader.hpp"
 #include <iostream>
 #include <fstream>
@@ -128,7 +128,7 @@ void Render::InitGL()
     wglMakeCurrent(m_DisplayContext, m_GLContext);
 
     // Disable VSync
-    typedef BOOL(APIENTRY * wglSwapIntervalEXT_Func)(int);
+    using wglSwapIntervalEXT_Func = BOOL(APIENTRY *)(int);
     wglSwapIntervalEXT_Func wglSwapIntervalEXT = wglSwapIntervalEXT_Func(wglGetProcAddress("wglSwapIntervalEXT"));
     if (wglSwapIntervalEXT)
     {
@@ -159,7 +159,7 @@ void Render::Init(HWND hwnd)
     cl::Platform::get(&all_platforms);
     if (all_platforms.empty())
     {
-        throw Exception("No OpenCL platforms found");
+        throw std::exception("No OpenCL platforms found");
     }
     
     m_CLContext = std::make_shared<CLContext>(all_platforms[0]);
