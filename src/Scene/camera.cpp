@@ -1,7 +1,6 @@
 #include "camera.hpp"
-#include "render.hpp"
-#include "inputsystem.hpp"
-#include "mathlib.hpp"
+#include "renderers/render.hpp"
+#include "io/inputsystem.hpp"
 #include <Windows.h>
 #include <iostream>
 

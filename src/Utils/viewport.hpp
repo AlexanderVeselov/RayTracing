@@ -1,7 +1,7 @@
 #ifndef VIEWPORT_HPP
 #define VIEWPORT_HPP
 
-#include "mathlib.hpp"
+#include "mathlib/mathlib.hpp"
 
 struct Viewport
 {

@@ -1,7 +1,7 @@
-#ifndef DEVCONTEXT_HPP
-#define DEVCONTEXT_HPP
+#ifndef CL_CONTEXT_HPP
+#define CL_CONTEXT_HPP
 
-#include "scene.hpp"
+#include "scene/scene.hpp"
 #include <CL/cl.hpp>
 #include <memory>
 
@@ -61,4 +61,4 @@ private:
 
 };
 
-#endif // DEVCONTEXT_HPP
+#endif // CL_CONTEXT_HPP

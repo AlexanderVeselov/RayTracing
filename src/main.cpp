@@ -1,6 +1,6 @@
-#include "render.hpp"
-#include "inputsystem.hpp"
-#include "cl_exception.hpp"
+#include "renderers/render.hpp"
+#include "io/inputsystem.hpp"
+#include "utils/cl_exception.hpp"
 #include <Windows.h>
 
 #define WINDOW_CLASS "WindowClass1"

@@ -1,10 +1,10 @@
 #ifndef RAYTRACER_HPP
 #define RAYTRACER_HPP
 
-#include "camera.hpp"
-#include "scene.hpp"
-#include "devcontext.hpp"
-#include "viewport.hpp"
+#include "scene/camera.hpp"
+#include "scene/scene.hpp"
+#include "context/cl_context.hpp"
+#include "utils/viewport.hpp"
 #include <Windows.h>
 #include <memory>
 #include <ctime>

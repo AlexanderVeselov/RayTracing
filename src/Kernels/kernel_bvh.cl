@@ -1,4 +1,4 @@
-#include "src/shared_structs.hpp"
+#include "src/utils/shared_structs.hpp"
 
 #define MAX_RENDER_DIST 20000.0f
 #define PI 3.14159265359f

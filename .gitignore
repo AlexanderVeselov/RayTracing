@@ -7,6 +7,4 @@
 *.obj
 *.mtl
 
-VS2013/Debug/
-VS2013/ipch/
-VS2013/Release/
+build/

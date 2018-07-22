@@ -1,5 +1,5 @@
 #include "mathlib.hpp"
-#include "shared_structs.hpp"
+#include "utils/shared_structs.hpp"
 
 bool Bounds3::Intersects(const Triangle &triangle) const
 {

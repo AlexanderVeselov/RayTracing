@@ -1,8 +1,8 @@
 #ifndef SCENE_HPP
 #define SCENE_HPP
 
-#include "mathlib.hpp"
-#include "shared_structs.hpp"
+#include "mathlib/mathlib.hpp"
+#include "utils/shared_structs.hpp"
 #include <CL/cl.hpp>
 #include <algorithm>
 #include <vector>

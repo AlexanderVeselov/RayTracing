@@ -1,7 +1,7 @@
 #include "scene.hpp"
-#include "mathlib.hpp"
-#include "render.hpp"
-#include "cl_exception.hpp"
+#include "mathlib/mathlib.hpp"
+#include "renderers/render.hpp"
+#include "utils/cl_exception.hpp"
 #include <algorithm>
 #include <iostream>
 #include <fstream>

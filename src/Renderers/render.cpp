@@ -1,8 +1,8 @@
 #include "render.hpp"
-#include "mathlib.hpp"
-#include "inputsystem.hpp"
-#include "cl_exception.hpp"
-#include "image_loader.hpp"
+#include "mathlib/mathlib.hpp"
+#include "io/inputsystem.hpp"
+#include "io/image_loader.hpp"
+#include "utils/cl_exception.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -167,20 +167,20 @@ void Render::Init(HWND hwnd)
     std::vector<cl::Device> platform_devices;
     all_platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 #ifdef BVH_INTERSECTION
-    m_RenderKernel = std::make_shared<CLKernel>("src/kernel_bvh.cl", platform_devices);
+    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", platform_devices);
 #else
-    m_RenderKernel = std::make_shared<CLKernel>("src/kernel_grid.cl", platform_devices);
+    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_grid.cl", platform_devices);
 #endif
 
     SetupBuffers();
-    
+
 }
 
 Image image;
 void Render::SetupBuffers()
 {
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(size_t));
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(size_t));
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(unsigned int));
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(unsigned int));
 
     cl_int errCode;
     m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);

@@ -1,8 +1,8 @@
-#ifndef m_CameraHPP
-#define m_CameraHPP
+#ifndef CAMERA_HPP
+#define CAMERA_HPP
 
-#include "mathlib.hpp"
-#include "viewport.hpp"
+#include "mathlib/mathlib.hpp"
+#include "utils/viewport.hpp"
 #include <memory>
 
 class Camera
@@ -36,4 +36,4 @@ private:
 
 };
 
-#endif // m_CameraHPP
+#endif // CAMERA_HPP

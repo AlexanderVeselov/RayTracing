@@ -1,6 +1,6 @@
-#include "devcontext.hpp"
-#include "cl_exception.hpp"
-#include "render.hpp"
+#include "cl_context.hpp"
+#include "utils/cl_exception.hpp"
+#include "renderers/render.hpp"
 #include <iostream>
 #include <vector>
 #include <string>

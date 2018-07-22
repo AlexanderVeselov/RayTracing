@@ -2,7 +2,7 @@
 #define TRIANGLE_HPP
 
 #ifdef __cplusplus
-#include "mathlib.hpp"
+#include "mathlib/mathlib.hpp"
 #include <CL/cl.h>
 #include <algorithm>
 #endif
