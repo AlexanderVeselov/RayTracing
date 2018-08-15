@@ -2,63 +2,67 @@ cmake_minimum_required(VERSION 3.8)
 
 project(RayTracing CXX)
 
-set(SOURCES_CONTEXT
-	src/Context/cl_context.cpp
-	src/Context/cl_context.hpp
+set(CONTEXT_SOURCES
+    src/context/cl_context.cpp
+    src/context/cl_context.hpp
 )
 
-set(SOURCES_IO
-	src/io/dds_loader.cpp
-	src/io/hdr_loader.cpp
-	src/io/image_loader.hpp
-	src/io/inputsystem.cpp
-	src/io/inputsystem.hpp
+set(IO_SOURCES
+    src/io/dds_loader.cpp
+    src/io/hdr_loader.cpp
+    src/io/image_loader.hpp
+    src/io/inputsystem.cpp
+    src/io/inputsystem.hpp
 )
 
-set(SRC_KERNELS
+set(KERNELS_SOURCES
     src/kernels/kernel_bvh.cl
     src/kernels/kernel_grid.cl
 )
 
-set(SOURCES_MATHLIB
-	src/mathlib/mathlib.cpp
-	src/mathlib/mathlib.hpp
+set(MATHLIB_SOURCES
+    src/mathlib/mathlib.cpp
+    src/mathlib/mathlib.hpp
 )
 
-set(SOURCES_RENDERERS
-	src/renderers/render.cpp
-	src/renderers/render.hpp
+set(RENDERERS_SOURCES
+    src/renderers/render.cpp
+    src/renderers/render.hpp
 )
 
-set(SOURCES_SCENE
-	src/scene/camera.cpp
-	src/scene/camera.hpp
-	src/scene/scene.cpp
-	src/scene/scene.hpp
+set(SCENE_SOURCES
+    src/scene/camera.cpp
+    src/scene/camera.hpp
+    src/scene/scene.cpp
+    src/scene/scene.hpp
 )
 
-set(SOURCES_UTILS
-	src/utils/cl_exception.hpp
-	src/utils/shared_structs.hpp
-	src/utils/viewport.hpp	
+set(UTILS_SOURCES
+    src/utils/cl_exception.hpp
+    src/utils/shared_structs.hpp
+    src/utils/viewport.hpp
+)
+
+set(MAIN_SOURCES
+    src/main.cpp
 )
 
 set(SOURCES
-	${SOURCES_CONTEXT}
-	${SOURCES_IO}
-	${SRC_KERNELS}
-	${SOURCES_MATHLIB}
-	${SOURCES_RENDERERS}
-	${SOURCES_SCENE}
-	${SOURCES_UTILS}
-	src/main.cpp
+    ${CONTEXT_SOURCES}
+    ${IO_SOURCES}
+    ${KERNELS_SOURCES}
+    ${MATHLIB_SOURCES}
+    ${RENDERERS_SOURCES}
+    ${SCENE_SOURCES}
+    ${UTILS_SOURCES}
+    ${MAIN_SOURCES}
 )
 
 add_executable(RayTracing ${SOURCES})
 find_package(OpenCL REQUIRED)
 find_package(OpenGL REQUIRED)
 target_include_directories(RayTracing PUBLIC "${RayTracing_SOURCE_DIR}/src")
-target_link_libraries(RayTracing PUBLIC OpenCL::OpenCL OpenGL::GL)
+target_link_libraries(RayTracing PUBLIC OpenCL::OpenCL OpenGL::GL OpenGL::GLU)
 set_target_properties(RayTracing PROPERTIES
-	VS_DEBUGGER_WORKING_DIRECTORY ${RayTracing_SOURCE_DIR}
+    VS_DEBUGGER_WORKING_DIRECTORY ${RayTracing_SOURCE_DIR}
 )

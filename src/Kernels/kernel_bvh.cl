@@ -513,7 +513,7 @@ float3 FromGamma(float3 value)
 #endif
 }
 
-__kernel void main
+__kernel void KernelEntry
 (
     // Output
     // Input

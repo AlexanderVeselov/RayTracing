@@ -52,7 +52,7 @@ class CLKernel
 {
 public:
     CLKernel(const char* filename, const std::vector<cl::Device>& devices);
-    void SetArgument(RenderKernelArgument_t argIndex, const void* data, size_t size);
+    void SetArgument(RenderKernelArgument_t argIndex, void* data, size_t size);
     const cl::Kernel& GetKernel() const { return m_Kernel; }
 
 private:

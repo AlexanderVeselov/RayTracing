@@ -49,7 +49,7 @@ CLContext::CLContext(const cl::Platform& platform)
     {
         throw CLException("Failed to create context", errCode);
     }
-       
+
     m_Queue = cl::CommandQueue(m_Context, platform_devices[0], 0, &errCode);
     if (errCode)
     {
@@ -101,14 +101,14 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
 
     cl::Program program(render->GetCLContext()->GetContext(), source);
 
-    cl_int errCode = program.build(devices);
+    cl_int errCode = program.build(devices, " -I . ");
     if (errCode != CL_SUCCESS)
     {
         throw CLException("Error building" + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]), errCode);
     }
     std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
 
-    m_Kernel = cl::Kernel(program, "main", &errCode);
+    m_Kernel = cl::Kernel(program, "KernelEntry", &errCode);
     if (errCode)
     {
         throw CLException("Failed to create kernel", errCode);
@@ -116,7 +116,7 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
 
 }
 
-void CLKernel::SetArgument(RenderKernelArgument_t argIndex, const void* data, size_t size)
+void CLKernel::SetArgument(RenderKernelArgument_t argIndex, void* data, size_t size)
 {
     cl_int errCode = m_Kernel.setArg(static_cast<unsigned int>(argIndex), size, data);
     if (errCode)

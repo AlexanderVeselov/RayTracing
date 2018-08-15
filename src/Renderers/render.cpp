@@ -9,8 +9,6 @@
 #include <gl/GL.h>
 #include <gl/GLU.h>
 
-#pragma comment( lib, "glu32.lib" )
-
 static Render g_Render;
 Render* render = &g_Render;
 
