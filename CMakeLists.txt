@@ -40,7 +40,8 @@ set(SCENE_SOURCES
 set(UTILS_SOURCES
     src/utils/cl_exception.hpp
     src/utils/shared_structs.hpp
-    src/utils/viewport.hpp
+    src/utils/framebuffer.cpp
+    src/utils/framebuffer.hpp
 )
 
 set(MAIN_SOURCES

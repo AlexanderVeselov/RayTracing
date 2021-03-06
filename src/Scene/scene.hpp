@@ -29,22 +29,22 @@ protected:
 
 };
 
-class UniformGridScene : public Scene
-{
-public:
-    UniformGridScene(const char* filename);
-    virtual void SetupBuffers();
-    virtual void DrawDebug();
-
-private:
-    void CreateGrid(unsigned int cellResolution);
-
-    std::vector<unsigned int> m_Indices;
-    std::vector<CellData> m_Cells;
-    cl::Buffer m_IndexBuffer;
-    cl::Buffer m_CellBuffer;
-
-};
+//class UniformGridScene : public Scene
+//{
+//public:
+//    UniformGridScene(const char* filename);
+//    virtual void SetupBuffers();
+//    virtual void DrawDebug();
+//
+//private:
+//    void CreateGrid(unsigned int cellResolution);
+//
+//    std::vector<unsigned int> m_Indices;
+//    std::vector<CellData> m_Cells;
+//    cl::Buffer m_IndexBuffer;
+//    cl::Buffer m_CellBuffer;
+//
+//};
 
 struct BVHBuildNode;
 struct BVHPrimitiveInfo;
