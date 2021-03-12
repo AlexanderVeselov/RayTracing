@@ -118,7 +118,7 @@ void Render::InitGL()
 
     // Disable VSync
     using wglSwapIntervalEXT_Func = BOOL(APIENTRY*)(int);
-    wglSwapIntervalEXT_Func wglSwapIntervalEXT = wglSwapIntervalEXT_Func(wglGetProcAddress("wglSwapIntervalEXT"));
+    wglSwapIntervalEXT_Func wglSwapIntervalEXT = (wglSwapIntervalEXT_Func)wglGetProcAddress("wglSwapIntervalEXT");
     if (wglSwapIntervalEXT)
     {
         wglSwapIntervalEXT(0);
@@ -131,6 +131,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 {
     InitWindow();
     InitGL();
+
 
     m_Framebuffer = std::make_shared<Framebuffer>(width_, height_);
     //m_Camera = std::make_shared<Camera>(m_Framebuffer);
@@ -161,7 +162,6 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
 }
 
-Image image;
 void Render::SetupBuffers()
 {
 

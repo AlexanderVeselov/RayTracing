@@ -22,7 +22,7 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
     };
 
     std::vector<cl::Device> platform_devices;
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);    
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
     if (platform_devices.empty())
     {
         throw std::exception("No devices found!");
