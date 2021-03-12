@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.8)
 
 project(RayTracing CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 set(CONTEXT_SOURCES
     src/context/cl_context.cpp
     src/context/cl_context.hpp
@@ -58,11 +60,18 @@ set(SOURCES
     ${MAIN_SOURCES}
 )
 
-add_executable(RayTracing ${SOURCES})
+
+add_executable(RayTracingApp ${SOURCES})
 find_package(OpenCL REQUIRED)
 find_package(OpenGL REQUIRED)
-target_include_directories(RayTracing PUBLIC "${RayTracing_SOURCE_DIR}/src")
-target_link_libraries(RayTracing PUBLIC OpenCL::OpenCL OpenGL::GL OpenGL::GLU)
-set_target_properties(RayTracing PROPERTIES
+find_package(GLEW REQUIRED)
+target_include_directories(RayTracingApp PUBLIC "${RayTracing_SOURCE_DIR}/src")
+target_link_libraries(RayTracingApp PUBLIC OpenCL::OpenCL OpenGL::GL GLEW::GLEW OpenGL::GLU)
+set_target_properties(RayTracingApp PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY ${RayTracing_SOURCE_DIR}
 )
+
+add_custom_command(TARGET RayTracingApp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${PROJECT_SOURCE_DIR}/3rdparty/glew-2.1.0/bin/x64/glew32.dll"
+    $<TARGET_FILE_DIR:RayTracingApp>)
