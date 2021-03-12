@@ -6,8 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <gl/GL.h>
-#include <gl/GLU.h>
+#include <GL/glew.h>
+#include <GL/wglew.h>
 
 static Render g_Render;
 Render* render = &g_Render;
@@ -125,13 +125,17 @@ void Render::InitGL()
     m_GLContext = wglCreateContext(m_DisplayContext);
     wglMakeCurrent(m_DisplayContext, m_GLContext);
 
-    // Disable VSync
-    using wglSwapIntervalEXT_Func = BOOL(APIENTRY *)(int);
-    wglSwapIntervalEXT_Func wglSwapIntervalEXT = wglSwapIntervalEXT_Func(wglGetProcAddress("wglSwapIntervalEXT"));
-    if (wglSwapIntervalEXT)
+    GLenum glew_status = glewInit();
+
+    if (glew_status != GLEW_OK)
     {
-        wglSwapIntervalEXT(0);
+        fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
+
+        throw std::runtime_error("Failed to init GLEW");
     }
+
+    // Disable VSync
+    wglSwapIntervalEXT(0);
 }
 
 void Render::Init(HWND hwnd)
