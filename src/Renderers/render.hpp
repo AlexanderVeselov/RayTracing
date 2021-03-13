@@ -3,7 +3,7 @@
 
 #include "scene/camera.hpp"
 #include "scene/scene.hpp"
-#include "context/cl_context.hpp"
+#include "GpuWrappers/cl_context.hpp"
 #include "utils/framebuffer.hpp"
 #include <Windows.h>
 #include <memory>

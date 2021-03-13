@@ -9,7 +9,7 @@
 #include <sstream>
 #include <ctime>
 #include <cctype>
-#include <gl/GL.h>
+#include <GL/glew.h>
 
 Scene::Scene(const char* filename)
 {

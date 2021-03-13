@@ -6,8 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <gl/GL.h>
-#include <gl/GLU.h>
+#include <GL/glew.h>
+#include <GL/wglew.h>
 
 #define WINDOW_CLASS "WindowClass1"
 #define WINDOW_TITLE "Ray Tracing"
@@ -116,13 +116,17 @@ void Render::InitGL()
 
     printf("GL version: %s\n", (char*)glGetString(GL_VERSION));
 
-    // Disable VSync
-    using wglSwapIntervalEXT_Func = BOOL(APIENTRY*)(int);
-    wglSwapIntervalEXT_Func wglSwapIntervalEXT = (wglSwapIntervalEXT_Func)wglGetProcAddress("wglSwapIntervalEXT");
-    if (wglSwapIntervalEXT)
+    GLenum glew_status = glewInit();
+
+    if (glew_status != GLEW_OK)
     {
-        wglSwapIntervalEXT(0);
+        fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
+
+        throw std::runtime_error("Failed to init GLEW");
     }
+
+    // Disable VSync
+    wglSwapIntervalEXT(0);
 }
 
 Render::Render(std::uint32_t width, std::uint32_t height)
