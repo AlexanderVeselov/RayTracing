@@ -48,11 +48,12 @@ protected:
 
 struct BVHBuildNode;
 struct BVHPrimitiveInfo;
+class Render;
 
 class BVHScene : public Scene
 {
 public:
-    BVHScene(const char* filename, unsigned int maxPrimitivesInNode);
+    BVHScene(const char* filename, Render& render, unsigned int maxPrimitivesInNode);
     virtual void SetupBuffers();
     virtual void DrawDebug();
 
@@ -66,6 +67,7 @@ private:
     unsigned int BVHScene::FlattenBVHTree(BVHBuildNode *node, unsigned int *offset);
 
 private:
+    Render& m_Render;
     std::vector<LinearBVHNode> m_Nodes;
     unsigned int m_MaxPrimitivesInNode;
     cl::Buffer m_NodeBuffer;

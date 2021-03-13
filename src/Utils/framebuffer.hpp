@@ -9,6 +9,8 @@ class Framebuffer
 public:
     Framebuffer(std::uint32_t width, std::uint32_t height);
     void Present();
+    std::uint32_t GetWidth() const { return width_; }
+    std::uint32_t GetHeight() const { return height_; }
 
 private:
     std::uint32_t width_;

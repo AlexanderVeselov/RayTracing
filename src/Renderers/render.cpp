@@ -136,11 +136,11 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     InitWindow();
     InitGL();
 
-
     m_Framebuffer = std::make_shared<Framebuffer>(width_, height_);
-    //m_Camera = std::make_shared<Camera>(m_Framebuffer);
+    m_Camera = std::make_shared<Camera>(m_Framebuffer, *this);
+
 #ifdef BVH_INTERSECTION
-    //m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", 4);
+    m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", *this, 4);
 #else
     m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
 #endif
@@ -151,13 +151,13 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     {
         throw std::exception("No OpenCL platforms found");
     }
-    
-    //m_CLContext = std::make_shared<CLContext>(all_platforms[0]);
+
+    m_CLContext = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
     std::vector<cl::Device> platform_devices;
     all_platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 #ifdef BVH_INTERSECTION
-//    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", platform_devices);
+    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", *m_CLContext, platform_devices);
 #else
     m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_grid.cl", platform_devices);
 #endif
@@ -168,41 +168,35 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
 void Render::SetupBuffers()
 {
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &width_, sizeof(unsigned int));
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(unsigned int));
 
-    //GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(unsigned int));
-    //GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(unsigned int));
+    cl_int errCode;
+    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create output buffer", errCode);
+    }
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
+    
+    m_Scene->SetupBuffers();
 
-    //cl_int errCode;
-    //m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
-    //if (errCode)
-    //{
-    //    throw CLException("Failed to create output buffer", errCode);
-    //}
-    //GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
-    //
-    //m_Scene->SetupBuffers();
+    // Texture Buffers
+    cl::ImageFormat imageFormat;
+    imageFormat.image_channel_order = CL_RGBA;
+    imageFormat.image_channel_data_type = CL_FLOAT;
 
-    //// Texture Buffers
-    //cl::ImageFormat imageFormat;
-    //imageFormat.image_channel_order = CL_RGBA;
-    //imageFormat.image_channel_data_type = CL_FLOAT;
+    Image image;
+    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
 
-    //HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
-    ////HDRLoader::Load("textures/studio.hdr", image);
-
-    //m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
-    //if (errCode)
-    //{
-    //    throw CLException("Failed to create image", errCode);
-    //}
-    //GetCLKernel()->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
+    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create image", errCode);
+    }
+    GetCLKernel()->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
 
 }
-
-//const HWND Render::GetHWND() const
-//{
-//    return m_hWnd;
-//}
 
 double Render::GetCurtime() const
 {
@@ -214,27 +208,10 @@ double Render::GetDeltaTime() const
     return GetCurtime() - m_PreviousFrameTime;
 }
 
-//unsigned int Render::GetGlobalWorkSize() const
-//{
-//    if (m_Viewport)
-//    {
-//        return m_Viewport->width * m_Viewport->height;
-//    }
-//    else
-//    {
-//        return 0;
-//    }
-//}
-
-//std::shared_ptr<CLContext> Render::GetCLContext() const
-//{
-//    return m_CLContext;
-//}
-//
-//std::shared_ptr<CLKernel> Render::GetCLKernel() const
-//{
-//    return m_RenderKernel;
-//}
+std::uint32_t Render::GetGlobalWorkSize() const
+{
+    return width_ * height_;
+}
 
 void Render::FrameBegin()
 {
@@ -253,17 +230,14 @@ void Render::RenderFrame()
     glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    m_Framebuffer->Present();
+    m_Camera->Update();
 
-    //m_Camera->Update();
-
-    //if (m_Camera->GetFrameCount() > 64) return;
-
-    /*
     unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);
-    GetCLContext()->ReadBuffer(m_OutputBuffer, m_Viewport->pixels, sizeof(float3) * globalWorksize);
-    GetCLContext()->Finish();
+
+    m_Framebuffer->Present();
+
+    /*
 
     glDrawPixels(m_Viewport->width, m_Viewport->height, GL_RGBA, GL_FLOAT, m_Viewport->pixels);
         

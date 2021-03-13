@@ -386,65 +386,64 @@ struct BucketInfo
     Bounds3 bounds;
 };
 
-//BVHScene::BVHScene(const char* filename, unsigned int maxPrimitivesInNode)
-//    : Scene(filename), m_MaxPrimitivesInNode(maxPrimitivesInNode)
-//{
-//    std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
-//
-//    double startTime = render->GetCurtime();
-//    std::vector<BVHPrimitiveInfo> primitiveInfo(m_Triangles.size());
-//    for (unsigned int i = 0; i < m_Triangles.size(); ++i)
-//    {
-//        primitiveInfo[i] = { i, m_Triangles[i].GetBounds() };
-//    }
-//
-//    unsigned int totalNodes = 0;
-//    std::vector<Triangle> orderedTriangles;
-//    m_Root = RecursiveBuild(primitiveInfo, 0, m_Triangles.size(), &totalNodes, orderedTriangles);
-//    m_Triangles.swap(orderedTriangles);
-//
-//    //primitiveInfo.resize(0);
-//    std::cout << "BVH created with " << totalNodes << " nodes for " << m_Triangles.size()
-//        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
-//
-//    // Compute representation of depth-first traversal of BVH tree
-//    m_Nodes.resize(totalNodes);
-//    unsigned int offset = 0;
-//    FlattenBVHTree(m_Root, &offset);
-//    assert(totalNodes == offset);
-//
-//}
-//
-//void BVHScene::SetupBuffers()
-//{
-//    cl_int errCode;
-//
-//    m_TriangleBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
-//    if (errCode)
-//    {
-//        throw CLException("Failed to create scene buffer", errCode);
-//    }
-//
-//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
-//
-//    m_NodeBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
-//    if (errCode)
-//    {
-//        throw CLException("Failed to create BVH node buffer", errCode);
-//    }
-//
-//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &m_NodeBuffer, sizeof(cl::Buffer));
-//
-//    m_MaterialBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
-//    if (errCode)
-//    {
-//        throw CLException("Failed to create material buffer", errCode);
-//    }
-//
-//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &m_MaterialBuffer, sizeof(cl::Buffer));
-//
-//    
-//}
+BVHScene::BVHScene(const char* filename, Render& render, unsigned int maxPrimitivesInNode)
+    : Scene(filename), m_Render(render), m_MaxPrimitivesInNode(maxPrimitivesInNode)
+{
+    std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
+
+    double startTime = m_Render.GetCurtime();
+    std::vector<BVHPrimitiveInfo> primitiveInfo(m_Triangles.size());
+    for (unsigned int i = 0; i < m_Triangles.size(); ++i)
+    {
+        primitiveInfo[i] = { i, m_Triangles[i].GetBounds() };
+    }
+
+    unsigned int totalNodes = 0;
+    std::vector<Triangle> orderedTriangles;
+    m_Root = RecursiveBuild(primitiveInfo, 0, m_Triangles.size(), &totalNodes, orderedTriangles);
+    m_Triangles.swap(orderedTriangles);
+
+    //primitiveInfo.resize(0);
+    std::cout << "BVH created with " << totalNodes << " nodes for " << m_Triangles.size()
+        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, " << m_Render.GetCurtime() - startTime << "s elapsed)" << std::endl;
+
+    // Compute representation of depth-first traversal of BVH tree
+    m_Nodes.resize(totalNodes);
+    unsigned int offset = 0;
+    FlattenBVHTree(m_Root, &offset);
+    assert(totalNodes == offset);
+
+}
+
+void BVHScene::SetupBuffers()
+{
+    cl_int errCode;
+
+    m_TriangleBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create scene buffer", errCode);
+    }
+
+    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
+
+    m_NodeBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create BVH node buffer", errCode);
+    }
+
+    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &m_NodeBuffer, sizeof(cl::Buffer));
+
+    m_MaterialBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
+    if (errCode)
+    {
+        throw CLException("Failed to create material buffer", errCode);
+    }
+
+    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &m_MaterialBuffer, sizeof(cl::Buffer));
+
+}
 
 void DrawTree(BVHBuildNode* node, float x, float y, int depth)
 {

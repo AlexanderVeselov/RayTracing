@@ -90,7 +90,7 @@ void CLContext::ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize)
 
 }
 
-CLKernel::CLKernel(const char* filename, const CLContext& clContext, const std::vector<cl::Device>& devices)
+CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std::vector<cl::Device>& devices)
 {
     std::ifstream input_file(filename);
     if (!input_file)
@@ -101,7 +101,7 @@ CLKernel::CLKernel(const char* filename, const CLContext& clContext, const std::
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
     std::string source((std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
 
-    cl::Program program(clContext.GetContext(), source);
+    cl::Program program(cl_context.GetContext(), source);
 
     cl_int errCode = program.build(devices, " -I . ");
     if (errCode != CL_SUCCESS)

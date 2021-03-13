@@ -5,10 +5,12 @@
 #include "utils/framebuffer.hpp"
 #include <memory>
 
+class Render;
+
 class Camera
 {
 public:
-    Camera(std::shared_ptr<Framebuffer> framebuffer);
+    Camera(std::shared_ptr<Framebuffer> framebuffer, Render& render);
     void Update();
 
     float3 GetOrigin()      const { return m_Origin; }
@@ -19,6 +21,7 @@ public:
     unsigned int GetFrameCount() const { return m_FrameCount; }
 
 private:
+    Render& m_Render;
     std::shared_ptr<Framebuffer> m_Framebuffer;
 
     float3 m_Origin;

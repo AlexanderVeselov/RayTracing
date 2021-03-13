@@ -16,15 +16,15 @@ class Render
 public:
     Render(std::uint32_t width, std::uint32_t weight);
 
-    void         RenderFrame();
+    void          RenderFrame();
 
-    //const HWND   GetHWND()           const;
-    double       GetCurtime()        const;
-    double       GetDeltaTime()      const;
-    //unsigned int GetGlobalWorkSize() const;
+    const HWND    GetHWND()           const { return hwnd_; };
+    double        GetCurtime()        const;
+    double        GetDeltaTime()      const;
+    std::uint32_t GetGlobalWorkSize() const;
 
-    //std::shared_ptr<CLContext> GetCLContext() const;
-    //std::shared_ptr<CLKernel>  GetCLKernel()  const;
+    std::shared_ptr<CLContext> GetCLContext() const { return m_CLContext; };
+    std::shared_ptr<CLKernel>  GetCLKernel()  const { return m_RenderKernel; };
 
 private:
     void InitWindow();
@@ -53,8 +53,8 @@ private:
     std::shared_ptr<Scene>       m_Scene;
     std::shared_ptr<Framebuffer> m_Framebuffer;
     // Buffers
-    //cl::Buffer m_OutputBuffer;
-    //cl::Image2D m_Texture0;
+    cl::Buffer m_OutputBuffer;
+    cl::Image2D m_Texture0;
 
 };
 
