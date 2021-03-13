@@ -21,8 +21,7 @@ namespace
 Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     : width_(width)
     , height_(height)
-    , vertex_shader_(kVertexShaderSource, GL_VERTEX_SHADER)
-    , fragment_shader_(kFragmentShaderSource, GL_FRAGMENT_SHADER)
+    , draw_pipeline_(kVertexShaderSource, kFragmentShaderSource)
 {
     // Create framebuffer texture
     std::vector<std::uint32_t> tex_data(width_ * height_, 0xFFFFFFFF);
@@ -33,6 +32,13 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data.data());
     glBindTexture(GL_TEXTURE_2D, 0);
 
+
+}
+
+void Framebuffer::Present()
+{
+    draw_pipeline_.Use();
+    glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
 Framebuffer::~Framebuffer()

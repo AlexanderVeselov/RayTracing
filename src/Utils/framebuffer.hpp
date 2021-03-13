@@ -2,7 +2,7 @@
 #define FRAMEBUFFER_HPP
 
 #include "mathlib/mathlib.hpp"
-#include "GpuWrappers/gl_shader.hpp"
+#include "GpuWrappers/gl_graphics_pipeline.hpp"
 
 class Framebuffer
 {
@@ -10,11 +10,12 @@ public:
     Framebuffer(std::uint32_t width, std::uint32_t height);
     ~Framebuffer();
 
+    void Present();
+
 private:
     std::uint32_t width_;
     std::uint32_t height_;
-    Shader vertex_shader_;
-    Shader fragment_shader_;
+    GraphicsPipeline draw_pipeline_;
 
 };
 

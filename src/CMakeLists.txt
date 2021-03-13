@@ -1,8 +1,8 @@
 set(GPU_WRAPPERS_SOURCES
     GpuWrappers/cl_context.cpp
     GpuWrappers/cl_context.hpp
-    GpuWrappers/gl_shader.cpp
-    GpuWrappers/gl_shader.hpp
+    GpuWrappers/gl_graphics_pipeline.cpp
+    GpuWrappers/gl_graphics_pipeline.hpp
 )
 
 set(IO_SOURCES
