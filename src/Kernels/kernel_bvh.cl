@@ -515,8 +515,6 @@ float3 FromGamma(float3 value)
 
 __kernel void KernelEntry
 (
-    // Output
-    // Input
     __global float3* result,
     __global Triangle* triangles,
     __global LinearBVHNode* nodes,
@@ -534,17 +532,18 @@ __kernel void KernelEntry
     Scene scene = { triangles, nodes, materials };
 
     unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
-    
+
     Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
-    float3 radiance = Render(&ray, &scene, &seed, tex);
-        
-    if (frameCount == 0)
-    {
-        result[get_global_id(0)] = ToGamma(radiance);
-    }
-    else
-    {
-        result[get_global_id(0)] = ToGamma((FromGamma(result[get_global_id(0)]) * (frameCount - 1) + radiance) / frameCount);
-    }
+    result[get_global_id(0)] = ray.dir;
+    //float3 radiance = Render(&ray, &scene, &seed, tex);
+
+    //if (frameCount == 0)
+    //{
+    //    result[get_global_id(0)] = ToGamma(radiance);
+    //}
+    //else
+    //{
+    //    result[get_global_id(0)] = ToGamma((FromGamma(result[get_global_id(0)]) * (frameCount - 1) + radiance) / frameCount);
+    //}
 
 }

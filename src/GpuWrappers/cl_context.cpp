@@ -90,6 +90,16 @@ void CLContext::ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize)
 
 }
 
+void CLContext::AcquireGLObject(cl_mem mem)
+{
+    clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+}
+
+void CLContext::ReleaseGLObject(cl_mem mem)
+{
+    clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+}
+
 CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std::vector<cl::Device>& devices)
 {
     std::ifstream input_file(filename);
@@ -118,9 +128,10 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std:
 
 }
 
-void CLKernel::SetArgument(RenderKernelArgument_t argIndex, void* data, size_t size)
+void CLKernel::SetArgument(std::uint32_t argIndex, void* data, size_t size)
 {
-    cl_int errCode = m_Kernel.setArg(static_cast<unsigned int>(argIndex), size, data);
+    cl_int errCode = m_Kernel.setArg(argIndex, size, data);
+
     if (errCode)
     {
         throw CLException("Failed to set kernel argument", errCode);

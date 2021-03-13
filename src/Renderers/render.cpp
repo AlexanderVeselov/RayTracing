@@ -162,6 +162,8 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_grid.cl", platform_devices);
 #endif
 
+    m_CopyKernel = std::make_shared<CLKernel>("src/Kernels/kernel_copy.cl", *m_CLContext, platform_devices);
+
     SetupBuffers();
 
 }
@@ -172,13 +174,30 @@ void Render::SetupBuffers()
     GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(unsigned int));
 
     cl_int errCode;
-    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
+    m_OutputImage = cl::ImageGL(GetCLContext()->GetContext(), CL_MEM_WRITE_ONLY,
+        GL_TEXTURE_2D, 0, m_Framebuffer->GetGlImage(), &errCode);
+
+    if (errCode)
+    {
+        throw CLException("Failed to create output image", errCode);
+    }
+
+    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, width_ * height_ * sizeof(cl_float4), 0, &errCode);
+
     if (errCode)
     {
         throw CLException("Failed to create output buffer", errCode);
     }
+
     GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
-    
+
+    cl_mem image_mem = m_OutputImage();
+
+    m_CopyKernel->SetArgument(0, &m_OutputBuffer, sizeof(m_OutputBuffer));
+    m_CopyKernel->SetArgument(1, &image_mem, sizeof(image_mem));
+    m_CopyKernel->SetArgument(2, &width_, sizeof(width_));
+    m_CopyKernel->SetArgument(3, &width_, sizeof(height_));
+
     m_Scene->SetupBuffers();
 
     // Texture Buffers
@@ -189,7 +208,8 @@ void Render::SetupBuffers()
     Image image;
     HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
 
-    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
+    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        imageFormat, image.width, image.height, 0, image.colors, &errCode);
     if (errCode)
     {
         throw CLException("Failed to create image", errCode);
@@ -227,31 +247,24 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
+    m_Camera->Update();
+    glFinish();
+
+    unsigned int globalWorksize = GetGlobalWorkSize();
+    GetCLContext()->ExecuteKernel(m_RenderKernel, globalWorksize);
+    GetCLContext()->Finish();
+
+    GetCLContext()->AcquireGLObject(m_OutputImage());
+    GetCLContext()->ExecuteKernel(m_CopyKernel, globalWorksize);
+    GetCLContext()->Finish();
+    GetCLContext()->ReleaseGLObject(m_OutputImage());
+
     glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    m_Camera->Update();
-
-    unsigned int globalWorksize = GetGlobalWorkSize();
-    GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);
-
     m_Framebuffer->Present();
 
-    /*
-
-    glDrawPixels(m_Viewport->width, m_Viewport->height, GL_RGBA, GL_FLOAT, m_Viewport->pixels);
-        
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(90.0, 1280.0 / 720.0, 1, 1024);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    float3 eye = m_Camera->GetOrigin();
-    float3 center = m_Camera->GetFrontVector() + eye;
-    gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
-
-    //m_Scene->DrawDebug();
-    */
+    /* TODO: draw GUI, debug, etc. here */
 
     glFinish();
 

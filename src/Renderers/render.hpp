@@ -48,12 +48,14 @@ private:
     std::shared_ptr<CLContext>   m_CLContext;
     // Kernels
     std::shared_ptr<CLKernel>    m_RenderKernel;
+    std::shared_ptr<CLKernel>    m_CopyKernel;
     // Scene
     std::shared_ptr<Camera>      m_Camera;
     std::shared_ptr<Scene>       m_Scene;
     std::shared_ptr<Framebuffer> m_Framebuffer;
     // Buffers
-    cl::Buffer m_OutputBuffer;
+    cl::Buffer  m_OutputBuffer;
+    cl::ImageGL m_OutputImage;
     cl::Image2D m_Texture0;
 
 };
