@@ -23,6 +23,9 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     , height_(height)
     , draw_pipeline_(kVertexShaderSource, kFragmentShaderSource)
 {
+    // Enable SRGB framebuffer
+    glEnable(GL_FRAMEBUFFER_SRGB);
+
     // Create framebuffer texture
     std::vector<std::uint32_t> tex_data(width_ * height_, 0xFFFFFFFF);
 
@@ -32,16 +35,11 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data.data());
     glBindTexture(GL_TEXTURE_2D, 0);
 
-
 }
 
 void Framebuffer::Present()
 {
+    // Draw screen-aligned triangle
     draw_pipeline_.Use();
     glDrawArrays(GL_TRIANGLES, 0, 3);
-}
-
-Framebuffer::~Framebuffer()
-{
-
 }

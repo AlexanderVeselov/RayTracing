@@ -8,6 +8,7 @@ class GraphicsPipeline
 public:
     GraphicsPipeline(char const* vs_source, char const* fs_source);
     void Use() const { glUseProgram(shader_program_); };
+    ~GraphicsPipeline();
 
 private:
     GLuint vertex_shader_;

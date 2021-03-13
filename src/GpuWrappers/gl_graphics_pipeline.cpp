@@ -66,3 +66,10 @@ GraphicsPipeline::GraphicsPipeline(char const* vs_source, char const* fs_source)
     }
 
 }
+
+GraphicsPipeline::~GraphicsPipeline()
+{
+    glDeleteProgram(shader_program_);
+    glDeleteShader(fragment_shader_);
+    glDeleteShader(vertex_shader_);
+}
