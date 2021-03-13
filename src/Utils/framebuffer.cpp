@@ -12,9 +12,10 @@ namespace
         "}";
 
     char const* kFragmentShaderSource =
+        "uniform sampler2D input_sampler;"
         "varying vec2 vTexcoord;"
         "void main() {"
-        "    gl_FragColor = vec4(vTexcoord, 0.0, 1.0);"
+        "    gl_FragColor = texture(input_sampler, vTexcoord);"
         "}";
 }
 
@@ -29,17 +30,16 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     // Create framebuffer texture
     std::vector<std::uint32_t> tex_data(width_ * height_, 0xFFFFFFFF);
 
-    GLuint render_texture;
-    glGenTextures(1, &render_texture);
-    glBindTexture(GL_TEXTURE_2D, render_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glCreateTextures(GL_TEXTURE_2D, 1, &render_texture_);
+    glTextureStorage2D(render_texture_, 1, GL_RGBA8, width_, height_);
+    glTextureSubImage2D(render_texture_, 0, 0, 0, width_, height_, GL_RGBA, GL_UNSIGNED_BYTE, tex_data.data());
 
 }
 
 void Framebuffer::Present()
 {
     // Draw screen-aligned triangle
+    glBindTextureUnit(0, render_texture_);
     draw_pipeline_.Use();
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
