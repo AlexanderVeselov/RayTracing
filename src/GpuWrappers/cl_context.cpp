@@ -80,9 +80,9 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     }
 }
 
-void CLContext::ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize) const
+void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
-    cl_int errCode = m_Queue.enqueueNDRangeKernel(kernel->GetKernel(), cl::NullRange, cl::NDRange(workSize), cl::NullRange, 0);
+    cl_int errCode = m_Queue.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
     if (errCode)
     {
         throw CLException("Failed to enqueue kernel", errCode);

@@ -11,7 +11,7 @@ public:
     void Present();
     std::uint32_t GetWidth() const { return width_; }
     std::uint32_t GetHeight() const { return height_; }
-    GLuint GetGlImage() const { return render_texture_; }
+    GLuint GetGLImage() const { return render_texture_; }
 
 private:
     std::uint32_t width_;

@@ -1,6 +1,7 @@
 #ifndef RENDER_HPP
 #define RENDER_HPP
 
+#include "path_trace_estimator.hpp"
 #include "scene/camera.hpp"
 #include "scene/scene.hpp"
 #include "GpuWrappers/cl_context.hpp"
@@ -23,12 +24,11 @@ public:
     double        GetDeltaTime()      const;
     std::uint32_t GetGlobalWorkSize() const;
 
-    std::shared_ptr<CLContext> GetCLContext() const { return m_CLContext; };
+    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; };
 
 private:
     void InitWindow();
     void InitGL();
-    void SetupBuffers();
     void FrameBegin();
     void FrameEnd();
     
@@ -44,22 +44,13 @@ private:
     double m_PreviousFrameTime = 0.0;
     // Contexts
     HGLRC m_GLContext;
-    std::shared_ptr<CLContext>   m_CLContext;
-    // Kernels
-    std::shared_ptr<CLKernel>    m_RenderKernel;
-    std::shared_ptr<CLKernel>    m_CopyKernel;
+    std::shared_ptr<CLContext>   cl_context_;
+    // Estimator
+    std::unique_ptr<PathTraceEstimator> estimator_;
     // Scene
-    std::shared_ptr<Camera>      m_Camera;
-    std::shared_ptr<Scene>       m_Scene;
-    std::shared_ptr<Framebuffer> m_Framebuffer;
-    // Buffers
-    cl::Buffer  m_OutputBuffer;
-    cl::ImageGL m_OutputImage;
-    cl::Image2D m_Texture0;
-
-    // Nointerop
-    bool nointerop_ = false;
-    std::vector<cl_float3> nointerop_readback_buffer_;
+    std::shared_ptr<Camera>      camera_;
+    std::shared_ptr<Scene>       scene_;
+    std::shared_ptr<Framebuffer> framebuffer_;
 
 };
 

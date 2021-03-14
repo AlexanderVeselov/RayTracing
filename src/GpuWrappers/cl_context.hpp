@@ -22,7 +22,7 @@ enum RenderKernelArgument_t : unsigned int
     CAM_UP,
     FRAME_COUNT,
     FRAME_SEED,
-    TEXTURE0,
+    ENVIRONMENT_TEXTURE,
 };
 
 class CLKernel;
@@ -34,7 +34,7 @@ public:
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
-    void ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize) const;
+    void ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const;
     void Finish() const { m_Queue.finish(); }
     void AcquireGLObject(cl_mem mem);
     void ReleaseGLObject(cl_mem mem);
