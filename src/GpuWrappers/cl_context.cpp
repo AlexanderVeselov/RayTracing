@@ -1,12 +1,13 @@
 #include "cl_context.hpp"
 #include "utils/cl_exception.hpp"
-#include "renderers/render.hpp"
+#include "render.hpp"
 #include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 
 CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl_context)
+    : platform_(platform)
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
@@ -21,37 +22,36 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
         0
     };
 
-    std::vector<cl::Device> platform_devices;
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
-    if (platform_devices.empty())
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &devices_);
+    if (devices_.empty())
     {
-        throw std::exception("No devices found!");
+        throw std::runtime_error("No devices found!");
     }
 
-    for (unsigned int i = 0; i < platform_devices.size(); ++i)
+    for (unsigned int i = 0; i < devices_.size(); ++i)
     {
         std::cout << "Device: " << std::endl;
-        std::cout << platform_devices[i].getInfo<CL_DEVICE_NAME>() << std::endl;
-        std::cout << "Status: " << (platform_devices[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
-        std::cout << "Max compute units: " << platform_devices[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
-        std::cout << "Max workgroup size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
-        std::cout << "Max constant buffer size: " << platform_devices[i].getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << std::endl;
+        std::cout << devices_[i].getInfo<CL_DEVICE_NAME>() << std::endl;
+        std::cout << "Status: " << (devices_[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
+        std::cout << "Max compute units: " << devices_[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+        std::cout << "Max workgroup size: " << devices_[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
+        std::cout << "Max constant buffer size: " << devices_[i].getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << std::endl;
         //std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
-        std::cout << "Image support: " << (platform_devices[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
-        std::cout << "2D Image max width: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
-        std::cout << "2D Image max height: " << platform_devices[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << std::endl;
-        std::cout << "Preferred vector width: " << platform_devices[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
+        std::cout << "Image support: " << (devices_[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
+        std::cout << "2D Image max width: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
+        std::cout << "2D Image max height: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << std::endl;
+        std::cout << "Preferred vector width: " << devices_[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
     }
 
     cl_int errCode;
-    m_Context = cl::Context(platform_devices, props, 0, 0, &errCode);
+    m_Context = cl::Context(devices_, props, 0, 0, &errCode);
 
     if (errCode)
     {
         throw CLException("Failed to create context", errCode);
     }
 
-    m_Queue = cl::CommandQueue(m_Context, platform_devices[0], 0, &errCode);
+    m_Queue = cl::CommandQueue(m_Context, devices_[0], 0, &errCode);
 
     if (errCode)
     {
@@ -100,9 +100,10 @@ void CLContext::ReleaseGLObject(cl_mem mem)
     clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
 }
 
-CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std::vector<cl::Device>& devices)
+CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
 {
     std::ifstream input_file(filename);
+
     if (!input_file)
     {
         throw std::exception("Failed to load kernel file!");
@@ -111,19 +112,19 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std:
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
     std::string source((std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
 
-    cl::Program program(cl_context.GetContext(), source);
+    cl_int status;
+    cl::Program program(cl_context.GetContext(), source, true, &status);
 
-    cl_int errCode = program.build(devices, " -I . ");
-    if (errCode != CL_SUCCESS)
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Error building" + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]), errCode);
+        throw CLException("Error building" + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
+            cl_context.GetDevices()[0]), status);
     }
-    std::cout << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
 
-    m_Kernel = cl::Kernel(program, "KernelEntry", &errCode);
-    if (errCode)
+    m_Kernel = cl::Kernel(program, "KernelEntry", &status);
+    if (status)
     {
-        throw CLException("Failed to create kernel", errCode);
+        throw CLException("Failed to create kernel", status);
     }
 
 }

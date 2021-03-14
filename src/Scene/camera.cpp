@@ -1,5 +1,5 @@
 #include "camera.hpp"
-#include "renderers/render.hpp"
+#include "render.hpp"
 #include "io/inputsystem.hpp"
 #include <Windows.h>
 #include <iostream>

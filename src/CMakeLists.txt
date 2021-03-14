@@ -24,11 +24,6 @@ set(MATHLIB_SOURCES
     mathlib/mathlib.hpp
 )
 
-set(RENDERERS_SOURCES
-    renderers/render.cpp
-    renderers/render.hpp
-)
-
 set(SCENE_SOURCES
     scene/camera.cpp
     scene/camera.hpp
@@ -44,6 +39,10 @@ set(UTILS_SOURCES
 )
 
 set(MAIN_SOURCES
+    path_trace_estimator.cpp
+    path_trace_estimator.hpp
+    render.cpp
+    render.hpp
     main.cpp
 )
 
@@ -52,7 +51,6 @@ set(SOURCES
     ${IO_SOURCES}
     ${KERNELS_SOURCES}
     ${MATHLIB_SOURCES}
-    ${RENDERERS_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
     ${MAIN_SOURCES}

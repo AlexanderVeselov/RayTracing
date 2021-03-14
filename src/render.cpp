@@ -145,15 +145,13 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     m_CLContext = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
-    std::vector<cl::Device> platform_devices;
-    all_platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 #ifdef BVH_INTERSECTION
-    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", *m_CLContext, platform_devices);
+    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", *m_CLContext);
 #else
     m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_grid.cl", platform_devices);
 #endif
 
-    m_CopyKernel = std::make_shared<CLKernel>("src/Kernels/kernel_copy.cl", *m_CLContext, platform_devices);
+    m_CopyKernel = std::make_shared<CLKernel>("src/Kernels/kernel_copy.cl", *m_CLContext);
 
 #ifdef BVH_INTERSECTION
     m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", *this, 4);

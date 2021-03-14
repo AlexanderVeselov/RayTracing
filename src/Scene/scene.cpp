@@ -1,6 +1,6 @@
 #include "scene.hpp"
 #include "mathlib/mathlib.hpp"
-#include "renderers/render.hpp"
+#include "render.hpp"
 #include "utils/cl_exception.hpp"
 #include <algorithm>
 #include <iostream>
@@ -14,7 +14,6 @@
 Scene::Scene(const char* filename)
 {
     LoadTriangles(filename);
-
 }
 
 const std::vector<Triangle>& Scene::GetTriangles() const
