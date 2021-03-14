@@ -18,7 +18,8 @@ public:
     cl_mem GetTriangleBuffer() const { return m_TriangleBuffer(); }
     cl_mem GetNodeBuffer() const { return m_NodeBuffer(); }
     cl_mem GetMaterialBuffer() const { return m_MaterialBuffer(); }
-    
+    cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
+
 private:
     void LoadTriangles(const char* filename);
     void LoadMaterials(const char* filename);
@@ -30,6 +31,7 @@ protected:
     cl::Buffer m_TriangleBuffer;
     cl::Buffer m_NodeBuffer;
     cl::Buffer m_MaterialBuffer;
+    cl::Image2D env_texture_;
 
 };
 

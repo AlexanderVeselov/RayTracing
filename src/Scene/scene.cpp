@@ -1,7 +1,9 @@
 #include "scene.hpp"
 #include "mathlib/mathlib.hpp"
-#include "renderers/render.hpp"
+#include "render.hpp"
 #include "utils/cl_exception.hpp"
+#include "io/image_loader.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -14,7 +16,6 @@
 Scene::Scene(const char* filename)
 {
     LoadTriangles(filename);
-
 }
 
 const std::vector<Triangle>& Scene::GetTriangles() const
@@ -78,7 +79,7 @@ void Scene::LoadTriangles(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw std::exception("Failed to open scene file!");
+        throw std::runtime_error("Failed to open scene file!");
     }
     
     unsigned int materialIndex = -1;
@@ -129,7 +130,7 @@ void Scene::LoadTriangles(const char* filename)
             int count = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &iv[0], &it[0], &in[0], &iv[1], &it[1], &in[1], &iv[2], &it[2], &in[2]);
             if (count != 9)
             {
-                throw std::exception("Failed to load face!");
+                throw std::runtime_error("Failed to load face!");
             }
             m_Triangles.push_back(Triangle(
                 Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
@@ -149,7 +150,7 @@ void Scene::LoadMaterials(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw std::exception("Failed to open material file!");
+        throw std::runtime_error("Failed to open material file!");
     }
     
     while (true)
@@ -417,24 +418,40 @@ BVHScene::BVHScene(const char* filename, Render& render, unsigned int maxPrimiti
 
 void BVHScene::SetupBuffers()
 {
-    cl_int errCode;
+    cl_int status;
 
-    m_TriangleBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
-    if (errCode)
+    m_TriangleBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &status);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to create scene buffer", errCode);
+        throw CLException("Failed to create scene buffer", status);
     }
 
-    m_NodeBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
-    if (errCode)
+    m_NodeBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &status);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to create BVH node buffer", errCode);
+        throw CLException("Failed to create BVH node buffer", status);
     }
 
-    m_MaterialBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
-    if (errCode)
+    m_MaterialBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &status);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to create material buffer", errCode);
+        throw CLException("Failed to create material buffer", status);
+    }
+
+    ///@TODO: remove from here
+    // Texture Buffers
+    cl::ImageFormat image_format;
+    image_format.image_channel_order = CL_RGBA;
+    image_format.image_channel_data_type = CL_FLOAT;
+
+    Image image;
+    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
+    env_texture_ = cl::Image2D(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        image_format, image.width, image.height, 0, image.colors, &status);
+
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Failed to create environment image", status);
     }
 
 }
