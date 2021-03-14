@@ -57,7 +57,9 @@ private:
     cl::ImageGL m_OutputImage;
     cl::Image2D m_Texture0;
 
-    cl_float3* pixels_;
+    // Nointerop
+    bool nointerop_ = false;
+    std::vector<cl_float3> nointerop_readback_buffer_;
 
 };
 

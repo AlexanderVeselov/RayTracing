@@ -168,7 +168,6 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
 }
 
-Image image;
 void Render::SetupBuffers()
 {
     cl_int errCode;
@@ -201,6 +200,7 @@ void Render::SetupBuffers()
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
 
+    Image image;
     HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
 
     m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -225,7 +225,10 @@ void Render::SetupBuffers()
 
     m_RenderKernel->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
 
-    pixels_ = new cl_float3[width_ * height_];
+    if (nointerop_)
+    {
+        nointerop_readback_buffer_.resize(width_ * height_);
+    }
 }
 
 double Render::GetCurtime() const
@@ -262,37 +265,42 @@ void Render::RenderFrame()
 
     m_Camera->Update();
 
-    float3 origin = m_Camera->GetOrigin();
-    float3 front = m_Camera->GetFrontVector();
+    {
+        float3 origin = m_Camera->GetOrigin();
+        float3 front = m_Camera->GetFrontVector();
 
-    float3 right = Cross(front, m_Camera->GetUpVector()).Normalize();
-    float3 up = Cross(right, front);
+        float3 right = Cross(front, m_Camera->GetUpVector()).Normalize();
+        float3 up = Cross(right, front);
 
-    m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &origin, sizeof(float3));
-    m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_FRONT, &front, sizeof(float3));
-    m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &origin, sizeof(float3));
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_FRONT, &front, sizeof(float3));
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
 
-    std::uint32_t frame_count = m_Camera->GetFrameCount();
-    m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
-    unsigned int seed = rand();
-    m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+        std::uint32_t frame_count = m_Camera->GetFrameCount();
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
+        unsigned int seed = rand();
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+    }
 
     unsigned int globalWorksize = GetGlobalWorkSize();
     GetCLContext()->ExecuteKernel(m_RenderKernel, globalWorksize);
-    GetCLContext()->ReadBuffer(m_OutputBuffer, pixels_, sizeof(cl_float4) * width_ * height_);
-    GetCLContext()->Finish();
 
-    glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, pixels_);
+    if (nointerop_)
+    {
+        GetCLContext()->ReadBuffer(m_OutputBuffer, nointerop_readback_buffer_.data(),
+            sizeof(cl_float4) * width_ * height_);
+        GetCLContext()->Finish();
 
-    //GetCLContext()->AcquireGLObject(m_OutputImage());
-    //GetCLContext()->ExecuteKernel(m_CopyKernel, globalWorksize);
-    //GetCLContext()->Finish();
-    //GetCLContext()->ReleaseGLObject(m_OutputImage());
-
-    //glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-    //glClear(GL_COLOR_BUFFER_BIT);
-
-    //m_Framebuffer->Present();
+        glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, nointerop_readback_buffer_.data());
+    }
+    else
+    {
+        GetCLContext()->AcquireGLObject(m_OutputImage());
+        GetCLContext()->ExecuteKernel(m_CopyKernel, globalWorksize);
+        GetCLContext()->Finish();
+        GetCLContext()->ReleaseGLObject(m_OutputImage());
+        m_Framebuffer->Present();
+    }
 
     /* TODO: draw GUI, debug, etc. here */
 
