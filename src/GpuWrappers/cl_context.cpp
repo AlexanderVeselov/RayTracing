@@ -43,19 +43,19 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
         std::cout << "Preferred vector width: " << devices_[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
     }
 
-    cl_int errCode;
-    m_Context = cl::Context(devices_, props, 0, 0, &errCode);
+    cl_int status;
+    m_Context = cl::Context(devices_, props, 0, 0, &status);
 
-    if (errCode)
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to create context", errCode);
+        throw CLException("Failed to create context", status);
     }
 
-    m_Queue = cl::CommandQueue(m_Context, devices_[0], 0, &errCode);
+    m_Queue = cl::CommandQueue(m_Context, devices_[0], 0, &status);
 
-    if (errCode)
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to create queue", errCode);
+        throw CLException("Failed to create queue", status);
     }
 
     std::cout << "Successfully created context " << std::endl;
@@ -64,40 +64,48 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
 
 void CLContext::WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const
 {
-    cl_int errCode = m_Queue.enqueueWriteBuffer(buffer, true, 0, size, data);
-    if (errCode)
+    cl_int status = m_Queue.enqueueWriteBuffer(buffer, true, 0, size, data);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to write buffer", errCode);
+        throw CLException("Failed to write buffer", status);
     }
 }
 
 void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) const
 {
-    cl_int errCode = m_Queue.enqueueReadBuffer(buffer, false, 0, size, data);
-    if (errCode)
+    cl_int status = m_Queue.enqueueReadBuffer(buffer, false, 0, size, data);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to read buffer", errCode);
+        throw CLException("Failed to read buffer", status);
     }
 }
 
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
-    cl_int errCode = m_Queue.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
-    if (errCode)
+    cl_int status = m_Queue.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to enqueue kernel", errCode);
+        throw CLException("Failed to enqueue kernel", status);
     }
 
 }
 
 void CLContext::AcquireGLObject(cl_mem mem)
 {
-    clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    cl_int status = clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Failed to acquire GL object", status);
+    }
 }
 
 void CLContext::ReleaseGLObject(cl_mem mem)
 {
-    clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    cl_int status = clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Failed to release GL object", status);
+    }
 }
 
 CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
@@ -106,7 +114,7 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
 
     if (!input_file)
     {
-        throw std::exception("Failed to load kernel file!");
+        throw std::runtime_error("Failed to load kernel file!");
     }
     
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
@@ -122,7 +130,7 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
     }
 
     m_Kernel = cl::Kernel(program, "KernelEntry", &status);
-    if (status)
+    if (status != CL_SUCCESS)
     {
         throw CLException("Failed to create kernel", status);
     }
@@ -131,10 +139,10 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
 
 void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size)
 {
-    cl_int errCode = m_Kernel.setArg(argIndex, size, data);
+    cl_int status = m_Kernel.setArg(argIndex, size, data);
 
-    if (errCode)
+    if (status != CL_SUCCESS)
     {
-        throw CLException("Failed to set kernel argument", errCode);
+        throw CLException("Failed to set kernel argument", status);
     }
 }

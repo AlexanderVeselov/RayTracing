@@ -79,7 +79,7 @@ void Scene::LoadTriangles(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw std::exception("Failed to open scene file!");
+        throw std::runtime_error("Failed to open scene file!");
     }
     
     unsigned int materialIndex = -1;
@@ -130,7 +130,7 @@ void Scene::LoadTriangles(const char* filename)
             int count = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &iv[0], &it[0], &in[0], &iv[1], &it[1], &in[1], &iv[2], &it[2], &in[2]);
             if (count != 9)
             {
-                throw std::exception("Failed to load face!");
+                throw std::runtime_error("Failed to load face!");
             }
             m_Triangles.push_back(Triangle(
                 Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
@@ -150,7 +150,7 @@ void Scene::LoadMaterials(const char* filename)
     FILE* file = fopen(filename, "r");
     if (!file)
     {
-        throw std::exception("Failed to open material file!");
+        throw std::runtime_error("Failed to open material file!");
     }
     
     while (true)
