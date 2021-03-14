@@ -18,16 +18,7 @@ int main()
                 DispatchMessage(&msg);
             }
 
-            try
-            {
-                render.RenderFrame();
-            }
-            catch (const std::exception& ex)
-            {
-                std::cerr << "Caught exception: " << ex.what() << std::endl;
-                system("PAUSE");
-                return 0;
-            }
+            render.RenderFrame();
         
         }
 
@@ -38,5 +29,4 @@ int main()
         std::cerr << "Caught exception: " << ex.what() << std::endl;
         return 0;
     }
-
 }
