@@ -426,29 +426,29 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
     float3 radiance = 0.0f;
     float3 beta = 1.0f;
             
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 1; ++i)
     {
-        IntersectData isect = Intersect(ray, scene);
+        //IntersectData isect = Intersect(ray, scene);
 
-        if (!isect.hit)
+        if (true)//!isect.hit)
         {
             float3 val = beta * max(SampleSky(tex, ray->dir), 0.0f);
             radiance += val;
             break;
         }
         
-        const __global Material* material = &scene->materials[isect.object->mtlIndex];
-        radiance += beta * material->emission * 50.0f;
+        //const __global Material* material = &scene->materials[isect.object->mtlIndex];
+        //radiance += beta * material->emission * 50.0f;
 
-        float3 wi;
-        float3 wo = -ray->dir;
-        float pdf = 0.0f;
-        float3 f = SampleBrdf(wo, &wi, &pdf, isect.texcoord, isect.normal, material, seed);
-        if (pdf <= 0.0f) break;
+        //float3 wi;
+        //float3 wo = -ray->dir;
+        //float pdf = 0.0f;
+        //float3 f = SampleBrdf(wo, &wi, &pdf, isect.texcoord, isect.normal, material, seed);
+        //if (pdf <= 0.0f) break;
 
-        float3 mul = f * dot(wi, isect.normal) / pdf;
-        beta *= mul;
-        *ray = InitRay(isect.pos + wi * 0.01f, wi);
+        //float3 mul = f * dot(wi, isect.normal) / pdf;
+        //beta *= mul;
+        //*ray = InitRay(isect.pos + wi * 0.01f, wi);
 
     }
     
@@ -480,6 +480,7 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     y = -(1.0f - 2.0f * ((y + 0.5f) * invHeight)) * angle;
 
     float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
+    return InitRay(cameraPos, dir);
 
     // Simple Depth of Field
     float3 pointAimed = cameraPos + 60.0f * dir;
@@ -515,7 +516,7 @@ float3 FromGamma(float3 value)
 
 __kernel void KernelEntry
 (
-    __global float3* result,
+    __global float4* result,
     __global Triangle* triangles,
     __global LinearBVHNode* nodes,
     __global Material* materials,
@@ -523,7 +524,6 @@ __kernel void KernelEntry
     uint height,
     float3 cameraPos,
     float3 cameraFront,
-    float3 cameraUp,
     unsigned int frameCount,
     unsigned int frameSeed,
     __read_only image2d_t tex
@@ -533,9 +533,14 @@ __kernel void KernelEntry
 
     unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
 
+    float3 cameraUp = (float3)(0, 0, 1);
+    float3 right = normalize(cross(cameraFront, cameraUp));
+    cameraUp = normalize(cross(cameraUp, right));
+
     Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
-    result[get_global_id(0)] = ray.dir;
-    //float3 radiance = Render(&ray, &scene, &seed, tex);
+    float3 radiance = Render(&ray, &scene, &seed, tex);
+
+    result[get_global_id(0)] = (float4)(radiance, 1.0);
 
     //if (frameCount == 0)
     //{

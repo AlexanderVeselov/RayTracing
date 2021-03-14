@@ -128,7 +128,7 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std:
 
 }
 
-void CLKernel::SetArgument(std::uint32_t argIndex, void* data, size_t size)
+void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size)
 {
     cl_int errCode = m_Kernel.setArg(argIndex, size, data);
 

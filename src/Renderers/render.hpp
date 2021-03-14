@@ -24,7 +24,6 @@ public:
     std::uint32_t GetGlobalWorkSize() const;
 
     std::shared_ptr<CLContext> GetCLContext() const { return m_CLContext; };
-    std::shared_ptr<CLKernel>  GetCLKernel()  const { return m_RenderKernel; };
 
 private:
     void InitWindow();
@@ -57,6 +56,8 @@ private:
     cl::Buffer  m_OutputBuffer;
     cl::ImageGL m_OutputImage;
     cl::Image2D m_Texture0;
+
+    cl_float3* pixels_;
 
 };
 

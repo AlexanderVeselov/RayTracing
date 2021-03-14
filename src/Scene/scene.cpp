@@ -425,23 +425,17 @@ void BVHScene::SetupBuffers()
         throw CLException("Failed to create scene buffer", errCode);
     }
 
-    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
-
     m_NodeBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
     if (errCode)
     {
         throw CLException("Failed to create BVH node buffer", errCode);
     }
 
-    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &m_NodeBuffer, sizeof(cl::Buffer));
-
     m_MaterialBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
     if (errCode)
     {
         throw CLException("Failed to create material buffer", errCode);
     }
-
-    m_Render.GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &m_MaterialBuffer, sizeof(cl::Buffer));
 
 }
 

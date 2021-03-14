@@ -15,6 +15,9 @@ public:
     virtual void SetupBuffers() = 0;
     virtual void DrawDebug() = 0;
     const std::vector<Triangle>& GetTriangles() const;
+    cl_mem GetTriangleBuffer() const { return m_TriangleBuffer(); }
+    cl_mem GetNodeBuffer() const { return m_NodeBuffer(); }
+    cl_mem GetMaterialBuffer() const { return m_MaterialBuffer(); }
     
 private:
     void LoadTriangles(const char* filename);
@@ -25,6 +28,7 @@ protected:
     std::vector<Triangle> m_Triangles;
     std::vector<Material> m_Materials;
     cl::Buffer m_TriangleBuffer;
+    cl::Buffer m_NodeBuffer;
     cl::Buffer m_MaterialBuffer;
 
 };
@@ -70,7 +74,6 @@ private:
     Render& m_Render;
     std::vector<LinearBVHNode> m_Nodes;
     unsigned int m_MaxPrimitivesInNode;
-    cl::Buffer m_NodeBuffer;
     BVHBuildNode* m_Root;
 
 };
