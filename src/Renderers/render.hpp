@@ -40,8 +40,8 @@ private:
     std::uint32_t height_;
 
     // Timing
-    double m_StartFrameTime;
-    double m_PreviousFrameTime;
+    double m_StartFrameTime = 0.0;
+    double m_PreviousFrameTime = 0.0;
     // Contexts
     HGLRC m_GLContext;
     std::shared_ptr<CLContext>   m_CLContext;

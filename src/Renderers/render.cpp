@@ -265,8 +265,12 @@ void Render::RenderFrame()
     float3 origin = m_Camera->GetOrigin();
     float3 front = m_Camera->GetFrontVector();
 
+    float3 right = Cross(front, m_Camera->GetUpVector()).Normalize();
+    float3 up = Cross(right, front);
+
     m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &origin, sizeof(float3));
     m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_FRONT, &front, sizeof(float3));
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
 
     std::uint32_t frame_count = m_Camera->GetFrameCount();
     m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
@@ -277,8 +281,6 @@ void Render::RenderFrame()
     GetCLContext()->ExecuteKernel(m_RenderKernel, globalWorksize);
     GetCLContext()->ReadBuffer(m_OutputBuffer, pixels_, sizeof(cl_float4) * width_ * height_);
     GetCLContext()->Finish();
-
-    printf("Reender\n");
 
     glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, pixels_);
 
