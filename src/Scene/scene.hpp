@@ -15,6 +15,9 @@ public:
     virtual void SetupBuffers() = 0;
     virtual void DrawDebug() = 0;
     const std::vector<Triangle>& GetTriangles() const;
+    cl_mem GetTriangleBuffer() const { return m_TriangleBuffer(); }
+    cl_mem GetNodeBuffer() const { return m_NodeBuffer(); }
+    cl_mem GetMaterialBuffer() const { return m_MaterialBuffer(); }
     
 private:
     void LoadTriangles(const char* filename);
@@ -25,34 +28,36 @@ protected:
     std::vector<Triangle> m_Triangles;
     std::vector<Material> m_Materials;
     cl::Buffer m_TriangleBuffer;
+    cl::Buffer m_NodeBuffer;
     cl::Buffer m_MaterialBuffer;
 
 };
 
-class UniformGridScene : public Scene
-{
-public:
-    UniformGridScene(const char* filename);
-    virtual void SetupBuffers();
-    virtual void DrawDebug();
-
-private:
-    void CreateGrid(unsigned int cellResolution);
-
-    std::vector<unsigned int> m_Indices;
-    std::vector<CellData> m_Cells;
-    cl::Buffer m_IndexBuffer;
-    cl::Buffer m_CellBuffer;
-
-};
+//class UniformGridScene : public Scene
+//{
+//public:
+//    UniformGridScene(const char* filename);
+//    virtual void SetupBuffers();
+//    virtual void DrawDebug();
+//
+//private:
+//    void CreateGrid(unsigned int cellResolution);
+//
+//    std::vector<unsigned int> m_Indices;
+//    std::vector<CellData> m_Cells;
+//    cl::Buffer m_IndexBuffer;
+//    cl::Buffer m_CellBuffer;
+//
+//};
 
 struct BVHBuildNode;
 struct BVHPrimitiveInfo;
+class Render;
 
 class BVHScene : public Scene
 {
 public:
-    BVHScene(const char* filename, unsigned int maxPrimitivesInNode);
+    BVHScene(const char* filename, Render& render, unsigned int maxPrimitivesInNode);
     virtual void SetupBuffers();
     virtual void DrawDebug();
 
@@ -66,9 +71,9 @@ private:
     unsigned int BVHScene::FlattenBVHTree(BVHBuildNode *node, unsigned int *offset);
 
 private:
+    Render& m_Render;
     std::vector<LinearBVHNode> m_Nodes;
     unsigned int m_MaxPrimitivesInNode;
-    cl::Buffer m_NodeBuffer;
     BVHBuildNode* m_Root;
 
 };

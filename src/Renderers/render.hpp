@@ -1,10 +1,10 @@
-#ifndef RAYTRACER_HPP
-#define RAYTRACER_HPP
+#ifndef RENDER_HPP
+#define RENDER_HPP
 
 #include "scene/camera.hpp"
 #include "scene/scene.hpp"
-#include "context/cl_context.hpp"
-#include "utils/viewport.hpp"
+#include "GpuWrappers/cl_context.hpp"
+#include "utils/framebuffer.hpp"
 #include <Windows.h>
 #include <memory>
 #include <ctime>
@@ -14,48 +14,53 @@
 class Render
 {
 public:
-    void         Init(HWND hWnd);
-    void         RenderFrame();
-    void         Shutdown();
+    Render(std::uint32_t width, std::uint32_t weight);
 
-    const HWND   GetHWND()           const;
-    double       GetCurtime()        const;
-    double       GetDeltaTime()      const;
-    unsigned int GetGlobalWorkSize() const;
+    void          RenderFrame();
 
-    HDC          GetDisplayContext() const;
-    HGLRC        GetGLContext()      const;
+    const HWND    GetHWND()           const { return hwnd_; };
+    double        GetCurtime()        const;
+    double        GetDeltaTime()      const;
+    std::uint32_t GetGlobalWorkSize() const;
 
-    std::shared_ptr<CLContext> GetCLContext() const;
-    std::shared_ptr<CLKernel>  GetCLKernel()  const;
+    std::shared_ptr<CLContext> GetCLContext() const { return m_CLContext; };
 
 private:
+    void InitWindow();
     void InitGL();
     void SetupBuffers();
     void FrameBegin();
     void FrameEnd();
     
 private:
-    HWND m_hWnd;
+    HWND hwnd_;
+
+    // Render size
+    std::uint32_t width_;
+    std::uint32_t height_;
+
     // Timing
-    double m_StartFrameTime;
-    double m_PreviousFrameTime;
+    double m_StartFrameTime = 0.0;
+    double m_PreviousFrameTime = 0.0;
     // Contexts
-    HDC m_DisplayContext;
     HGLRC m_GLContext;
-    std::shared_ptr<CLContext>  m_CLContext;
+    std::shared_ptr<CLContext>   m_CLContext;
     // Kernels
-    std::shared_ptr<CLKernel>   m_RenderKernel;
+    std::shared_ptr<CLKernel>    m_RenderKernel;
+    std::shared_ptr<CLKernel>    m_CopyKernel;
     // Scene
-    std::shared_ptr<Camera>     m_Camera;
-    std::shared_ptr<Scene>      m_Scene;
-    std::shared_ptr<Viewport>   m_Viewport;
+    std::shared_ptr<Camera>      m_Camera;
+    std::shared_ptr<Scene>       m_Scene;
+    std::shared_ptr<Framebuffer> m_Framebuffer;
     // Buffers
-    cl::Buffer m_OutputBuffer;
+    cl::Buffer  m_OutputBuffer;
+    cl::ImageGL m_OutputImage;
     cl::Image2D m_Texture0;
+
+    // Nointerop
+    bool nointerop_ = false;
+    std::vector<cl_float3> nointerop_readback_buffer_;
 
 };
 
-extern Render* render;
-
-#endif // RAYTRACER_HPP
+#endif // RENDER_HPP

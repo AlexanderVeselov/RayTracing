@@ -6,7 +6,7 @@
 #include <string>
 #include <fstream>
 
-CLContext::CLContext(const cl::Platform& platform)
+CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl_context)
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
@@ -15,14 +15,14 @@ CLContext::CLContext(const cl::Platform& platform)
         // OpenCL platform
         CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
         // OpenGL context
-        CL_GL_CONTEXT_KHR, (cl_context_properties)render->GetGLContext(),
+        CL_GL_CONTEXT_KHR, (cl_context_properties)gl_context,
         // HDC used to create the OpenGL context
-        CL_WGL_HDC_KHR, (cl_context_properties)render->GetDisplayContext(),
+        CL_WGL_HDC_KHR, (cl_context_properties)display_context,
         0
     };
 
     std::vector<cl::Device> platform_devices;
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);    
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
     if (platform_devices.empty())
     {
         throw std::exception("No devices found!");
@@ -45,12 +45,14 @@ CLContext::CLContext(const cl::Platform& platform)
 
     cl_int errCode;
     m_Context = cl::Context(platform_devices, props, 0, 0, &errCode);
+
     if (errCode)
     {
         throw CLException("Failed to create context", errCode);
     }
 
     m_Queue = cl::CommandQueue(m_Context, platform_devices[0], 0, &errCode);
+
     if (errCode)
     {
         throw CLException("Failed to create queue", errCode);
@@ -88,7 +90,17 @@ void CLContext::ExecuteKernel(std::shared_ptr<CLKernel> kernel, size_t workSize)
 
 }
 
-CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
+void CLContext::AcquireGLObject(cl_mem mem)
+{
+    clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+}
+
+void CLContext::ReleaseGLObject(cl_mem mem)
+{
+    clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+}
+
+CLKernel::CLKernel(const char* filename, const CLContext& cl_context, const std::vector<cl::Device>& devices)
 {
     std::ifstream input_file(filename);
     if (!input_file)
@@ -99,7 +111,7 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
     std::string source((std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
 
-    cl::Program program(render->GetCLContext()->GetContext(), source);
+    cl::Program program(cl_context.GetContext(), source);
 
     cl_int errCode = program.build(devices, " -I . ");
     if (errCode != CL_SUCCESS)
@@ -116,9 +128,10 @@ CLKernel::CLKernel(const char* filename, const std::vector<cl::Device>& devices)
 
 }
 
-void CLKernel::SetArgument(RenderKernelArgument_t argIndex, void* data, size_t size)
+void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size)
 {
-    cl_int errCode = m_Kernel.setArg(static_cast<unsigned int>(argIndex), size, data);
+    cl_int errCode = m_Kernel.setArg(argIndex, size, data);
+
     if (errCode)
     {
         throw CLException("Failed to set kernel argument", errCode);

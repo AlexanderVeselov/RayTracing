@@ -88,7 +88,7 @@ float3 SampleHemisphereCosine(float3 n, unsigned int* seed)
     float3 t = normalize(cross(axis, n));
     float3 s = cross(n, t);
 
-    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*sqrt(1.0f - sinThetaSqr));
+    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * sqrt(1.0f - sinThetaSqr));
 }
 
 #define ALGORITHM2
@@ -110,11 +110,11 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
 
     // Compute intersection distance, bail if infinite or negative
     float intersection_det = dot(triangle_n, r->dir);
-    if(fabs(intersection_det) <= 0.0001f) {
+    if (fabs(intersection_det) <= 0.0001f) {
         return false;
     }
     float intersection_dist = (triangle_support - dot(triangle_n, r->origin)) / intersection_det;
-    if(intersection_dist <= 0.0f)
+    if (intersection_dist <= 0.0f)
     {
         return false;
     }
@@ -133,11 +133,11 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
     float baryB = dot(cross(triangle_ca, triangle_cq), triangle_n);
     float baryC = dot(cross(triangle_ab, triangle_aq), triangle_n);
 
-    if(baryA < 0.0f || baryB < 0.0f || baryC < 0.0f)
+    if (baryA < 0.0f || baryB < 0.0f || baryC < 0.0f)
     {
         return false;
     }
-    
+
     // Perform barycentric interpolation of normals
     float triangle_den = dot(triangle_nn, triangle_n);
     baryA /= triangle_den;
@@ -145,8 +145,8 @@ bool RayTriangle(const __global Triangle* triangle, const Ray* r, float* t, floa
     baryC /= triangle_den;
 
     float3 N = normalize(
-        triangle->n1 * baryA + 
-        triangle->n2 * baryB + 
+        triangle->n1 * baryA +
+        triangle->n2 * baryB +
         triangle->n3 * baryC
     );
     *t = intersection_dist;
@@ -216,13 +216,13 @@ bool RayBounds(const __global Bounds3* bounds, const Ray* ray, float t)
 
 }
 
-IntersectData Intersect(Ray *ray, const Scene* scene)
+IntersectData Intersect(Ray* ray, const Scene* scene)
 {
     IntersectData isect;
     isect.hit = false;
     isect.ray = *ray;
     isect.t = MAX_RENDER_DIST;
-    
+
     float t;
     // Follow ray through BVH nodes to find primitive intersections
     int toVisitOffset = 0, currentNodeIndex = 0;
@@ -293,21 +293,21 @@ float3 saturate(float3 value)
 
 float DistributionBlinn(float3 normal, float3 wh, float alpha)
 {
-    return (alpha + 2.0f) * pow(max(0.0f, dot(normal, wh)), alpha) * INV_TWO_PI;    
+    return (alpha + 2.0f) * pow(max(0.0f, dot(normal, wh)), alpha) * INV_TWO_PI;
 }
 
 float DistributionBeckmann(float3 normal, float3 wh, float alpha)
 {
     float cosTheta2 = dot(normal, wh);
     cosTheta2 *= cosTheta2;
-    float alpha2 = alpha*alpha;
+    float alpha2 = alpha * alpha;
 
     return exp(-(1.0f / cosTheta2 - 1.0f) / alpha2) * INV_PI / (alpha2 * cosTheta2 * cosTheta2);
 }
 
 float DistributionGGX(float cosTheta, float alpha)
 {
-    float alpha2 = alpha*alpha;
+    float alpha2 = alpha * alpha;
     return alpha2 * INV_PI / pow(cosTheta * cosTheta * (alpha2 - 1.0f) + 1.0f, 2.0f);
 }
 
@@ -321,7 +321,7 @@ float3 SampleBlinn(float3 n, float alpha, unsigned int* seed)
     float3 t = normalize(cross(axis, n));
     float3 s = cross(n, t);
 
-    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*cosTheta);
+    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * cosTheta);
 
 }
 
@@ -335,7 +335,7 @@ float3 SampleBeckmann(float3 n, float alpha, unsigned int* seed)
     float3 t = normalize(cross(axis, n));
     float3 s = cross(n, t);
 
-    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*cosTheta);
+    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * cosTheta);
 
 }
 
@@ -350,7 +350,7 @@ float3 SampleGGX(float3 n, float alpha, float* cosTheta, unsigned int* seed)
     float3 t = normalize(cross(axis, n));
     float3 s = cross(n, t);
 
-    return normalize(s*cos(phi)*sinTheta + t*sin(phi)*sinTheta + n*(*cosTheta));;
+    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * (*cosTheta));;
 }
 
 float FresnelShlick(float f0, float nDotWi)
@@ -378,14 +378,14 @@ float3 SampleSpecular(float3 wo, float3* wi, float* pdf, float3 normal, const __
     float cosTheta;
     float3 wh = SampleGGX(normal, alpha, &cosTheta, seed);
 #endif
-        *wi = reflect(wo, wh);
+    * wi = reflect(wo, wh);
     if (dot(*wi, normal) * dot(wo, normal) < 0.0f) return 0.0f;
 #ifdef BLINN
     float D = DistributionBlinn(normal, wh, alpha);
 #else
     float D = DistributionGGX(cosTheta, alpha);
 #endif
-    *pdf = D * cosTheta / (4.0f * dot(wo, wh));
+    * pdf = D * cosTheta / (4.0f * dot(wo, wh));
     // Actually, _material->ior_ isn't ior value, this is f0 value for now
     return D / (4.0f * dot(*wi, normal) * dot(wo, normal)) * material->specular;
 }
@@ -425,7 +425,7 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
 {
     float3 radiance = 0.0f;
     float3 beta = 1.0f;
-            
+
     for (int i = 0; i < 5; ++i)
     {
         IntersectData isect = Intersect(ray, scene);
@@ -436,7 +436,7 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
             radiance += val;
             break;
         }
-        
+
         const __global Material* material = &scene->materials[isect.object->mtlIndex];
         radiance += beta * material->emission * 50.0f;
 
@@ -451,7 +451,7 @@ float3 Render(Ray* ray, const Scene* scene, unsigned int* seed, __read_only imag
         *ray = InitRay(isect.pos + wi * 0.01f, wi);
 
     }
-    
+
     return max(radiance, 0.0f);
 }
 
@@ -488,7 +488,7 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     float2 dofDir = PointInHexagon(seed);
     float r = 1.0f;
     float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
-    
+
     return InitRay(newPos, normalize(pointAimed - newPos));
     //return InitRay(cameraPos, dir);
 }
@@ -534,17 +534,17 @@ __kernel void KernelEntry
     Scene scene = { triangles, nodes, materials };
 
     unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
-    
+
     Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
     float3 radiance = Render(&ray, &scene, &seed, tex);
-        
+
     if (frameCount == 0)
     {
-        result[get_global_id(0)] = ToGamma(radiance);
+        result[get_global_id(0)] = radiance;
     }
     else
     {
-        result[get_global_id(0)] = ToGamma((FromGamma(result[get_global_id(0)]) * (frameCount - 1) + radiance) / frameCount);
+        result[get_global_id(0)] = (result[get_global_id(0)] * (frameCount - 1) + radiance) / frameCount;
     }
 
 }

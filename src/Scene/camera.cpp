@@ -4,9 +4,10 @@
 #include <Windows.h>
 #include <iostream>
 
-Camera::Camera(std::shared_ptr<Viewport> viewport)
+Camera::Camera(std::shared_ptr<Framebuffer> framebuffer, Render& render)
     :
-    m_Viewport(viewport),
+    m_Render(render),
+    m_Framebuffer(framebuffer),
     m_Origin(0.0f, -20.0f, 20.0f),
     m_Pitch(MATH_PIDIV2),
     m_Yaw(MATH_PIDIV2),
@@ -22,9 +23,10 @@ void Camera::Update()
     unsigned short x, y;
     input->GetMousePos(&x, &y);
     POINT mouseClient = { x, y };
-    ScreenToClient(render->GetHWND(), &mouseClient);
+    ScreenToClient(m_Render.GetHWND(), &mouseClient);
 
-    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0 && mouseClient.x < m_Viewport->width && mouseClient.y < m_Viewport->height)
+    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0
+        && mouseClient.x < m_Framebuffer->GetWidth() && mouseClient.y < m_Framebuffer->GetHeight())
     {
         float sensivity = 0.00075f;
         m_Yaw -= (x - point.x) * sensivity;
@@ -48,19 +50,9 @@ void Camera::Update()
     }
     
     m_Origin += float3(std::cosf(m_Yaw) * std::sinf(m_Pitch) * frontback - std::cosf(m_Yaw - MATH_PIDIV2) * strafe,
-        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback - std::sinf(m_Yaw - MATH_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed * render->GetDeltaTime();
+        std::sinf(m_Yaw) * std::sinf(m_Pitch) * frontback - std::sinf(m_Yaw - MATH_PIDIV2) * strafe, std::cosf(m_Pitch) * frontback) * m_Speed * m_Render.GetDeltaTime();
     m_Front = float3(std::cosf(m_Yaw) * std::sinf(m_Pitch), std::sinf(m_Yaw) * std::sinf(m_Pitch), std::cosf(m_Pitch));
 
-    float3 right = Cross(m_Front, m_Up).Normalize();
-    float3 up = Cross(right, m_Front);
-
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &m_Origin, sizeof(float3));
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_FRONT, &m_Front, sizeof(float3));
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &m_FrameCount, sizeof(unsigned int));
-    unsigned int seed = rand();
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
-    
     ++m_FrameCount;
 
 }

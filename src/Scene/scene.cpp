@@ -75,8 +75,6 @@ void Scene::LoadTriangles(const char* filename)
 
     std::cout << "Loading object file " << filename << std::endl;
 
-    double startTime = render->GetCurtime();
-
     FILE* file = fopen(filename, "r");
     if (!file)
     {
@@ -142,7 +140,7 @@ void Scene::LoadTriangles(const char* filename)
         }
     }
     
-    std::cout << "Load succesful (" << m_Triangles.size() << " triangles, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
+    std::cout << "Load succesful (" << m_Triangles.size() << " triangles)" << std::endl;
 
 }
 
@@ -197,149 +195,149 @@ void Scene::LoadMaterials(const char* filename)
     std::cout << "Material count: " << m_Materials.size() << std::endl;
 }
 
-UniformGridScene::UniformGridScene(const char* filename)
-    : Scene(filename)
-{
-    CreateGrid(64);
-}
-
-void UniformGridScene::SetupBuffers()
-{
-    cl_int errCode;
-
-    m_TriangleBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to create scene buffer", errCode);
-    }
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
-
-    m_IndexBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Indices.size() * sizeof(unsigned int), m_Indices.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to create index buffer", errCode);
-    }
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_INDEX, &m_IndexBuffer, sizeof(cl::Buffer));
-
-    m_CellBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Cells.size() * sizeof(CellData), m_Cells.data(), &errCode);
-    if (errCode)
-    {
-        throw CLException("Failed to create cell buffer", errCode);
-    }
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_CELL, &m_CellBuffer, sizeof(cl::Buffer));
-
-}
-
-void UniformGridScene::DrawDebug()
-{
-    // XYZ
-    glColor3f(1, 0, 0);
-    glLineWidth(4);
-    glBegin(GL_LINE_LOOP);
-    glColor3f(1, 0, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(200, 0, 0);
-    glEnd();
-    glBegin(GL_LINE_LOOP);
-    glColor3f(0, 1, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 200, 0);
-    glEnd();
-    glBegin(GL_LINE_LOOP);
-    glColor3f(0, 0, 1);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 0, 200);
-    glEnd();
-    glColor3f(1, 0, 0);
-    glLineWidth(2);
-
-    glBegin(GL_LINES);
-    for (unsigned int z = 0; z < 8; ++z)
-    for (unsigned int x = 0; x < 8; ++x)
-    {
-        glVertex3f(x * 8, 0, z * 8);
-        glVertex3f(x * 8, 64, z * 8);
-    }
-
-    for (unsigned int z = 0; z < 8; ++z)
-        for (unsigned int y = 0; y < 8; ++y)
-        {
-            glVertex3f(0, y * 8, z * 8);
-            glVertex3f(64, y * 8, z * 8);
-        }
-
-    for (unsigned int x = 0; x < 8; ++x)
-        for (unsigned int y = 0; y < 8; ++y)
-        {
-            glVertex3f(x * 8, y * 8, 0);
-            glVertex3f(x * 8, y * 8, 64);
-        }
-
-    glEnd();
-}
-
-void UniformGridScene::CreateGrid(unsigned int cellResolution)
-{
-    std::vector<unsigned int> lower_indices;
-    std::vector<CellData> lower_cells;
-    clock_t t = clock();
-    unsigned int resolution = 2;
-    Bounds3 sceneBounds(0.0f, 64.0f);
-    std::cout << "Creating uniform grid" << std::endl;
-    std::cout << "Scene bounding box min: " << sceneBounds.min << " max: " << sceneBounds.max << std::endl;
-    std::cout << "Resolution: ";
-    while (resolution <= cellResolution)
-    {
-        std::cout << resolution << "... ";
-        float InvResolution = 1.0f / static_cast<float>(resolution);
-        float3 dv = (sceneBounds.max - sceneBounds.min) / static_cast<float>(resolution);
-        CellData current_cell = { 0, 0 };
-
-        lower_indices = m_Indices;
-        lower_cells = m_Cells;
-        m_Indices.clear();
-        m_Cells.clear();
-
-        int totalCells = resolution * resolution * resolution;
-        for (unsigned int z = 0; z < resolution; ++z)
-            for (unsigned int y = 0; y < resolution; ++y)
-                for (unsigned int x = 0; x < resolution; ++x)
-                {
-                    Bounds3 cellBound(sceneBounds.min + float3(x*dv.x, y*dv.y, z*dv.z), sceneBounds.min + float3((x + 1)*dv.x, (y + 1)*dv.y, (z + 1)*dv.z));
-
-                    current_cell.start_index = m_Indices.size();
-
-                    if (resolution == 2)
-                    {
-                        for (size_t i = 0; i < GetTriangles().size(); ++i)
-                        {
-                            if (cellBound.Intersects(GetTriangles()[i]))
-                            {
-                                m_Indices.push_back(i);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        CellData lower_cell = lower_cells[x / 2 + (y / 2) * (resolution / 2) + (z / 2) * (resolution / 2) * (resolution / 2)];
-                        for (unsigned int i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i)
-                        {
-                            if (cellBound.Intersects(GetTriangles()[lower_indices[i]]))
-                            {
-                                m_Indices.push_back(lower_indices[i]);
-                            }
-                        }
-                    }
-
-                    current_cell.count = m_Indices.size() - current_cell.start_index;
-                    m_Cells.push_back(current_cell);
-                }
-        resolution *= 2;
-    }
-
-    std::cout << "Done (" << (clock() - t) << " ms elapsed)" << std::endl;
-
-}
+//UniformGridScene::UniformGridScene(const char* filename)
+//    : Scene(filename)
+//{
+//    CreateGrid(64);
+//}
+//
+//void UniformGridScene::SetupBuffers()
+//{
+//    cl_int errCode;
+//
+//    m_TriangleBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
+//    if (errCode)
+//    {
+//        throw CLException("Failed to create scene buffer", errCode);
+//    }
+//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
+//
+//    m_IndexBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Indices.size() * sizeof(unsigned int), m_Indices.data(), &errCode);
+//    if (errCode)
+//    {
+//        throw CLException("Failed to create index buffer", errCode);
+//    }
+//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_INDEX, &m_IndexBuffer, sizeof(cl::Buffer));
+//
+//    m_CellBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Cells.size() * sizeof(CellData), m_Cells.data(), &errCode);
+//    if (errCode)
+//    {
+//        throw CLException("Failed to create cell buffer", errCode);
+//    }
+//    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_CELL, &m_CellBuffer, sizeof(cl::Buffer));
+//
+//}
+//
+//void UniformGridScene::DrawDebug()
+//{
+//    // XYZ
+//    glColor3f(1, 0, 0);
+//    glLineWidth(4);
+//    glBegin(GL_LINE_LOOP);
+//    glColor3f(1, 0, 0);
+//    glVertex3f(0, 0, 0);
+//    glVertex3f(200, 0, 0);
+//    glEnd();
+//    glBegin(GL_LINE_LOOP);
+//    glColor3f(0, 1, 0);
+//    glVertex3f(0, 0, 0);
+//    glVertex3f(0, 200, 0);
+//    glEnd();
+//    glBegin(GL_LINE_LOOP);
+//    glColor3f(0, 0, 1);
+//    glVertex3f(0, 0, 0);
+//    glVertex3f(0, 0, 200);
+//    glEnd();
+//    glColor3f(1, 0, 0);
+//    glLineWidth(2);
+//
+//    glBegin(GL_LINES);
+//    for (unsigned int z = 0; z < 8; ++z)
+//    for (unsigned int x = 0; x < 8; ++x)
+//    {
+//        glVertex3f(x * 8, 0, z * 8);
+//        glVertex3f(x * 8, 64, z * 8);
+//    }
+//
+//    for (unsigned int z = 0; z < 8; ++z)
+//        for (unsigned int y = 0; y < 8; ++y)
+//        {
+//            glVertex3f(0, y * 8, z * 8);
+//            glVertex3f(64, y * 8, z * 8);
+//        }
+//
+//    for (unsigned int x = 0; x < 8; ++x)
+//        for (unsigned int y = 0; y < 8; ++y)
+//        {
+//            glVertex3f(x * 8, y * 8, 0);
+//            glVertex3f(x * 8, y * 8, 64);
+//        }
+//
+//    glEnd();
+//}
+//
+//void UniformGridScene::CreateGrid(unsigned int cellResolution)
+//{
+//    std::vector<unsigned int> lower_indices;
+//    std::vector<CellData> lower_cells;
+//    clock_t t = clock();
+//    unsigned int resolution = 2;
+//    Bounds3 sceneBounds(0.0f, 64.0f);
+//    std::cout << "Creating uniform grid" << std::endl;
+//    std::cout << "Scene bounding box min: " << sceneBounds.min << " max: " << sceneBounds.max << std::endl;
+//    std::cout << "Resolution: ";
+//    while (resolution <= cellResolution)
+//    {
+//        std::cout << resolution << "... ";
+//        float InvResolution = 1.0f / static_cast<float>(resolution);
+//        float3 dv = (sceneBounds.max - sceneBounds.min) / static_cast<float>(resolution);
+//        CellData current_cell = { 0, 0 };
+//
+//        lower_indices = m_Indices;
+//        lower_cells = m_Cells;
+//        m_Indices.clear();
+//        m_Cells.clear();
+//
+//        int totalCells = resolution * resolution * resolution;
+//        for (unsigned int z = 0; z < resolution; ++z)
+//            for (unsigned int y = 0; y < resolution; ++y)
+//                for (unsigned int x = 0; x < resolution; ++x)
+//                {
+//                    Bounds3 cellBound(sceneBounds.min + float3(x*dv.x, y*dv.y, z*dv.z), sceneBounds.min + float3((x + 1)*dv.x, (y + 1)*dv.y, (z + 1)*dv.z));
+//
+//                    current_cell.start_index = m_Indices.size();
+//
+//                    if (resolution == 2)
+//                    {
+//                        for (size_t i = 0; i < GetTriangles().size(); ++i)
+//                        {
+//                            if (cellBound.Intersects(GetTriangles()[i]))
+//                            {
+//                                m_Indices.push_back(i);
+//                            }
+//                        }
+//                    }
+//                    else
+//                    {
+//                        CellData lower_cell = lower_cells[x / 2 + (y / 2) * (resolution / 2) + (z / 2) * (resolution / 2) * (resolution / 2)];
+//                        for (unsigned int i = lower_cell.start_index; i < lower_cell.start_index + lower_cell.count; ++i)
+//                        {
+//                            if (cellBound.Intersects(GetTriangles()[lower_indices[i]]))
+//                            {
+//                                m_Indices.push_back(lower_indices[i]);
+//                            }
+//                        }
+//                    }
+//
+//                    current_cell.count = m_Indices.size() - current_cell.start_index;
+//                    m_Cells.push_back(current_cell);
+//                }
+//        resolution *= 2;
+//    }
+//
+//    std::cout << "Done (" << (clock() - t) << " ms elapsed)" << std::endl;
+//
+//}
 
 struct BVHPrimitiveInfo
 {
@@ -388,12 +386,12 @@ struct BucketInfo
     Bounds3 bounds;
 };
 
-BVHScene::BVHScene(const char* filename, unsigned int maxPrimitivesInNode)
-    : Scene(filename), m_MaxPrimitivesInNode(maxPrimitivesInNode)
+BVHScene::BVHScene(const char* filename, Render& render, unsigned int maxPrimitivesInNode)
+    : Scene(filename), m_Render(render), m_MaxPrimitivesInNode(maxPrimitivesInNode)
 {
     std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
 
-    double startTime = render->GetCurtime();
+    double startTime = m_Render.GetCurtime();
     std::vector<BVHPrimitiveInfo> primitiveInfo(m_Triangles.size());
     for (unsigned int i = 0; i < m_Triangles.size(); ++i)
     {
@@ -407,7 +405,7 @@ BVHScene::BVHScene(const char* filename, unsigned int maxPrimitivesInNode)
 
     //primitiveInfo.resize(0);
     std::cout << "BVH created with " << totalNodes << " nodes for " << m_Triangles.size()
-        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, " << render->GetCurtime() - startTime << "s elapsed)" << std::endl;
+        << " triangles ("<< float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, " << m_Render.GetCurtime() - startTime << "s elapsed)" << std::endl;
 
     // Compute representation of depth-first traversal of BVH tree
     m_Nodes.resize(totalNodes);
@@ -421,31 +419,24 @@ void BVHScene::SetupBuffers()
 {
     cl_int errCode;
 
-    m_TriangleBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
+    m_TriangleBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &errCode);
     if (errCode)
     {
         throw CLException("Failed to create scene buffer", errCode);
     }
 
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &m_TriangleBuffer, sizeof(cl::Buffer));
-
-    m_NodeBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
+    m_NodeBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Nodes.size() * sizeof(LinearBVHNode), m_Nodes.data(), &errCode);
     if (errCode)
     {
         throw CLException("Failed to create BVH node buffer", errCode);
     }
 
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &m_NodeBuffer, sizeof(cl::Buffer));
-
-    m_MaterialBuffer = cl::Buffer(render->GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
+    m_MaterialBuffer = cl::Buffer(m_Render.GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &errCode);
     if (errCode)
     {
         throw CLException("Failed to create material buffer", errCode);
     }
 
-    render->GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &m_MaterialBuffer, sizeof(cl::Buffer));
-
-    
 }
 
 void DrawTree(BVHBuildNode* node, float x, float y, int depth)

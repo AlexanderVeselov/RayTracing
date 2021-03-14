@@ -9,107 +9,94 @@
 #include <GL/glew.h>
 #include <GL/wglew.h>
 
-static Render g_Render;
-Render* render = &g_Render;
+#define WINDOW_CLASS "WindowClass1"
+#define WINDOW_TITLE "Ray Tracing"
 
-/*
-GLuint ImageUtils::loadDDS(const char * filename)
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    Logger::getInstance()->write(StringUtils::format("Loading DDS Image %s", filename));
-
-    unsigned char header[124];
-
-    FILE *fp;
-
-    fp = fopen(filename, "rb");
-    if (fp == NULL)
+    // sort through and find what code to run for the message given
+    switch (message)
     {
-        Logger::getInstance()->write("Failed to load Image: could not open the file");
-        return 0;
-    }
-
-    char filecode[4];
-    fread(filecode, 1, 4, fp);
-    if (strncmp(filecode, "DDS ", 4) != 0)
-    {
-        fclose(fp);
-        Logger::getInstance()->write("Failed to load Image: not a direct draw surface file");
-        return 0;
-    }
-
-    fread(&header, 124, 1, fp);
-
-    unsigned int height = *(unsigned int*)&(header[8]);
-    unsigned int width = *(unsigned int*)&(header[12]);
-    unsigned int linearSize = *(unsigned int*)&(header[16]);
-    unsigned int mipMapCount = *(unsigned int*)&(header[24]);
-    unsigned int fourCC = *(unsigned int*)&(header[80]);
-
-    unsigned char * buffer;
-    unsigned int bufsize;
-
-    bufsize = mipMapCount > 1 ? linearSize * 2 : linearSize;
-    buffer = (unsigned char*)malloc(bufsize * sizeof(unsigned char));
-    fread(buffer, 1, bufsize, fp);
-
-    fclose(fp);
-
-    unsigned int components = (fourCC == FOURCC_DXT1) ? 3 : 4;
-    unsigned int format;
-    switch (fourCC)
-    {
-    case FOURCC_DXT1:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+    case WM_DESTROY:
+        PostQuitMessage(0);
         break;
-    case FOURCC_DXT3:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+    case WM_SYSKEYDOWN:
+    case WM_KEYDOWN:
+        input->KeyDown((unsigned int)wParam);
         break;
-    case FOURCC_DXT5:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    case WM_SYSKEYUP:
+    case WM_KEYUP:
+        input->KeyUp((unsigned int)wParam);
+        break;
+    case WM_LBUTTONDOWN:
+        input->MousePressed(MK_LBUTTON);
+        break;
+    case WM_LBUTTONUP:
+        input->MouseReleased(MK_LBUTTON);
+        break;
+    case WM_RBUTTONDOWN:
+        input->MousePressed(MK_RBUTTON);
+        break;
+    case WM_RBUTTONUP:
+        input->MouseReleased(MK_RBUTTON);
         break;
     default:
-        free(buffer);
-        throw Exception("Failed to load Image: dds file format not supported (supported formats: DXT1, DXT3, DXT5)");
-        return 0;
+        // Handle any messages the switch statement didn't
+        return DefWindowProc(hWnd, message, wParam, lParam);
     }
 
-    // Create one OpenGL texture
-    GLuint textureID;
-    glGenTextures(1, &textureID);
+    return 0;
 
-    // "Bind" the newly created texture : all future texture functions will modify this texture
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    unsigned int blockSize = (format == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT) ? 8 : 16;
-    unsigned int offset = 0;
-
-    for (unsigned int level = 0; level < mipMapCount && (width || height); ++level)
-    {
-        unsigned int size = ((width + 3) / 4)*((height + 3) / 4)*blockSize;
-        glCompressedTexImage2D(GL_TEXTURE_2D, level, format, width, height,
-            0, size, buffer + offset);
-
-        offset += size;
-        width /= 2;
-        height /= 2;
-    }
-
-    free(buffer);
-
-    //Unbind the texture
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    Logger::getInstance()->write(StringUtils::format("Loaded DDS Image %s", filename));
-
-    return textureID;
 }
-*/
+
+void Render::InitWindow()
+{
+    HINSTANCE hInstance = GetModuleHandle(nullptr);
+    WNDCLASSEX wc;
+    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+
+    // fill in the struct with the needed information
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wc.lpszClassName = WINDOW_CLASS;
+
+    RegisterClassEx(&wc);
+
+    RECT rt = { 0, 0, width_, height_ };
+    AdjustWindowRect(&rt, WS_OVERLAPPEDWINDOW, FALSE);
+
+    // create the window and use the result as the handle
+    hwnd_ = CreateWindowEx(NULL,
+        WINDOW_CLASS,                       // name of the window class
+        WINDOW_TITLE,                       // title of the window
+        WS_OVERLAPPED | WS_SYSMENU,         // window style
+        100,                                // x-position of the window
+        100,                                // y-position of the window
+        rt.right - rt.left,                 // width of the window
+        rt.bottom - rt.top,                 // height of the window
+        NULL,                               // we have no parent window, NULL
+        NULL,                               // we aren't using menus, NULL
+        hInstance,                          // application handle
+        NULL);                              // used with multiple windows, NULL
+
+    ShowWindow(hwnd_, SW_SHOWNORMAL);
+
+    // Assert the window client area matches to the provided size
+    RECT hwnd_rect = {};
+    GetClientRect(hwnd_, &hwnd_rect);
+
+    assert(hwnd_rect.right - hwnd_rect.left == width_);
+    assert(hwnd_rect.bottom - hwnd_rect.top == height_);
+
+}
 
 void Render::InitGL()
 {
-    PIXELFORMATDESCRIPTOR pfd;
-    ZeroMemory(&pfd, sizeof(PIXELFORMATDESCRIPTOR));
+    PIXELFORMATDESCRIPTOR pfd = {};
     pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
     pfd.nVersion = 1;
     pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
@@ -119,11 +106,15 @@ void Render::InitGL()
     pfd.cStencilBits = 8;
     pfd.iLayerType = PFD_MAIN_PLANE;
 
-    int pixelFormat = ChoosePixelFormat(m_DisplayContext, &pfd);
-    SetPixelFormat(m_DisplayContext, pixelFormat, &pfd);
+    HDC hdc = GetDC(hwnd_);
 
-    m_GLContext = wglCreateContext(m_DisplayContext);
-    wglMakeCurrent(m_DisplayContext, m_GLContext);
+    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    SetPixelFormat(hdc, pixelFormat, &pfd);
+
+    m_GLContext = wglCreateContext(hdc);
+    wglMakeCurrent(hdc, m_GLContext);
+
+    printf("GL version: %s\n", (char*)glGetString(GL_VERSION));
 
     GLenum glew_status = glewInit();
 
@@ -138,60 +129,70 @@ void Render::InitGL()
     wglSwapIntervalEXT(0);
 }
 
-void Render::Init(HWND hwnd)
+Render::Render(std::uint32_t width, std::uint32_t height)
+    : width_(width)
+    , height_(height)
 {
-    m_hWnd = hwnd;
-    m_DisplayContext = GetDC(m_hWnd);
-    
+    InitWindow();
     InitGL();
 
-    RECT hwndRect;
-    GetWindowRect(hwnd, &hwndRect);
-
-    unsigned int width = hwndRect.right - hwndRect.left, height = hwndRect.bottom - hwndRect.top;
-    m_Viewport = std::make_shared<Viewport>(0, 0, width, height);
-    m_Camera = std::make_shared<Camera>(m_Viewport);
-#ifdef BVH_INTERSECTION
-    m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", 4);
-#else
-    m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
-#endif
-    
     std::vector<cl::Platform> all_platforms;
     cl::Platform::get(&all_platforms);
     if (all_platforms.empty())
     {
         throw std::exception("No OpenCL platforms found");
     }
-    
-    m_CLContext = std::make_shared<CLContext>(all_platforms[0]);
+
+    m_CLContext = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
     std::vector<cl::Device> platform_devices;
     all_platforms[0].getDevices(CL_DEVICE_TYPE_ALL, &platform_devices);
 #ifdef BVH_INTERSECTION
-    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", platform_devices);
+    m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_bvh.cl", *m_CLContext, platform_devices);
 #else
     m_RenderKernel = std::make_shared<CLKernel>("src/Kernels/kernel_grid.cl", platform_devices);
 #endif
+
+    m_CopyKernel = std::make_shared<CLKernel>("src/Kernels/kernel_copy.cl", *m_CLContext, platform_devices);
+
+#ifdef BVH_INTERSECTION
+    m_Scene = std::make_shared<BVHScene>("meshes/dragon.obj", *this, 4);
+#else
+    m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
+#endif
+
+    m_Framebuffer = std::make_shared<Framebuffer>(width_, height_);
+    m_Camera = std::make_shared<Camera>(m_Framebuffer, *this);
 
     SetupBuffers();
 
 }
 
-Image image;
 void Render::SetupBuffers()
 {
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::WIDTH, &m_Viewport->width, sizeof(unsigned int));
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::HEIGHT, &m_Viewport->height, sizeof(unsigned int));
-
     cl_int errCode;
-    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, GetGlobalWorkSize() * sizeof(float3), 0, &errCode);
+    m_OutputImage = cl::ImageGL(GetCLContext()->GetContext(), CL_MEM_WRITE_ONLY,
+        GL_TEXTURE_2D, 0, m_Framebuffer->GetGlImage(), &errCode);
+
+    if (errCode)
+    {
+        throw CLException("Failed to create output image", errCode);
+    }
+
+    m_OutputBuffer = cl::Buffer(GetCLContext()->GetContext(), CL_MEM_READ_WRITE, width_ * height_ * sizeof(cl_float4), 0, &errCode);
+
     if (errCode)
     {
         throw CLException("Failed to create output buffer", errCode);
     }
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
-    
+
+    cl_mem image_mem = m_OutputImage();
+
+    m_CopyKernel->SetArgument(0, &m_OutputBuffer, sizeof(m_OutputBuffer));
+    m_CopyKernel->SetArgument(1, &image_mem, sizeof(image_mem));
+    m_CopyKernel->SetArgument(2, &width_, sizeof(width_));
+    m_CopyKernel->SetArgument(3, &width_, sizeof(height_));
+
     m_Scene->SetupBuffers();
 
     // Texture Buffers
@@ -199,21 +200,35 @@ void Render::SetupBuffers()
     imageFormat.image_channel_order = CL_RGBA;
     imageFormat.image_channel_data_type = CL_FLOAT;
 
+    Image image;
     HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
-    //HDRLoader::Load("textures/studio.hdr", image);
 
-    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, imageFormat, image.width, image.height, 0, image.colors, &errCode);
+    m_Texture0 = cl::Image2D(GetCLContext()->GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        imageFormat, image.width, image.height, 0, image.colors, &errCode);
     if (errCode)
     {
         throw CLException("Failed to create image", errCode);
     }
-    GetCLKernel()->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
 
-}
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::BUFFER_OUT, &m_OutputBuffer, sizeof(cl::Buffer));
 
-const HWND Render::GetHWND() const
-{
-    return m_hWnd;
+    cl_mem triangle_buffer = m_Scene->GetTriangleBuffer();
+    cl_mem node_buffer = m_Scene->GetNodeBuffer();
+    cl_mem material_buffer = m_Scene->GetMaterialBuffer();
+
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl::Buffer));
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &node_buffer, sizeof(cl::Buffer));
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl::Buffer));
+
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::WIDTH, &width_, sizeof(std::uint32_t));
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(std::uint32_t));
+
+    m_RenderKernel->SetArgument(RenderKernelArgument_t::TEXTURE0, &m_Texture0, sizeof(cl::Image2D));
+
+    if (nointerop_)
+    {
+        nointerop_readback_buffer_.resize(width_ * height_);
+    }
 }
 
 double Render::GetCurtime() const
@@ -226,36 +241,9 @@ double Render::GetDeltaTime() const
     return GetCurtime() - m_PreviousFrameTime;
 }
 
-unsigned int Render::GetGlobalWorkSize() const
+std::uint32_t Render::GetGlobalWorkSize() const
 {
-    if (m_Viewport)
-    {
-        return m_Viewport->width * m_Viewport->height;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-HDC Render::GetDisplayContext() const
-{
-    return m_DisplayContext;
-}
-
-HGLRC Render::GetGLContext() const
-{
-    return m_GLContext;
-}
-
-std::shared_ptr<CLContext> Render::GetCLContext() const
-{
-    return m_CLContext;
-}
-
-std::shared_ptr<CLKernel> Render::GetCLKernel() const
-{
-    return m_RenderKernel;
+    return width_ * height_;
 }
 
 void Render::FrameBegin()
@@ -277,34 +265,48 @@ void Render::RenderFrame()
 
     m_Camera->Update();
 
-    //if (m_Camera->GetFrameCount() > 64) return;
+    {
+        float3 origin = m_Camera->GetOrigin();
+        float3 front = m_Camera->GetFrontVector();
+
+        float3 right = Cross(front, m_Camera->GetUpVector()).Normalize();
+        float3 up = Cross(right, front);
+
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &origin, sizeof(float3));
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_FRONT, &front, sizeof(float3));
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
+
+        std::uint32_t frame_count = m_Camera->GetFrameCount();
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
+        unsigned int seed = rand();
+        m_RenderKernel->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+    }
 
     unsigned int globalWorksize = GetGlobalWorkSize();
-    GetCLContext()->ExecuteKernel(GetCLKernel(), globalWorksize);
-    GetCLContext()->ReadBuffer(m_OutputBuffer, m_Viewport->pixels, sizeof(float3) * globalWorksize);
-    GetCLContext()->Finish();
+    GetCLContext()->ExecuteKernel(m_RenderKernel, globalWorksize);
 
-    glDrawPixels(m_Viewport->width, m_Viewport->height, GL_RGBA, GL_FLOAT, m_Viewport->pixels);
-        
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(90.0, 1280.0 / 720.0, 1, 1024);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    float3 eye = m_Camera->GetOrigin();
-    float3 center = m_Camera->GetFrontVector() + eye;
-    gluLookAt(eye.x, eye.y, eye.z, center.x, center.y, center.z, m_Camera->GetUpVector().x, m_Camera->GetUpVector().y, m_Camera->GetUpVector().z);
+    if (nointerop_)
+    {
+        GetCLContext()->ReadBuffer(m_OutputBuffer, nointerop_readback_buffer_.data(),
+            sizeof(cl_float4) * width_ * height_);
+        GetCLContext()->Finish();
 
-    //m_Scene->DrawDebug();
+        glDrawPixels(width_, height_, GL_RGBA, GL_FLOAT, nointerop_readback_buffer_.data());
+    }
+    else
+    {
+        GetCLContext()->AcquireGLObject(m_OutputImage());
+        GetCLContext()->ExecuteKernel(m_CopyKernel, globalWorksize);
+        GetCLContext()->Finish();
+        GetCLContext()->ReleaseGLObject(m_OutputImage());
+        m_Framebuffer->Present();
+    }
+
+    /* TODO: draw GUI, debug, etc. here */
 
     glFinish();
 
-    SwapBuffers(m_DisplayContext);
+    SwapBuffers(GetDC(hwnd_));
 
     FrameEnd();
-}
-
-void Render::Shutdown()
-{
-
 }
