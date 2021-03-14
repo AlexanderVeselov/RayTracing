@@ -16,6 +16,7 @@ set(IO_SOURCES
 set(KERNELS_SOURCES
     kernels/kernel_bvh.cl
     kernels/kernel_grid.cl
+    kernels/kernel_copy.cl
 )
 
 set(MATHLIB_SOURCES
