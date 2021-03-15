@@ -2,6 +2,8 @@
 #include "mathlib/mathlib.hpp"
 #include "io/inputsystem.hpp"
 #include "utils/cl_exception.hpp"
+#include <backends/imgui_impl_opengl3.h>
+#include <backends/imgui_impl_win32.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -135,6 +137,10 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     InitWindow();
     InitGL();
 
+    ImGui::CreateContext();
+    ImGui_ImplOpenGL3_Init();
+    ImGui_ImplWin32_Init(hwnd_);
+
     std::vector<cl::Platform> all_platforms;
     cl::Platform::get(&all_platforms);
     if (all_platforms.empty())
@@ -160,6 +166,13 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
 }
 
+Render::~Render()
+{
+    ImGui_ImplWin32_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui::DestroyContext();
+}
+
 double Render::GetCurtime() const
 {
     return (double)clock() / (double)CLOCKS_PER_SEC;
@@ -178,11 +191,25 @@ std::uint32_t Render::GetGlobalWorkSize() const
 void Render::FrameBegin()
 {
     m_StartFrameTime = GetCurtime();
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
 }
 
 void Render::FrameEnd()
 {
     m_PreviousFrameTime = m_StartFrameTime;
+}
+
+void Render::DrawGUI()
+{
+    ImGui::Begin("Performance stats");
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+        1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Render::RenderFrame()
@@ -197,7 +224,8 @@ void Render::RenderFrame()
     estimator_->Estimate();
     framebuffer_->Present();
 
-    /* TODO: draw GUI, debug, etc. here */
+    // Draw GUI
+    DrawGUI();
 
     glFinish();
 
