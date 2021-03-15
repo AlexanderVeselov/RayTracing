@@ -16,6 +16,7 @@ class Render
 {
 public:
     Render(std::uint32_t width, std::uint32_t weight);
+    ~Render();
 
     void          RenderFrame();
 
@@ -31,6 +32,7 @@ private:
     void InitGL();
     void FrameBegin();
     void FrameEnd();
+    void DrawGUI();
     
 private:
     HWND hwnd_;

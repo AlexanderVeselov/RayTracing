@@ -2,6 +2,8 @@
 #include "mathlib/mathlib.hpp"
 #include "io/inputsystem.hpp"
 #include "utils/cl_exception.hpp"
+#include <backends/imgui_impl_opengl3.h>
+#include <backends/imgui_impl_win32.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,8 +13,12 @@
 #define WINDOW_CLASS "WindowClass1"
 #define WINDOW_TITLE "Ray Tracing"
 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+
     // sort through and find what code to run for the message given
     switch (message)
     {
@@ -40,11 +46,10 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         input->MouseReleased(MK_RBUTTON);
         break;
     default:
-        // Handle any messages the switch statement didn't
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        break;
     }
 
-    return 0;
+    return DefWindowProc(hWnd, message, wParam, lParam);
 
 }
 
@@ -135,6 +140,11 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     InitWindow();
     InitGL();
 
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplOpenGL3_Init();
+    ImGui_ImplWin32_Init(hwnd_);
+
     std::vector<cl::Platform> all_platforms;
     cl::Platform::get(&all_platforms);
     if (all_platforms.empty())
@@ -160,6 +170,13 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
 }
 
+Render::~Render()
+{
+    ImGui_ImplWin32_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui::DestroyContext();
+}
+
 double Render::GetCurtime() const
 {
     return (double)clock() / (double)CLOCKS_PER_SEC;
@@ -178,11 +195,37 @@ std::uint32_t Render::GetGlobalWorkSize() const
 void Render::FrameBegin()
 {
     m_StartFrameTime = GetCurtime();
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
 }
 
 void Render::FrameEnd()
 {
     m_PreviousFrameTime = m_StartFrameTime;
+}
+
+void Render::DrawGUI()
+{
+    ImGui::Begin("PerformanceStats", nullptr,
+        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
+    ImGui::SetWindowPos(ImVec2(10, 10));
+    ImGui::SetWindowSize(ImVec2(350, 30));
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+        1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::End();
+
+    ImGui::Begin("Useless window");
+    static float aperture = 0.0f;
+    ImGui::SliderFloat("Camera aperture", &aperture, 0.0, 1.0);
+    camera_->SetAperture(aperture);
+    static float focus_distance = 10.0f;
+    ImGui::SliderFloat("Camera focus distance", &focus_distance, 0.0, 100.0);
+    camera_->SetFocusDistance(focus_distance);
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Render::RenderFrame()
@@ -197,7 +240,8 @@ void Render::RenderFrame()
     estimator_->Estimate();
     framebuffer_->Present();
 
-    /* TODO: draw GUI, debug, etc. here */
+    // Draw GUI
+    DrawGUI();
 
     glFinish();
 

@@ -22,6 +22,8 @@ enum RenderKernelArgument_t : unsigned int
     CAM_UP,
     FRAME_COUNT,
     FRAME_SEED,
+    CAMERA_APERTURE,
+    CAMERA_FOCUS_DISTANCE,
     ENVIRONMENT_TEXTURE,
 };
 
