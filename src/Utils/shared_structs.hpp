@@ -109,4 +109,11 @@ typedef struct LinearBVHNode
 
 } LinearBVHNode;
 
+typedef struct DeviceCamera
+{
+    float3 position;
+    float3 front;
+    float3 up;
+} DeviceCamera;
+
 #endif // TRIANGLE_HPP

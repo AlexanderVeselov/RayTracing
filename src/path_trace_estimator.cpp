@@ -74,6 +74,11 @@ void PathTraceEstimator::SetCameraData(Camera const& camera)
     render_kernel_->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
     unsigned int seed = rand();
     render_kernel_->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+
+    float aperture = camera.GetAperture();
+    float focus_distance = camera.GetFocusDistance();
+    render_kernel_->SetArgument(RenderKernelArgument_t::CAMERA_APERTURE, &aperture, sizeof(float));
+    render_kernel_->SetArgument(RenderKernelArgument_t::CAMERA_FOCUS_DISTANCE, &focus_distance, sizeof(float));
 }
 
 void PathTraceEstimator::SetSceneData(Scene const& scene)

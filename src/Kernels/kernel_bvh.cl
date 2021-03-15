@@ -466,7 +466,8 @@ float2 PointInHexagon(unsigned int* seed)
     return (float2)(p1 * v1.x + p2 * v2.x, p1 * v1.y + p2 * v2.y);
 }
 
-Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp, unsigned int* seed)
+Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, float3 cameraUp,
+    float aperture, float focus_distance, unsigned int* seed)
 {
     float invWidth = 1.0f / (float)(width), invHeight = 1.0f / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
@@ -482,35 +483,12 @@ Ray CreateRay(uint width, uint height, float3 cameraPos, float3 cameraFront, flo
     float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
 
     // Simple Depth of Field
-    float3 pointAimed = cameraPos + 60.0f * dir;
-    //float2 dofDir = (float2)(GetRandomFloat(seed), GetRandomFloat(seed));
-    //dofDir = normalize(dofDir * 2.0f - 1.0f) * GetRandomFloat(seed);
+    float3 pointAimed = cameraPos + focus_distance * dir;
     float2 dofDir = PointInHexagon(seed);
-    float r = 1.0f;
+    float r = aperture;
     float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
 
     return InitRay(newPos, normalize(pointAimed - newPos));
-    //return InitRay(cameraPos, dir);
-}
-
-#define GAMMA_CORRECTION
-
-float3 ToGamma(float3 value)
-{
-#ifdef GAMMA_CORRECTION
-    return pow(value, 1.0f / 2.2f);
-#else
-    return value;
-#endif
-}
-
-float3 FromGamma(float3 value)
-{
-#ifdef GAMMA_CORRECTION
-    return pow(value, 2.2f);
-#else
-    return value;
-#endif
 }
 
 __kernel void KernelEntry
@@ -528,6 +506,8 @@ __kernel void KernelEntry
     float3 cameraUp,
     unsigned int frameCount,
     unsigned int frameSeed,
+    float aperture,
+    float focus_distance,
     __read_only image2d_t tex
 )
 {
@@ -535,7 +515,7 @@ __kernel void KernelEntry
 
     unsigned int seed = get_global_id(0) + HashUInt32(frameCount);
 
-    Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, &seed);
+    Ray ray = CreateRay(width, height, cameraPos, cameraFront, cameraUp, aperture, focus_distance, &seed);
     float3 radiance = Render(&ray, &scene, &seed, tex);
 
     if (frameCount == 0)
