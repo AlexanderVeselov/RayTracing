@@ -5,10 +5,11 @@
 #include <GL/glew.h>
 
 PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height,
-    CLContext& cl_context, cl_GLuint gl_interop_image)
+    CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint gl_interop_image)
     : width_(width)
     , height_(height)
     , cl_context_(cl_context)
+    , acc_structure_(acc_structure)
     , gl_interop_image_(gl_interop_image)
 {
     // Create buffers and images
@@ -85,12 +86,10 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
 {
     // Set scene buffers
     cl_mem triangle_buffer = scene.GetTriangleBuffer();
-    cl_mem node_buffer = scene.GetNodeBuffer();
     cl_mem material_buffer = scene.GetMaterialBuffer();
     cl_mem env_texture = scene.GetEnvTextureBuffer();
 
     render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl_mem));
-    render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_NODE, &node_buffer, sizeof(cl_mem));
     render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl_mem));
     render_kernel_->SetArgument(RenderKernelArgument_t::ENVIRONMENT_TEXTURE, &env_texture, sizeof(cl_mem));
 }

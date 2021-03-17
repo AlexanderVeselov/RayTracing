@@ -39,6 +39,9 @@ set(UTILS_SOURCES
 )
 
 set(MAIN_SOURCES
+    acceleration_structure.hpp
+    bvh.cpp
+    bvh.hpp
     path_trace_estimator.cpp
     path_trace_estimator.hpp
     render.cpp

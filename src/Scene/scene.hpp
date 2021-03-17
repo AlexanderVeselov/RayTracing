@@ -4,106 +4,31 @@
 #include "mathlib/mathlib.hpp"
 #include "utils/shared_structs.hpp"
 #include <CL/cl.hpp>
-#include <algorithm>
 #include <vector>
-#include <map>
 
+class CLContext;
 class Scene
 {
 public:
-    Scene(const char* filename);
-    virtual void SetupBuffers() = 0;
-    virtual void DrawDebug() = 0;
-    const std::vector<Triangle>& GetTriangles() const;
-    cl_mem GetTriangleBuffer() const { return m_TriangleBuffer(); }
-    cl_mem GetNodeBuffer() const { return m_NodeBuffer(); }
-    cl_mem GetMaterialBuffer() const { return m_MaterialBuffer(); }
+    Scene(const char* filename, CLContext& cl_context);
+    std::vector<Triangle> const& GetTriangles() const;
+    cl_mem GetTriangleBuffer() const { return triangle_buffer_(); }
+    cl_mem GetMaterialBuffer() const { return material_buffer_(); }
     cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
+    void UploadBuffers();
 
 private:
     void LoadTriangles(const char* filename);
     void LoadMaterials(const char* filename);
-    std::vector<std::string> m_MaterialNames;
 
-protected:
+    CLContext& cl_context_;
+    std::vector<std::string> m_MaterialNames;
     std::vector<Triangle> m_Triangles;
     std::vector<Material> m_Materials;
-    cl::Buffer m_TriangleBuffer;
-    cl::Buffer m_NodeBuffer;
-    cl::Buffer m_MaterialBuffer;
+    cl::Buffer triangle_buffer_;
+    cl::Buffer material_buffer_;
     cl::Image2D env_texture_;
 
 };
-
-//class UniformGridScene : public Scene
-//{
-//public:
-//    UniformGridScene(const char* filename);
-//    virtual void SetupBuffers();
-//    virtual void DrawDebug();
-//
-//private:
-//    void CreateGrid(unsigned int cellResolution);
-//
-//    std::vector<unsigned int> m_Indices;
-//    std::vector<CellData> m_Cells;
-//    cl::Buffer m_IndexBuffer;
-//    cl::Buffer m_CellBuffer;
-//
-//};
-
-struct BVHBuildNode;
-struct BVHPrimitiveInfo;
-class Render;
-
-class BVHScene : public Scene
-{
-public:
-    BVHScene(const char* filename, Render& render, unsigned int maxPrimitivesInNode);
-    virtual void SetupBuffers();
-    virtual void DrawDebug();
-
-private:
-    BVHBuildNode *BVHScene::RecursiveBuild(
-        std::vector<BVHPrimitiveInfo> &primitiveInfo,
-        unsigned int start,
-        unsigned int end, unsigned int *totalNodes,
-        std::vector<Triangle> &orderedTriangles);
-
-    unsigned int BVHScene::FlattenBVHTree(BVHBuildNode *node, unsigned int *offset);
-
-private:
-    Render& m_Render;
-    std::vector<LinearBVHNode> m_Nodes;
-    unsigned int m_MaxPrimitivesInNode;
-    BVHBuildNode* m_Root;
-
-};
-
-
-/*
-class Sphere
-{
-public:
-    Sphere(float3 Position, float Radius) :
-        pos(Position),
-        color(float3(Position.z, Position.y, Position.x).normalize()),
-        r(Radius)
-    {}
-
-    // Getters...
-    float3 GetPosition() const { return pos;    }
-    float3 GetColor()    const { return color;    }
-    float  GetRadius()   const { return r;        }
-
-private:
-    float3 pos;
-    float3 color;
-    float  r;
-    // Padded to align on 4 floats due to technical reasons
-    float  unused[3];
-
-};
-*/
 
 #endif // SCENE_HPP

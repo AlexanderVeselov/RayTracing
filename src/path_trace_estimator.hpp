@@ -6,11 +6,13 @@
 
 class Scene;
 class Camera;
+class AccelerationStructure;
 
 class PathTraceEstimator
 {
 public:
-    PathTraceEstimator(std::uint32_t width, std::uint32_t height, CLContext& cl_context, cl_GLuint interop_image);
+    PathTraceEstimator(std::uint32_t width, std::uint32_t height,
+        CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
     void Estimate();
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
@@ -23,6 +25,9 @@ private:
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
+
+    // Acceleration structure
+    AccelerationStructure& acc_structure_;
 
     // Kernels
     std::unique_ptr<CLKernel> render_kernel_;

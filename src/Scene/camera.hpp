@@ -2,15 +2,15 @@
 #define CAMERA_HPP
 
 #include "mathlib/mathlib.hpp"
-#include "utils/framebuffer.hpp"
 #include <memory>
 
 class Render;
+class Framebuffer;
 
 class Camera
 {
 public:
-    Camera(std::shared_ptr<Framebuffer> framebuffer, Render& render);
+    Camera(Framebuffer& framebuffer, Render& render);
     void Update();
 
     float3 GetOrigin()       const { return m_Origin; }
@@ -27,7 +27,7 @@ public:
 
 private:
     Render& m_Render;
-    std::shared_ptr<Framebuffer> m_Framebuffer;
+    Framebuffer& framebuffer_;
 
     float3 m_Origin;
     float3 m_Velocity;
