@@ -13,7 +13,7 @@ public:
         : cl_context_(cl_context)
     {}
 
-    virtual void BuildCPU(std::vector<Triangle> const& triangles) = 0;
+    virtual void BuildCPU(std::vector<Triangle> & triangles) = 0;
     virtual void IntersectRays(cl::CommandQueue const& queue) = 0;
 
 protected:

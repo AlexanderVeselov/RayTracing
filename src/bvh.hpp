@@ -8,7 +8,8 @@ class Bvh : public AccelerationStructure
 {
 public:
     Bvh(CLContext& cl_context) : AccelerationStructure(cl_context) {}
-    void BuildCPU(std::vector<Triangle> const& triangles) override;
+    // TODO: USE CONSTANT REF
+    void BuildCPU(std::vector<Triangle> & triangles) override;
     void IntersectRays(cl::CommandQueue const& queue) override;
 
     struct BVHPrimitiveInfo
@@ -60,12 +61,15 @@ public:
 
 private:
     BVHBuildNode* RecursiveBuild(
+        std::vector<Triangle> const& triangles,
         std::vector<BVHPrimitiveInfo>& primitiveInfo,
         unsigned int start,
         unsigned int end, unsigned int* totalNodes,
         std::vector<Triangle>& orderedTriangles);
     unsigned int FlattenBVHTree(BVHBuildNode* node, unsigned int* offset);
 
+    std::vector<LinearBVHNode> nodes_;
+    BVHBuildNode* root_node_;
     std::uint32_t max_prims_in_node_;
     cl::Buffer node_buffer_;
 };

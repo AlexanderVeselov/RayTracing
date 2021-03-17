@@ -19,7 +19,7 @@ Scene::Scene(const char* filename, CLContext& cl_context)
     LoadTriangles(filename);
 }
 
-const std::vector<Triangle>& Scene::GetTriangles() const
+std::vector<Triangle>& Scene::GetTriangles()
 {
     return m_Triangles;
 }

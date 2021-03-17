@@ -11,7 +11,8 @@ class Scene
 {
 public:
     Scene(const char* filename, CLContext& cl_context);
-    std::vector<Triangle> const& GetTriangles() const;
+    // TODO: REPLACE TO CONST REF
+    std::vector<Triangle> & GetTriangles();
     cl_mem GetTriangleBuffer() const { return triangle_buffer_(); }
     cl_mem GetMaterialBuffer() const { return material_buffer_(); }
     cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
