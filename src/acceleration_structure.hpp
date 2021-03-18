@@ -14,7 +14,8 @@ public:
     {}
 
     virtual void BuildCPU(std::vector<Triangle> & triangles) = 0;
-    virtual void IntersectRays(cl::CommandQueue const& queue) = 0;
+    virtual void IntersectRays(cl::CommandQueue const& queue,
+        cl::Buffer const& rays_buffer, cl::Buffer const& hits_buffer) = 0;
 
 protected:
     CLContext& cl_context_;

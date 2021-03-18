@@ -2,15 +2,19 @@
 #define BVH_HPP
 
 #include "acceleration_structure.hpp"
+#include <memory>
 
 class CLContext;
+class CLKernel;
 class Bvh : public AccelerationStructure
 {
 public:
-    Bvh(CLContext& cl_context) : AccelerationStructure(cl_context) {}
+    Bvh(CLContext& cl_context);
+
     // TODO: USE CONSTANT REF
     void BuildCPU(std::vector<Triangle> & triangles) override;
-    void IntersectRays(cl::CommandQueue const& queue) override;
+    void IntersectRays(cl::CommandQueue const& queue,
+        cl::Buffer const& rays_buffer, cl::Buffer const& hits_buffer) override;
 
     struct BVHPrimitiveInfo
     {
@@ -72,6 +76,7 @@ private:
     BVHBuildNode* root_node_;
     std::uint32_t max_prims_in_node_;
     cl::Buffer node_buffer_;
+    std::unique_ptr<CLKernel> intersect_kernel_;
 };
 
 #endif // BVH_HPP

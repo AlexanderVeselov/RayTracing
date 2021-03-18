@@ -7,6 +7,12 @@ namespace
     constexpr auto kMaxPrimitivesInNode = 4u;
 }
 
+Bvh::Bvh(CLContext& cl_context)
+    : AccelerationStructure(cl_context)
+{
+    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context);
+}
+
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)
 {
     std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
@@ -329,7 +335,8 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
     return myOffset;
 }
 
-void Bvh::IntersectRays(cl::CommandQueue const& queue)
+void Bvh::IntersectRays(cl::CommandQueue const& queue,
+    cl::Buffer const& rays_buffer, cl::Buffer const& hits_buffer)
 {
 
 }
