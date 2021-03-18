@@ -64,22 +64,28 @@ bool RayTriangle(Ray ray, const __global Triangle* triangle, float2* bc, float* 
     return true;
 }
 
-bool RayBounds(const __global Bounds3* bounds, Ray ray)
+float max3(float3 val)
 {
-    float t_min = ray.origin.w;
-    float t_max = ray.direction.w;
+    return max(max(val.x, val.y), val.z);
+}
 
-    float t0 = max(t_min, (bounds->pos[ray.sign[0]].x - ray.origin.x) * ray.invDir.x);
-    float t1 = min(t_max, (bounds->pos[1 - ray.sign[0]].x - ray.origin.x) * ray.invDir.x);
+float min3(float3 val)
+{
+    return min(min(val.x, val.y), val.z);
+}
 
-    t0 = max(t0, (bounds->pos[ray.sign[1]].y - ray.origin.y) * ray.invDir.y);
-    t1 = min(t1, (bounds->pos[1 - ray.sign[1]].y - ray.origin.y) * ray.invDir.y);
+bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+{
+    float3 aabb_min = bounds->pos[0];
+    float3 aabb_max = bounds->pos[1];
 
-    t0 = max(t0, (bounds->pos[ray.sign[2]].z - ray.origin.z) * ray.invDir.z);
-    t1 = min(t1, (bounds->pos[1 - ray.sign[2]].z - ray.origin.z) * ray.invDir.z);
+    float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
+    float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
 
-    return (t1 >= t0);
+    float tmin = max(max3(min(t0, t1)), t_min);
+    float tmax = min(min3(max(t0, t1)), t_max);
 
+    return (tmax >= tmin);
 }
 
 __kernel void KernelEntry
@@ -101,8 +107,12 @@ __kernel void KernelEntry
     }
 
     Ray ray = rays[ray_idx];
-    float3 ray_inv_dir;
-
+    // TODO: fix it
+    float3 ray_inv_dir = (float3)(1.0f, 1.0f, 1.0f) / ray.direction.xyz;
+    int ray_sign[3];
+    ray_sign[0] = ray_inv_dir.x < 0;
+    ray_sign[1] = ray_inv_dir.y < 0;
+    ray_sign[2] = ray_inv_dir.z < 0;
 
     Hit hit;
     hit.primitive_id = INVALID_ID;
@@ -117,7 +127,7 @@ __kernel void KernelEntry
     {
         __global LinearBVHNode* node = &nodes[currentNodeIndex];
 
-        if (RayBounds(&node->bounds, ray))
+        if (RayBounds(&node->bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
             // Leaf node
             if (node->nPrimitives > 0)
@@ -125,11 +135,12 @@ __kernel void KernelEntry
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < node->nPrimitives; ++i)
                 {
-                    if (RayTriangle(ray, &scene->triangles[node->offset + i], &hit.bc, &hit.t))
+                    if (RayTriangle(ray, &triangles[node->offset + i], &hit.bc, &hit.t))
                     {
                         hit.primitive_id = node->offset + i;
+                        // Set ray t_max
                         // TODO: remove t from hit structure
-                        ray.t_max = hit.t;
+                        ray.direction.w = hit.t;
                     }
                 }
 
@@ -143,7 +154,7 @@ __kernel void KernelEntry
             else
             {
                 // Put far BVH node on _nodesToVisit_ stack, advance to near node
-                if (ray.sign[node->axis])
+                if (ray_sign[node->axis])
                 {
                     nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
                     currentNodeIndex = node->offset;
