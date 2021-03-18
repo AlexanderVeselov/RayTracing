@@ -200,20 +200,28 @@ bool RayTriangle(const Ray* r, const __global Triangle* triangle, IntersectData*
 }
 #endif
 
+float max3(float3 val)
+{
+    return max(max(val.x, val.y), val.z);
+}
+
+float min3(float3 val)
+{
+    return min(min(val.x, val.y), val.z);
+}
 
 bool RayBounds(const __global Bounds3* bounds, const Ray* ray, float t)
 {
-    float t0 = max(0.0f, (bounds->pos[ray->sign[0]].x - ray->origin.x) * ray->invDir.x);
-    float t1 = min(t, (bounds->pos[1 - ray->sign[0]].x - ray->origin.x) * ray->invDir.x);
+    float3 aabb_min = bounds->pos[0];
+    float3 aabb_max = bounds->pos[1];
 
-    t0 = max(t0, (bounds->pos[ray->sign[1]].y - ray->origin.y) * ray->invDir.y);
-    t1 = min(t1, (bounds->pos[1 - ray->sign[1]].y - ray->origin.y) * ray->invDir.y);
+    float3 t0 = (aabb_min - ray->origin) * ray->invDir;
+    float3 t1 = (aabb_max - ray->origin) * ray->invDir;
 
-    t0 = max(t0, (bounds->pos[ray->sign[2]].z - ray->origin.z) * ray->invDir.z);
-    t1 = min(t1, (bounds->pos[1 - ray->sign[2]].z - ray->origin.z) * ray->invDir.z);
+    float tmin = max(max3(min(t0, t1)), 0.0f);
+    float tmax = min(min3(max(t0, t1)), t);
 
-    return (t1 >= t0);
-
+    return (tmax >= tmin);
 }
 
 IntersectData Intersect(Ray* ray, const Scene* scene)
