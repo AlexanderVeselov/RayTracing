@@ -31,6 +31,7 @@ private:
 
     // Kernels
     std::unique_ptr<CLKernel> raygen_kernel_;
+    std::unique_ptr<CLKernel> miss_kernel_;
     std::unique_ptr<CLKernel> render_kernel_;
     std::unique_ptr<CLKernel> copy_kernel_;
 

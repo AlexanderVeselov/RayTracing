@@ -18,6 +18,7 @@ set(KERNELS_SOURCES
     kernels/kernel_grid.cl
     kernels/kernel_copy.cl
     kernels/kernel_bvh.cl
+    kernels/miss.cl
     kernels/raygeneration.cl
     kernels/trace_bvh.cl
 )

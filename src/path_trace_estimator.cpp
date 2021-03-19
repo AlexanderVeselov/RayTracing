@@ -33,6 +33,7 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
 
     // Create kernels
     raygen_kernel_ = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
+    miss_kernel_ = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
     render_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_bvh.cl", cl_context_);
     copy_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_copy.cl", cl_context_);
 
