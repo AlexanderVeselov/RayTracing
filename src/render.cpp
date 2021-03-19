@@ -248,7 +248,9 @@ void Render::RenderFrame()
 
     glFinish();
 
-    SwapBuffers(GetDC(hwnd_));
+    HDC hdc = GetDC(hwnd_);
+    SwapBuffers(hdc);
+    ReleaseDC(hwnd_, hdc);
 
     FrameEnd();
 }
