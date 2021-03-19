@@ -45,10 +45,18 @@ void Bvh::BuildCPU(std::vector<Triangle> & triangles)
 
     // Upload GPU data
     cl_int status;
-    node_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, nodes_.size() * sizeof(LinearBVHNode), nodes_.data(), &status);
+    nodes_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        nodes_.size() * sizeof(LinearBVHNode), nodes_.data(), &status);
     if (status != CL_SUCCESS)
     {
         throw CLException("Failed to create BVH node buffer", status);
+    }
+
+    triangles_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        triangles.size() * sizeof(Triangle), triangles.data(), &status);
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Failed to create BVH triangles buffer", status);
     }
 
 }
@@ -335,8 +343,14 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
     return myOffset;
 }
 
-void Bvh::IntersectRays(cl::CommandQueue const& queue,
-    cl::Buffer const& rays_buffer, cl::Buffer const& hits_buffer)
+void Bvh::IntersectRays(cl::Buffer const& rays_buffer, std::uint32_t num_rays,
+    cl::Buffer const& hits_buffer)
 {
+    intersect_kernel_->SetArgument(0, &rays_buffer, sizeof(rays_buffer));
+    intersect_kernel_->SetArgument(1, &num_rays, sizeof(num_rays));
+    intersect_kernel_->SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
+    intersect_kernel_->SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
+    intersect_kernel_->SetArgument(4, &hits_buffer, sizeof(hits_buffer));
 
+    cl_context_.ExecuteKernel(*intersect_kernel_, num_rays);
 }

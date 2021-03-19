@@ -37,6 +37,7 @@ private:
 
     // Internal buffers
     std::unique_ptr<cl::Buffer> rays_buffer_;
+    std::unique_ptr<cl::Buffer> hits_buffer_;
     std::unique_ptr<cl::Buffer> radiance_buffer_;
     std::unique_ptr<cl::Image> output_image_;
 

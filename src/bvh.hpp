@@ -13,8 +13,8 @@ public:
 
     // TODO: USE CONSTANT REF
     void BuildCPU(std::vector<Triangle> & triangles) override;
-    void IntersectRays(cl::CommandQueue const& queue,
-        cl::Buffer const& rays_buffer, cl::Buffer const& hits_buffer) override;
+    void IntersectRays(cl::Buffer const& rays_buffer, std::uint32_t num_rays,
+        cl::Buffer const& hits_buffer) override;
 
     struct BVHPrimitiveInfo
     {
@@ -75,7 +75,8 @@ private:
     std::vector<LinearBVHNode> nodes_;
     BVHBuildNode* root_node_;
     std::uint32_t max_prims_in_node_;
-    cl::Buffer node_buffer_;
+    cl::Buffer triangles_buffer_;
+    cl::Buffer nodes_buffer_;
     std::unique_ptr<CLKernel> intersect_kernel_;
 };
 

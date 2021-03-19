@@ -3,12 +3,21 @@
 #define TWO_PI 6.28318530718f
 #define INV_PI 0.31830988618f
 #define INV_TWO_PI 0.15915494309f
+#define INVALID_ID 0xFFFFFFFF
 
 typedef struct
 {
     float4 origin; // w - t_min
     float4 direction; // w - t_max
 } Ray;
+
+typedef struct
+{
+    float2 bc;
+    uint primitive_id;
+    // TODO: remove t from hit structure
+    float t;
+} Hit;
 
 float3 SampleSky(float3 dir, __read_only image2d_t tex)
 {
@@ -29,6 +38,7 @@ __kernel void KernelEntry
     // Input
     __global Ray* rays,
     uint num_rays,
+    __global Hit* hits,
     //TODO: throughput
     __read_only image2d_t tex,
     // Output
@@ -43,6 +53,14 @@ __kernel void KernelEntry
     }
 
     Ray ray = rays[ray_idx];
+    Hit hit = hits[ray_idx];
 
-    result_radiance[ray_idx] = SampleSky(ray.direction.xyz, tex);
+    if (hit.primitive_id == INVALID_ID)
+    {
+        result_radiance[ray_idx] = SampleSky(ray.direction.xyz, tex);
+    }
+    else
+    {
+        result_radiance[ray_idx] = (float3)(hit.bc, 0);
+    }
 }

@@ -2,6 +2,7 @@
 #include "utils/cl_exception.hpp"
 #include "Scene/scene.hpp"
 #include "Scene/camera.hpp"
+#include "acceleration_structure.hpp"
 #include <GL/glew.h>
 
 PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height,
@@ -22,6 +23,9 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
 
     rays_buffer_ = std::make_unique<cl::Buffer>(cl_context.GetContext(), CL_MEM_READ_WRITE,
         num_rays * sizeof(cl_float4) * 2, nullptr, &status);
+
+    hits_buffer_ = std::make_unique<cl::Buffer>(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(std::uint32_t) * 4, nullptr, &status);
 
     if (status != CL_SUCCESS)
     {
@@ -46,6 +50,7 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     cl_mem radiance_buffer_mem = (*radiance_buffer_)();
     cl_mem output_image_mem = (*output_image_)();
     cl_mem rays_buffer_mem = (*rays_buffer_)();
+    cl_mem hits_buffer_mem = (*hits_buffer_)();
 
     // Setup render kernel
     raygen_kernel_->SetArgument(0, &width_, sizeof(width_));
@@ -55,7 +60,8 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     // Setup miss kernel
     miss_kernel_->SetArgument(0, &rays_buffer_mem, sizeof(rays_buffer_mem));
     miss_kernel_->SetArgument(1, &num_rays, sizeof(num_rays));
-    miss_kernel_->SetArgument(3, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
+    miss_kernel_->SetArgument(2, &hits_buffer_mem, sizeof(hits_buffer_mem));
+    miss_kernel_->SetArgument(4, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
 
     //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_OUT,
     //    &radiance_buffer_mem, sizeof(radiance_buffer_mem));
@@ -107,16 +113,16 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
 
     //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl_mem));
     //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl_mem));
-    miss_kernel_->SetArgument(2, &env_texture, sizeof(cl_mem));
+    miss_kernel_->SetArgument(3, &env_texture, sizeof(cl_mem));
 }
 
 void PathTraceEstimator::Estimate()
 {
     // Compute radiance
-    //cl_context_.ExecuteKernel(*render_kernel_, width_ * height_);
-
-    cl_context_.ExecuteKernel(*raygen_kernel_, width_ * height_);
-    cl_context_.ExecuteKernel(*miss_kernel_, width_ * height_);
+    std::uint32_t max_num_rays = width_ * height_;
+    cl_context_.ExecuteKernel(*raygen_kernel_, max_num_rays);
+    acc_structure_.IntersectRays(*rays_buffer_, max_num_rays, *hits_buffer_);
+    cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
 
     // Copy radiance to the interop image
     cl_context_.AcquireGLObject((*output_image_)());
