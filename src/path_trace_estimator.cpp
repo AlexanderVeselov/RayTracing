@@ -12,11 +12,16 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     , acc_structure_(acc_structure)
     , gl_interop_image_(gl_interop_image)
 {
+    std::uint32_t num_rays = width_ * height_;
+
     // Create buffers and images
     cl_int status;
 
     radiance_buffer_ = std::make_unique<cl::Buffer>(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
+
+    rays_buffer_ = std::make_unique<cl::Buffer>(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(cl_float4) * 2, nullptr, &status);
 
     if (status != CL_SUCCESS)
     {
@@ -34,18 +39,28 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     // Create kernels
     raygen_kernel_ = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
     miss_kernel_ = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
-    render_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_bvh.cl", cl_context_);
+    //render_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_bvh.cl", cl_context_);
     copy_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_copy.cl", cl_context_);
 
     // Setup kernels
     cl_mem radiance_buffer_mem = (*radiance_buffer_)();
     cl_mem output_image_mem = (*output_image_)();
+    cl_mem rays_buffer_mem = (*rays_buffer_)();
 
     // Setup render kernel
-    render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_OUT,
-        &radiance_buffer_mem, sizeof(radiance_buffer_mem));
-    render_kernel_->SetArgument(RenderKernelArgument_t::WIDTH, &width_, sizeof(std::uint32_t));
-    render_kernel_->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(std::uint32_t));
+    raygen_kernel_->SetArgument(0, &width_, sizeof(width_));
+    raygen_kernel_->SetArgument(1, &height_, sizeof(height_));
+    raygen_kernel_->SetArgument(9, &rays_buffer_mem, sizeof(rays_buffer_mem));
+
+    // Setup miss kernel
+    miss_kernel_->SetArgument(0, &rays_buffer_mem, sizeof(rays_buffer_mem));
+    miss_kernel_->SetArgument(1, &num_rays, sizeof(num_rays));
+    miss_kernel_->SetArgument(3, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
+
+    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_OUT,
+    //    &radiance_buffer_mem, sizeof(radiance_buffer_mem));
+    //render_kernel_->SetArgument(RenderKernelArgument_t::WIDTH, &width_, sizeof(std::uint32_t));
+    //render_kernel_->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(std::uint32_t));
 
     // Setup copy kernel
     copy_kernel_->SetArgument(0, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
@@ -67,21 +82,20 @@ void PathTraceEstimator::SetCameraData(Camera const& camera)
 
     float3 right = Cross(front, camera.GetUpVector()).Normalize();
     float3 up = Cross(right, front);
-
-    render_kernel_->SetArgument(RenderKernelArgument_t::CAM_ORIGIN, &origin, sizeof(float3));
-    render_kernel_->SetArgument(RenderKernelArgument_t::CAM_FRONT, &front, sizeof(float3));
-    render_kernel_->SetArgument(RenderKernelArgument_t::CAM_UP, &up, sizeof(float3));
+    raygen_kernel_->SetArgument(2, &origin, sizeof(origin));
+    raygen_kernel_->SetArgument(3, &front, sizeof(front));
+    raygen_kernel_->SetArgument(4, &up, sizeof(up));
 
     ///@TODO: move frame count to here
     std::uint32_t frame_count = camera.GetFrameCount();
-    render_kernel_->SetArgument(RenderKernelArgument_t::FRAME_COUNT, &frame_count, sizeof(unsigned int));
+    raygen_kernel_->SetArgument(5, &frame_count, sizeof(frame_count));
     unsigned int seed = rand();
-    render_kernel_->SetArgument(RenderKernelArgument_t::FRAME_SEED, &seed, sizeof(unsigned int));
+    raygen_kernel_->SetArgument(6, &seed, sizeof(seed));
 
     float aperture = camera.GetAperture();
     float focus_distance = camera.GetFocusDistance();
-    render_kernel_->SetArgument(RenderKernelArgument_t::CAMERA_APERTURE, &aperture, sizeof(float));
-    render_kernel_->SetArgument(RenderKernelArgument_t::CAMERA_FOCUS_DISTANCE, &focus_distance, sizeof(float));
+    raygen_kernel_->SetArgument(7, &aperture, sizeof(aperture));
+    raygen_kernel_->SetArgument(8, &focus_distance, sizeof(focus_distance));
 }
 
 void PathTraceEstimator::SetSceneData(Scene const& scene)
@@ -91,15 +105,18 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
     cl_mem material_buffer = scene.GetMaterialBuffer();
     cl_mem env_texture = scene.GetEnvTextureBuffer();
 
-    render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl_mem));
-    render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl_mem));
-    render_kernel_->SetArgument(RenderKernelArgument_t::ENVIRONMENT_TEXTURE, &env_texture, sizeof(cl_mem));
+    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl_mem));
+    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl_mem));
+    miss_kernel_->SetArgument(2, &env_texture, sizeof(cl_mem));
 }
 
 void PathTraceEstimator::Estimate()
 {
     // Compute radiance
-    cl_context_.ExecuteKernel(*render_kernel_, width_ * height_);
+    //cl_context_.ExecuteKernel(*render_kernel_, width_ * height_);
+
+    cl_context_.ExecuteKernel(*raygen_kernel_, width_ * height_);
+    cl_context_.ExecuteKernel(*miss_kernel_, width_ * height_);
 
     // Copy radiance to the interop image
     cl_context_.AcquireGLObject((*output_image_)());

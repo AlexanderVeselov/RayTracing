@@ -35,6 +35,8 @@ private:
     std::unique_ptr<CLKernel> render_kernel_;
     std::unique_ptr<CLKernel> copy_kernel_;
 
+    // Internal buffers
+    std::unique_ptr<cl::Buffer> rays_buffer_;
     std::unique_ptr<cl::Buffer> radiance_buffer_;
     std::unique_ptr<cl::Image> output_image_;
 
