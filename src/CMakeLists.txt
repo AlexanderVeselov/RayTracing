@@ -68,6 +68,13 @@ set(SOURCES
     ${MAIN_SOURCES}
 )
 
+source_group("GpuWrappers" FILES ${GPU_WRAPPERS_SOURCES})
+source_group("Io" FILES ${IO_SOURCES})
+source_group("Kernels" FILES ${KERNELS_SOURCES})
+source_group("Mathlib" FILES ${MATHLIB_SOURCES})
+source_group("Scene" FILES ${SCENE_SOURCES})
+source_group("Utils" FILES ${UTILS_SOURCES})
+
 add_executable(RayTracingApp ${SOURCES})
 
 target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

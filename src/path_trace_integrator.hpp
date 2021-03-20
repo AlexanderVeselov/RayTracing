@@ -17,8 +17,21 @@ public:
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
     void Reset();
+    void ReloadKernels();
 
 private:
+    struct Kernels
+    {
+        std::unique_ptr<CLKernel> raygen;
+        std::unique_ptr<CLKernel> miss;
+        std::unique_ptr<CLKernel> hit_surface;
+        std::unique_ptr<CLKernel> reset;
+        std::unique_ptr<CLKernel> clear_counter;
+        std::unique_ptr<CLKernel> increment_counter;
+        std::unique_ptr<CLKernel> resolve;
+    };
+
+    Kernels CreateKernels();
     void AdvanceSampleCount();
     void GenerateRays();
     void IntersectRays(std::uint32_t bounce);
@@ -40,13 +53,7 @@ private:
     AccelerationStructure& acc_structure_;
 
     // Kernels
-    std::unique_ptr<CLKernel> raygen_kernel_;
-    std::unique_ptr<CLKernel> miss_kernel_;
-    std::unique_ptr<CLKernel> hit_surface_kernel_;
-    std::unique_ptr<CLKernel> reset_kernel_;
-    std::unique_ptr<CLKernel> clear_counter_kernel_;
-    std::unique_ptr<CLKernel> increment_counter_kernel_;
-    std::unique_ptr<CLKernel> resolve_kernel_;
+    Kernels kernels_;
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
