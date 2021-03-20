@@ -54,6 +54,14 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     return v;
 }
 
+float3 SampleBxdf(float2 s, float3 normal, float3* outgoing, float* pdf)
+{
+    *outgoing = SampleHemisphereCosine(normal, s);
+    *pdf = 1.0f;
+
+    return (float3)(1.0f, 1.0f, 1.0f);
+}
+
 __kernel void KernelEntry
 (
     // Input
@@ -71,6 +79,7 @@ __kernel void KernelEntry
     __global int* scramblingTile,
     __global int* rankingTile,
     // Output
+    __global float3* throughputs,
     __global Ray* outgoing_rays,
     __global uint* outgoing_ray_counter,
     __global uint* outgoing_pixel_indices,
@@ -106,16 +115,25 @@ __kernel void KernelEntry
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
-    //result_radiance[pixel_idx] += (float4)(normal, 1.0f);
+    // Sample bxdf
+    float2 s;
+    s.x = SampleBlueNoise(x, y, 0, 0, sobol_256spp_256d, scramblingTile, rankingTile);
+    s.y = SampleBlueNoise(x, y, 0, 1, sobol_256spp_256d, scramblingTile, rankingTile);
 
-    bool spawn_outgoing_ray = true;
+    float pdf = 0.0f;
+    float3 throughput;
+    float3 outgoing;
+    float3 bxdf = SampleBxdf(s, normal, &outgoing, &pdf);
+
+    if (pdf > 0.0)
+    {
+        float3 throughput = bxdf / pdf * max(dot(outgoing, normal), 0.0f);
+    }
+
+    bool spawn_outgoing_ray = (pdf > 0.0);
 
     if (spawn_outgoing_ray)
     {
-        // Sample bxdf
-        float2 s;
-        s.x = SampleBlueNoise(x, y, 0, 0, sobol_256spp_256d, scramblingTile, rankingTile);
-        s.y = SampleBlueNoise(x, y, 0, 1, sobol_256spp_256d, scramblingTile, rankingTile);
 
         ///@TODO: reduct atomic memory traffic by using LDS
         uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
@@ -123,7 +141,7 @@ __kernel void KernelEntry
         Ray outgoing_ray;
         outgoing_ray.origin.xyz = position + normal * EPS;
         outgoing_ray.origin.w = 0.0f;
-        outgoing_ray.direction.xyz = SampleHemisphereCosine(normal, s);
+        outgoing_ray.direction.xyz = outgoing;
         outgoing_ray.direction.w = MAX_RENDER_DIST;
 
         outgoing_rays[outgoing_ray_idx] = outgoing_ray;

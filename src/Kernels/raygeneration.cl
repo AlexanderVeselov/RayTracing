@@ -56,7 +56,7 @@ __kernel void KernelEntry
     __global Ray* rays,
     __global uint* ray_counter,
     __global uint* pixel_indices,
-    __global Hit* hits,
+    __global float3* throughputs,
     __global float4* result_radiance
 )
 {
@@ -100,15 +100,9 @@ __kernel void KernelEntry
     ray.direction.w = MAX_RENDER_DIST;
 
     rays[ray_idx] = ray;
-    result_radiance[ray_idx] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-
-    // Clear hits buffer
-    Hit hit;
-    hit.primitive_id = INVALID_ID;
-    hits[ray_idx] = hit;
-
-    // Write active path index
     pixel_indices[ray_idx] = pixel_idx;
+    throughputs[pixel_idx] = (float3)(1.0f, 1.0f, 1.0f);
+    result_radiance[pixel_idx] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 
     // Write to global ray counter
     if (ray_idx == 0)

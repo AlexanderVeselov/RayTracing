@@ -28,7 +28,7 @@ __kernel void KernelEntry
     __global uint* ray_counter,
     __global Hit* hits,
     __global uint* pixel_indices,
-    //TODO: throughput
+    __global float3* throughputs,
     __read_only image2d_t tex,
     // Output
     __global float3* result_radiance

@@ -52,6 +52,7 @@ private:
     cl::Buffer pixel_indices_buffer_[2];
     cl::Buffer ray_counter_buffer_[2];
     cl::Buffer hits_buffer_;
+    cl::Buffer throughputs_buffer_;
     cl::Buffer frame_index_buffer_;
     cl::Buffer radiance_buffer_;
 

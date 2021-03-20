@@ -25,7 +25,7 @@ namespace args
             kRayBuffer,
             kRayCounterBuffer,
             kPixelIndicesBuffer,
-            kHitsBuffer,
+            kThroughputsBuffer,
             kRadianceBuffer,
         };
     }
@@ -38,6 +38,7 @@ namespace args
             kRayCounterBuffer,
             kHitsBuffer,
             kPixelIndicesBuffer,
+            kThroughputsBuffer,
             kIblTextureBuffer,
             kRadianceBuffer,
         };
@@ -61,6 +62,7 @@ namespace args
             kScramblingTileBuffer,
             kRankingTileBuffer,
             // Output
+            kThroughputsBuffer,
             kOutgoingRayBuffer,
             kOutgoingRayCounterBuffer,
             kOutgoingPixelIndicesBuffer,
@@ -113,6 +115,9 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     hits_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         num_rays * sizeof(Hit), nullptr, &status);
 
+    throughputs_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(cl_float3), nullptr, &status);
+
     if (status != CL_SUCCESS)
     {
         throw CLException("Failed to create radiance buffer", status);
@@ -156,16 +161,19 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     raygen_kernel_->SetArgument(args::Raygen::kRayBuffer, &rays_buffer_[0], sizeof(rays_buffer_[0]));
     raygen_kernel_->SetArgument(args::Raygen::kRayCounterBuffer, &ray_counter_buffer_[0], sizeof(ray_counter_buffer_[0]));
     raygen_kernel_->SetArgument(args::Raygen::kPixelIndicesBuffer, &pixel_indices_buffer_[0], sizeof(pixel_indices_buffer_[0]));
-    raygen_kernel_->SetArgument(args::Raygen::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
+    raygen_kernel_->SetArgument(args::Raygen::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
     raygen_kernel_->SetArgument(args::Raygen::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
 
     // Setup miss kernel
     miss_kernel_->SetArgument(args::Miss::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
+    miss_kernel_->SetArgument(args::Miss::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
     miss_kernel_->SetArgument(args::Miss::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
 
     // Setup hit surface kernel
     hit_surface_kernel_->SetArgument(args::HitSurface::kHitsBuffer,
         &hits_buffer_, sizeof(hits_buffer_));
+    hit_surface_kernel_->SetArgument(args::HitSurface::kThroughputsBuffer,
+        &throughputs_buffer_, sizeof(throughputs_buffer_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer,
         &radiance_buffer_, sizeof(radiance_buffer_));
 
