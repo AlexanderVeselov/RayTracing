@@ -25,12 +25,58 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     return v;
 }
 
-float3 SampleBxdf(float2 s, float3 normal, float3* outgoing, float* pdf)
+float3 SampleDiffuse(float2 s, Material material, float3 normal, float2 texcoord, float3* outgoing, float* pdf)
 {
     *outgoing = SampleHemisphereCosine(normal, s);
-    *pdf = 1.0f;
+    *pdf = dot(*outgoing, normal) * INV_PI;
 
-    return (float3)(0.5f, 1.0f, 0.0f);
+    float3 albedo = (sin(texcoord.x * 64) > 0) * (sin(texcoord.y * 64) > 0) + (sin(texcoord.x * 64 + PI) > 0) * (sin(texcoord.y * 64 + PI) > 0) * 2.0f;
+    return albedo * material.diffuse * INV_PI;
+}
+
+float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incoming, float3* outgoing, float* pdf)
+{
+    float alpha = material.roughness;
+    float cosTheta;
+    float3 wh = SampleGGX(s, normal, alpha, &cosTheta);
+
+    *outgoing = reflect(incoming, wh);
+    if (dot(*outgoing, normal) * dot(incoming, normal) < 0.0f) return 0.0f;
+
+    float D = DistributionGGX(cosTheta, alpha);
+    *pdf = D * cosTheta / (4.0f * dot(incoming, wh));
+    // Actually, _material->ior_ isn't ior value, this is f0 value for now
+    return D / (4.0f * dot(*outgoing, normal) * dot(incoming, normal)) * material.specular;
+}
+
+float3 SampleBrdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
+{
+    bool doSpecular = dot(material.specular, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+    bool doDiffuse = dot(material.diffuse, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+
+    if (doSpecular && !doDiffuse)
+    {
+        return SampleSpecular(s, material, normal, incoming, outgoing, pdf);
+    }
+    else if (!doSpecular && doDiffuse)
+    {
+        return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf);
+    }
+    else if (doSpecular && doDiffuse)
+    {
+        if (s1 > 0.5f)
+        {
+            return SampleSpecular(s, material, normal, incoming, outgoing, pdf) * 2.0f;
+        }
+        else
+        {
+            return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf) * 2.0f;
+        }
+    }
+    else
+    {
+        return 0.0f;
+    }
 }
 
 __kernel void KernelEntry
@@ -74,6 +120,8 @@ __kernel void KernelEntry
     }
 
     Ray incoming_ray = incoming_rays[incoming_ray_idx];
+    float3 incoming = -incoming_ray.direction.xyz;
+
     uint pixel_idx = incoming_pixel_indices[incoming_ray_idx];
     uint sample_idx = sample_counter[0];
 
@@ -85,18 +133,24 @@ __kernel void KernelEntry
     float3 position = InterpolateAttributes(triangle.v1.position,
         triangle.v2.position, triangle.v3.position, hit.bc);
 
+    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
+        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
+
+    Material material = materials[triangle.mtlIndex];
 
     // Sample bxdf
     float2 s;
     s.x = SampleBlueNoise(x, y, sample_idx, 0, sobol_256spp_256d, scramblingTile, rankingTile);
     s.y = SampleBlueNoise(x, y, sample_idx, 1, sobol_256spp_256d, scramblingTile, rankingTile);
+    float s1 = SampleBlueNoise(x, y, sample_idx, 2, sobol_256spp_256d, scramblingTile, rankingTile);
 
     float pdf = 0.0f;
-    float3 throughput = 0.0f;;
+    float3 throughput = 0.0f;
     float3 outgoing;
-    float3 bxdf = SampleBxdf(s, normal, &outgoing, &pdf);
+    float3 bxdf = SampleBrdf(s1, s, material, normal, texcoord, incoming, &outgoing, &pdf);
 
     if (pdf > 0.0)
     {
