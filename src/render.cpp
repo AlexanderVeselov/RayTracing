@@ -170,9 +170,9 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     scene_->UploadBuffers();
 
     // Create estimator
-    estimator_ = std::make_unique<PathTraceEstimator>(width_, height_, *cl_context_,
+    integrator_ = std::make_unique<PathTraceIntegrator>(width_, height_, *cl_context_,
         *acc_structure_, framebuffer_->GetGLImage());
-    estimator_->SetSceneData(*scene_);
+    integrator_->SetSceneData(*scene_);
 
 }
 
@@ -242,16 +242,16 @@ void Render::RenderFrame()
     glClear(GL_COLOR_BUFFER_BIT);
 
     camera_->Update();
-    estimator_->SetCameraData(*camera_);
+    integrator_->SetCameraData(*camera_);
 
     ///@TODO: need to fix this hack
     bool need_to_reset = (camera_->GetFrameCount() == 1);
     if (need_to_reset)
     {
-        estimator_->Reset();
+        integrator_->Reset();
     }
 
-    estimator_->Estimate();
+    integrator_->Integrate();
     framebuffer_->Present();
 
     // Draw GUI

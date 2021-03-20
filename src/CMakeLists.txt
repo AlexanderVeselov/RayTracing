@@ -20,9 +20,6 @@ set(KERNELS_SOURCES
     kernels/clear_counter.cl
     kernels/hit_surface.cl
     kernels/increment_counter.cl
-    kernels/kernel_bvh.cl
-    kernels/kernel_grid.cl
-    kernels/kernel_bvh.cl
     kernels/miss.cl
     kernels/raygeneration.cl
     kernels/reset_radiance.cl
@@ -54,8 +51,8 @@ set(MAIN_SOURCES
     acceleration_structure.hpp
     bvh.cpp
     bvh.hpp
-    path_trace_estimator.cpp
-    path_trace_estimator.hpp
+    path_trace_integrator.cpp
+    path_trace_integrator.hpp
     render.cpp
     render.hpp
     main.cpp

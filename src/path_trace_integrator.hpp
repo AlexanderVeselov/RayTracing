@@ -1,5 +1,5 @@
-#ifndef PATH_TRACE_ESTIMATOR_HPP
-#define PATH_TRACE_ESTIMATOR_HPP
+#ifndef PATH_TRACE_INTEGRATOR_HPP
+#define PATH_TRACE_INTEGRATOR_HPP
 
 #include "GpuWrappers/cl_context.hpp"
 #include <memory>
@@ -8,12 +8,12 @@ class Scene;
 class Camera;
 class AccelerationStructure;
 
-class PathTraceEstimator
+class PathTraceIntegrator
 {
 public:
-    PathTraceEstimator(std::uint32_t width, std::uint32_t height,
+    PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
-    void Estimate();
+    void Integrate();
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
     void Reset();
@@ -66,4 +66,4 @@ private:
 
 };
 
-#endif // PATH_TRACE_ESTIMATOR_HPP
+#endif // PATH_TRACE_INTEGRATOR_HPP

@@ -1,7 +1,7 @@
 #ifndef RENDER_HPP
 #define RENDER_HPP
 
-#include "path_trace_estimator.hpp"
+#include "path_trace_integrator.hpp"
 #include "acceleration_structure.hpp"
 #include "scene/camera.hpp"
 #include "scene/scene.hpp"
@@ -49,7 +49,7 @@ private:
     HGLRC m_GLContext;
     std::shared_ptr<CLContext>   cl_context_;
     // Estimator
-    std::unique_ptr<PathTraceEstimator> estimator_;
+    std::unique_ptr<PathTraceIntegrator> integrator_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
     // Scene
