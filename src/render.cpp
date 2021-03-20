@@ -216,12 +216,13 @@ void Render::DrawGUI()
     ImGui::Begin("PerformanceStats", nullptr,
         ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     ImGui::SetWindowPos(ImVec2(10, 10));
-    ImGui::SetWindowSize(ImVec2(350, 30));
+    ImGui::SetWindowSize(ImVec2(350, 50));
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
         1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    ImGui::Text("Press \"R\" to reload kernels");
     ImGui::End();
 
-    ImGui::Begin("Useless window");
+    ImGui::Begin("Camera controls");
     static float aperture = 0.0f;
     ImGui::SliderFloat("Camera aperture", &aperture, 0.0, 1.0);
     camera_->SetAperture(aperture);
