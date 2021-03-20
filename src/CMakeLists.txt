@@ -16,8 +16,9 @@ set(IO_SOURCES
 set(KERNELS_SOURCES
     kernels/bxdf.h
     kernels/shared_structures.h
-    kernels/clear_ray_counter.cl
+    kernels/clear_counter.cl
     kernels/hit_surface.cl
+    kernels/increment_counter.cl
     kernels/kernel_bvh.cl
     kernels/kernel_grid.cl
     kernels/kernel_bvh.cl

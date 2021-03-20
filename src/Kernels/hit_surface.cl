@@ -18,6 +18,19 @@ float3 reflect(float3 v, float3 n)
     return -v + 2.0f * dot(v, n) * n;
 }
 
+float3 SampleHemisphereCosine(float3 n, unsigned int* seed)
+{
+    float phi = TWO_PI * GetRandomFloat(seed);
+    float sinThetaSqr = GetRandomFloat(seed);
+    float sinTheta = sqrt(sinThetaSqr);
+
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 s = cross(n, t);
+
+    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * sqrt(1.0f - sinThetaSqr));
+}
+
 __kernel void KernelEntry
 (
     // Input
@@ -27,6 +40,7 @@ __kernel void KernelEntry
     __global Hit* hits,
     __global Triangle* triangles,
     __global Material* materials,
+    uint bounce,
     // Output
     __global Ray* outgoing_rays,
     __global uint* outgoing_ray_counter,

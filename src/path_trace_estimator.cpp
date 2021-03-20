@@ -53,6 +53,7 @@ namespace args
             kHitsBuffer,
             kTrianglesBuffer,
             kMaterialsBuffer,
+            kBounce,
             // Output
             kOutgoingRayBuffer,
             kOutgoingRayCounterBuffer,
@@ -111,6 +112,9 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
         throw CLException("Failed to create radiance buffer", status);
     }
 
+    frame_index_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        sizeof(std::uint32_t), nullptr, &status);
+
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
         GL_TEXTURE_2D, 0, gl_interop_image_, &status);
 
@@ -123,7 +127,8 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     raygen_kernel_ = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
     miss_kernel_ = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
     hit_surface_kernel_ = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_);
-    clear_ray_counter_kernel_ = std::make_unique<CLKernel>("src/Kernels/clear_ray_counter.cl", cl_context_);
+    clear_counter_kernel_ = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_);
+    increment_counter_kernel_ = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_);
     resolve_kernel_ = std::make_unique<CLKernel>("src/Kernels/resolve.cl", cl_context_);
 
     // Setup kernels
@@ -154,11 +159,16 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     resolve_kernel_->SetArgument(args::Resolve::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
     resolve_kernel_->SetArgument(args::Resolve::kResolvedTexture, &output_image_mem, sizeof(output_image_mem));
 
+    // Don't forget to reset frame index
+    Reset();
 }
 
 void PathTraceEstimator::Reset()
 {
-    // Reset sample count here
+    // Reset frame index
+    clear_counter_kernel_->SetArgument(0, &frame_index_buffer_,
+        sizeof(frame_index_buffer_));
+    cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);
 }
 
 void PathTraceEstimator::SetCameraData(Camera const& camera)
@@ -194,6 +204,19 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
     hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
     hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));
     miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
+}
+
+void PathTraceEstimator::AdvanceFrameIndex()
+{
+    increment_counter_kernel_->SetArgument(0, &frame_index_buffer_,
+        sizeof(frame_index_buffer_));
+    cl_context_.ExecuteKernel(*increment_counter_kernel_, 1);
+}
+
+void PathTraceEstimator::GenerateRays()
+{
+    std::uint32_t num_rays = width_ * height_;
+    cl_context_.ExecuteKernel(*raygen_kernel_, num_rays);
 }
 
 void PathTraceEstimator::IntersectRays(std::uint32_t bounce)
@@ -240,6 +263,8 @@ void PathTraceEstimator::ShadeSurfaceHits(std::uint32_t bounce)
         &pixel_indices_buffer_[outgoing_idx], sizeof(pixel_indices_buffer_[outgoing_idx]));
     hit_surface_kernel_->SetArgument(args::HitSurface::kOutgoingRayCounterBuffer,
         &ray_counter_buffer_[outgoing_idx], sizeof(ray_counter_buffer_[outgoing_idx]));
+    // Other data
+    hit_surface_kernel_->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
 
     cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
 }
@@ -248,17 +273,24 @@ void PathTraceEstimator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
-    clear_ray_counter_kernel_->SetArgument(0, &ray_counter_buffer_[outgoing_idx],
+    clear_counter_kernel_->SetArgument(0, &ray_counter_buffer_[outgoing_idx],
         sizeof(ray_counter_buffer_[outgoing_idx]));
-    cl_context_.ExecuteKernel(*clear_ray_counter_kernel_, 1);
+    cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);
+}
+
+void PathTraceEstimator::ResolveRadiance()
+{
+    // Copy radiance to the interop image
+    cl_context_.AcquireGLObject((*output_image_)());
+    cl_context_.ExecuteKernel(*resolve_kernel_, width_ * height_);
+    cl_context_.Finish();
+    cl_context_.ReleaseGLObject((*output_image_)());
 }
 
 void PathTraceEstimator::Estimate()
 {
-    std::uint32_t max_num_rays = width_ * height_;
-
-    // Generate rays
-    cl_context_.ExecuteKernel(*raygen_kernel_, max_num_rays);
+    AdvanceFrameIndex();
+    GenerateRays();
 
     for (std::uint32_t bounce = 0; bounce < 2; ++bounce)
     {
@@ -268,10 +300,5 @@ void PathTraceEstimator::Estimate()
         ShadeSurfaceHits(bounce);
     }
 
-    // Copy radiance to the interop image
-    cl_context_.AcquireGLObject((*output_image_)());
-    cl_context_.ExecuteKernel(*resolve_kernel_, width_ * height_);
-    cl_context_.Finish();
-    cl_context_.ReleaseGLObject((*output_image_)());
-
+    ResolveRadiance();
 }
