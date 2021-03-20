@@ -41,6 +41,7 @@ set(SCENE_SOURCES
 )
 
 set(UTILS_SOURCES
+    utils/blue_noise_sampler.hpp
     utils/cl_exception.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp

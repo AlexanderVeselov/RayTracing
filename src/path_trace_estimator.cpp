@@ -3,6 +3,7 @@
 #include "Scene/scene.hpp"
 #include "Scene/camera.hpp"
 #include "acceleration_structure.hpp"
+#include "Utils/blue_noise_sampler.hpp"
 #include <GL/glew.h>
 
 namespace args
@@ -54,6 +55,11 @@ namespace args
             kTrianglesBuffer,
             kMaterialsBuffer,
             kBounce,
+            kWidth,
+            kHeight,
+            kSobolBuffer,
+            kScramblingTileBuffer,
+            kRankingTileBuffer,
             // Output
             kOutgoingRayBuffer,
             kOutgoingRayCounterBuffer,
@@ -115,6 +121,16 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     frame_index_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         sizeof(std::uint32_t), nullptr, &status);
 
+    // Sampler buffers
+    sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(sobol_256spp_256d), (void*)sobol_256spp_256d, &status);
+
+    sampler_scrambling_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(scramblingTile), (void*)scramblingTile, &status);
+
+    sampler_ranking_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(rankingTile), (void*)rankingTile, &status);
+
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
         GL_TEXTURE_2D, 0, gl_interop_image_, &status);
 
@@ -152,6 +168,18 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
         &hits_buffer_, sizeof(hits_buffer_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer,
         &radiance_buffer_, sizeof(radiance_buffer_));
+
+    hit_surface_kernel_->SetArgument(args::HitSurface::kWidth,
+        &width_, sizeof(width_));
+    hit_surface_kernel_->SetArgument(args::HitSurface::kHeight,
+        &height_, sizeof(height_));
+
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSobolBuffer,
+        &sampler_sobol_buffer_, sizeof(sampler_sobol_buffer_));
+    hit_surface_kernel_->SetArgument(args::HitSurface::kScramblingTileBuffer,
+        &sampler_scrambling_tile_buffer_, sizeof(sampler_scrambling_tile_buffer_));
+    hit_surface_kernel_->SetArgument(args::HitSurface::kRankingTileBuffer,
+        &sampler_ranking_tile_buffer_, sizeof(sampler_ranking_tile_buffer_));
 
     // Setup resolve kernel
     resolve_kernel_->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
@@ -292,7 +320,7 @@ void PathTraceEstimator::Estimate()
     AdvanceFrameIndex();
     GenerateRays();
 
-    for (std::uint32_t bounce = 0; bounce < 2; ++bounce)
+    for (std::uint32_t bounce = 0; bounce < max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
         ShadeMissedRays(bounce);

@@ -54,6 +54,12 @@ private:
     cl::Buffer hits_buffer_;
     cl::Buffer frame_index_buffer_;
     cl::Buffer radiance_buffer_;
+
+    // Sampler buffers
+    cl::Buffer sampler_sobol_buffer_;
+    cl::Buffer sampler_scrambling_tile_buffer_;
+    cl::Buffer sampler_ranking_tile_buffer_;
+
     std::unique_ptr<cl::Image> output_image_;
 
 };

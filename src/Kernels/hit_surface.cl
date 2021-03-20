@@ -18,17 +18,40 @@ float3 reflect(float3 v, float3 n)
     return -v + 2.0f * dot(v, n) * n;
 }
 
-float3 SampleHemisphereCosine(float3 n, unsigned int* seed)
+float3 SampleHemisphereCosine(float3 n, float2 s)
 {
-    float phi = TWO_PI * GetRandomFloat(seed);
-    float sinThetaSqr = GetRandomFloat(seed);
+    float phi = TWO_PI * s.x;
+    float sinThetaSqr = s.y;
     float sinTheta = sqrt(sinThetaSqr);
 
     float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
     float3 t = normalize(cross(axis, n));
-    float3 s = cross(n, t);
+    float3 b = cross(n, t);
 
-    return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * sqrt(1.0f - sinThetaSqr));
+    return normalize(b * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * sqrt(1.0f - sinThetaSqr));
+}
+
+float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension,
+    __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
+{
+    // wrap arguments
+    pixel_i = pixel_i & 127;
+    pixel_j = pixel_j & 127;
+    sampleIndex = sampleIndex & 255;
+    sampleDimension = sampleDimension & 255;
+
+    // xor index based on optimized ranking
+    int rankedSampleIndex = sampleIndex ^ rankingTile[sampleDimension + (pixel_i + pixel_j * 128) * 8];
+
+    // fetch value in sequence
+    int value = sobol_256spp_256d[sampleDimension + rankedSampleIndex * 256];
+
+    // If the dimension is optimized, xor sequence value based on optimized scrambling
+    value = value ^ scramblingTile[(sampleDimension % 8) + (pixel_i + pixel_j * 128) * 8];
+
+    // convert to float and return
+    float v = (0.5f + value) / 256.0f;
+    return v;
 }
 
 __kernel void KernelEntry
@@ -41,6 +64,12 @@ __kernel void KernelEntry
     __global Triangle* triangles,
     __global Material* materials,
     uint bounce,
+    uint width,
+    uint height,
+    // Sampler
+    __global int* sobol_256spp_256d,
+    __global int* scramblingTile,
+    __global int* rankingTile,
     // Output
     __global Ray* outgoing_rays,
     __global uint* outgoing_ray_counter,
@@ -66,6 +95,9 @@ __kernel void KernelEntry
     Ray incoming_ray = incoming_rays[incoming_ray_idx];
     uint pixel_idx = incoming_pixel_indices[incoming_ray_idx];
 
+    int x = pixel_idx % width;
+    int y = pixel_idx / width;
+
     Triangle triangle = triangles[hit.primitive_id];
 
     float3 position = InterpolateAttributes(triangle.v1.position,
@@ -74,19 +106,24 @@ __kernel void KernelEntry
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
-    result_radiance[pixel_idx] += (float4)(normal, 1.0f);
+    //result_radiance[pixel_idx] += (float4)(normal, 1.0f);
 
     bool spawn_outgoing_ray = true;
 
     if (spawn_outgoing_ray)
     {
+        // Sample bxdf
+        float2 s;
+        s.x = SampleBlueNoise(x, y, 0, 0, sobol_256spp_256d, scramblingTile, rankingTile);
+        s.y = SampleBlueNoise(x, y, 0, 1, sobol_256spp_256d, scramblingTile, rankingTile);
+
         ///@TODO: reduct atomic memory traffic by using LDS
         uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
 
         Ray outgoing_ray;
         outgoing_ray.origin.xyz = position + normal * EPS;
         outgoing_ray.origin.w = 0.0f;
-        outgoing_ray.direction.xyz = reflect(-incoming_ray.direction.xyz, normal);
+        outgoing_ray.direction.xyz = SampleHemisphereCosine(normal, s);
         outgoing_ray.direction.w = MAX_RENDER_DIST;
 
         outgoing_rays[outgoing_ray_idx] = outgoing_ray;
