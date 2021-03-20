@@ -14,9 +14,21 @@ set(IO_SOURCES
 )
 
 set(KERNELS_SOURCES
+    kernels/bxdf.h
+    kernels/constants.h
+    kernels/shared_structures.h
+    kernels/clear_counter.cl
+    kernels/hit_surface.cl
+    kernels/increment_counter.cl
     kernels/kernel_bvh.cl
     kernels/kernel_grid.cl
-    kernels/kernel_copy.cl
+    kernels/kernel_bvh.cl
+    kernels/miss.cl
+    kernels/raygeneration.cl
+    kernels/reset_radiance.cl
+    kernels/resolve_radiance.cl
+    kernels/trace_bvh.cl
+    kernels/utils.h
 )
 
 set(MATHLIB_SOURCES
@@ -32,13 +44,16 @@ set(SCENE_SOURCES
 )
 
 set(UTILS_SOURCES
+    utils/blue_noise_sampler.hpp
     utils/cl_exception.hpp
-    utils/shared_structs.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp
 )
 
 set(MAIN_SOURCES
+    acceleration_structure.hpp
+    bvh.cpp
+    bvh.hpp
     path_trace_estimator.cpp
     path_trace_estimator.hpp
     render.cpp

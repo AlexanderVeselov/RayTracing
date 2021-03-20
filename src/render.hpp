@@ -2,6 +2,7 @@
 #define RENDER_HPP
 
 #include "path_trace_estimator.hpp"
+#include "acceleration_structure.hpp"
 #include "scene/camera.hpp"
 #include "scene/scene.hpp"
 #include "GpuWrappers/cl_context.hpp"
@@ -49,10 +50,12 @@ private:
     std::shared_ptr<CLContext>   cl_context_;
     // Estimator
     std::unique_ptr<PathTraceEstimator> estimator_;
+    // Acceleration structure
+    std::unique_ptr<AccelerationStructure> acc_structure_;
     // Scene
     std::shared_ptr<Camera>      camera_;
-    std::shared_ptr<Scene>       scene_;
-    std::shared_ptr<Framebuffer> framebuffer_;
+    std::unique_ptr<Scene>       scene_;
+    std::unique_ptr<Framebuffer> framebuffer_;
 
 };
 

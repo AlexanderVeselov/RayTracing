@@ -2,6 +2,7 @@
 #include "mathlib/mathlib.hpp"
 #include "io/inputsystem.hpp"
 #include "utils/cl_exception.hpp"
+#include "bvh.hpp"
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_win32.h>
 #include <iostream>
@@ -154,18 +155,23 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
-#ifdef BVH_INTERSECTION
-    scene_ = std::make_shared<BVHScene>("meshes/dragon.obj", *this, 4);
-#else
-    m_Scene = std::make_shared<UniformGridScene>("meshes/room.obj");
-#endif
-    scene_->SetupBuffers();
+    scene_ = std::make_unique<Scene>("meshes/dragon.obj", *cl_context_);
 
-    framebuffer_ = std::make_shared<Framebuffer>(width_, height_);
-    camera_ = std::make_shared<Camera>(framebuffer_, *this);
+    framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
+    camera_ = std::make_shared<Camera>(*framebuffer_, *this);
+
+    // Create acc structure
+    acc_structure_ = std::make_unique<Bvh>(*cl_context_);
+    // Build it right here
+    acc_structure_->BuildCPU(scene_->GetTriangles());
+
+    // TODO, NOTE: this is done after building the acc structure because it reorders triangles
+    // Need to get rid of reordering
+    scene_->UploadBuffers();
 
     // Create estimator
-    estimator_ = std::make_unique<PathTraceEstimator>(width_, height_, *cl_context_, framebuffer_->GetGLImage());
+    estimator_ = std::make_unique<PathTraceEstimator>(width_, height_, *cl_context_,
+        *acc_structure_, framebuffer_->GetGLImage());
     estimator_->SetSceneData(*scene_);
 
 }
@@ -237,6 +243,14 @@ void Render::RenderFrame()
 
     camera_->Update();
     estimator_->SetCameraData(*camera_);
+
+    ///@TODO: need to fix this hack
+    bool need_to_reset = (camera_->GetFrameCount() == 1);
+    if (need_to_reset)
+    {
+        estimator_->Reset();
+    }
+
     estimator_->Estimate();
     framebuffer_->Present();
 
