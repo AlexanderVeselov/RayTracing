@@ -19,9 +19,16 @@ public:
     void Reset();
 
 private:
+    void IntersectRays(std::uint32_t bounce);
+    void ShadeMissedRays(std::uint32_t bounce);
+    void ShadeSurfaceHits(std::uint32_t bounce);
+    void ClearOutgoingRayCounter(std::uint32_t bounce);
+
     // Render size
     std::uint32_t width_;
     std::uint32_t height_;
+
+    std::uint32_t max_bounces_ = 3u;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
@@ -33,12 +40,15 @@ private:
     std::unique_ptr<CLKernel> raygen_kernel_;
     std::unique_ptr<CLKernel> miss_kernel_;
     std::unique_ptr<CLKernel> hit_surface_kernel_;
+    std::unique_ptr<CLKernel> clear_ray_counter_kernel_;
     std::unique_ptr<CLKernel> resolve_kernel_;
 
     // Internal buffers
-    std::unique_ptr<cl::Buffer> rays_buffer_;
-    std::unique_ptr<cl::Buffer> hits_buffer_;
-    std::unique_ptr<cl::Buffer> radiance_buffer_;
+    cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    cl::Buffer pixel_indices_buffer_[2];
+    cl::Buffer ray_counter_buffer_[2];
+    cl::Buffer hits_buffer_;
+    cl::Buffer radiance_buffer_;
     std::unique_ptr<cl::Image> output_image_;
 
 };

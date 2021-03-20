@@ -53,7 +53,11 @@ __kernel void KernelEntry
     float aperture,
     float focus_distance,
     // Output
-    __global Ray* rays
+    __global Ray* rays,
+    __global uint* ray_counter,
+    __global uint* pixel_indices,
+    __global Hit* hits,
+    __global float4* result_radiance
 )
 {
     uint ray_idx = get_global_id(0);
@@ -63,16 +67,17 @@ __kernel void KernelEntry
         return;
     }
 
-    unsigned int seed = ray_idx + HashUInt32(frameCount);
-
-    uint pixel_x = ray_idx % width;
-    uint pixel_y = ray_idx / width;
+    uint pixel_idx = ray_idx;
+    uint pixel_x = pixel_idx % width;
+    uint pixel_y = pixel_idx / width;
 
     float invWidth = 1.0f / (float)(width);
     float invHeight = 1.0f / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
     float fov = 45.0f * 3.1415f / 180.0f;
     float angle = tan(0.5f * fov);
+
+    unsigned int seed = pixel_idx + HashUInt32(frameCount);
 
     float x = (float)(get_global_id(0) % width) + GetRandomFloat(&seed) - 0.5f;
     float y = (float)(get_global_id(0) / width) + GetRandomFloat(&seed) - 0.5f;
@@ -95,4 +100,19 @@ __kernel void KernelEntry
     ray.direction.w = MAX_RENDER_DIST;
 
     rays[ray_idx] = ray;
+    result_radiance[ray_idx] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+
+    // Clear hits buffer
+    Hit hit;
+    hit.primitive_id = INVALID_ID;
+    hits[ray_idx] = hit;
+
+    // Write active path index
+    pixel_indices[ray_idx] = pixel_idx;
+
+    // Write to global ray counter
+    if (ray_idx == 0)
+    {
+        ray_counter[0] = width * height;
+    }
 }

@@ -343,14 +343,15 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
     return myOffset;
 }
 
-void Bvh::IntersectRays(cl::Buffer const& rays_buffer, std::uint32_t num_rays,
-    cl::Buffer const& hits_buffer)
+void Bvh::IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
+    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer)
 {
     intersect_kernel_->SetArgument(0, &rays_buffer, sizeof(rays_buffer));
-    intersect_kernel_->SetArgument(1, &num_rays, sizeof(num_rays));
+    intersect_kernel_->SetArgument(1, &ray_counter_buffer, sizeof(ray_counter_buffer));
     intersect_kernel_->SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
     intersect_kernel_->SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
     intersect_kernel_->SetArgument(4, &hits_buffer, sizeof(hits_buffer));
 
-    cl_context_.ExecuteKernel(*intersect_kernel_, num_rays);
+    ///@TODO: use indirect dispatch
+    cl_context_.ExecuteKernel(*intersect_kernel_, max_num_rays);
 }

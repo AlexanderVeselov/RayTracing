@@ -13,8 +13,8 @@ public:
 
     // TODO: USE CONSTANT REF
     void BuildCPU(std::vector<Triangle> & triangles) override;
-    void IntersectRays(cl::Buffer const& rays_buffer, std::uint32_t num_rays,
-        cl::Buffer const& hits_buffer) override;
+    void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
+        std::uint32_t max_num_rays, cl::Buffer const& hits_buffer) override;
 
     struct BVHPrimitiveInfo
     {

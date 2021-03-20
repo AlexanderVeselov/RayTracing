@@ -78,7 +78,7 @@ __kernel void KernelEntry
 (
     // Input
     __global Ray* rays,
-    uint num_rays,
+    __global uint* ray_counter,
     __global Triangle* triangles,
     __global LinearBVHNode* nodes,
     // Output
@@ -86,6 +86,8 @@ __kernel void KernelEntry
 )
 {
     uint ray_idx = get_global_id(0);
+    ///@TODO: use indirect dispatch
+    uint num_rays = ray_counter[0];
 
     if (ray_idx >= num_rays)
     {

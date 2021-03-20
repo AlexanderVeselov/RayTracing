@@ -25,8 +25,9 @@ __kernel void KernelEntry
 (
     // Input
     __global Ray* rays,
-    uint num_rays,
+    __global uint* ray_counter,
     __global Hit* hits,
+    __global uint* pixel_indices,
     //TODO: throughput
     __read_only image2d_t tex,
     // Output
@@ -34,6 +35,7 @@ __kernel void KernelEntry
 )
 {
     uint ray_idx = get_global_id(0);
+    uint num_rays = ray_counter[0];
 
     if (ray_idx >= num_rays)
     {
@@ -42,9 +44,10 @@ __kernel void KernelEntry
 
     Ray ray = rays[ray_idx];
     Hit hit = hits[ray_idx];
+    uint pixel_idx = pixel_indices[ray_idx];
 
     if (hit.primitive_id == INVALID_ID)
     {
-        result_radiance[ray_idx] = SampleSky(ray.direction.xyz, tex);
+        result_radiance[pixel_idx] += SampleSky(ray.direction.xyz, tex);
     }
 }
