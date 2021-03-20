@@ -1,7 +1,7 @@
 #ifndef ACCELERATION_STRUCTURE_HPP
 #define ACCELERATION_STRUCTURE_HPP
 
-#include "Utils/shared_structs.hpp"
+#include "kernels/shared_structures.h"
 #include <vector>
 #include <CL/cl.hpp>
 

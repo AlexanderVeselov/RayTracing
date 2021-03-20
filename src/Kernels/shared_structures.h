@@ -1,5 +1,5 @@
-#ifndef TRIANGLE_HPP
-#define TRIANGLE_HPP
+#ifndef SHARED_STRUCTURES_HPP
+#define SHARED_STRUCTURES_HPP
 
 #ifdef __cplusplus
 #include "mathlib/mathlib.hpp"
@@ -18,6 +18,20 @@ typedef struct
     float3 pos[2];
 } Bounds3;
 #endif
+
+typedef struct
+{
+    float4 origin; // w - t_min
+    float4 direction; // w - t_max
+} Ray;
+
+typedef struct
+{
+    float2 bc;
+    unsigned int primitive_id;
+    // TODO: remove t from hit structure
+    float t;
+} Hit;
 
 typedef struct Material
 {
@@ -116,4 +130,4 @@ typedef struct DeviceCamera
     float3 up;
 } DeviceCamera;
 
-#endif // TRIANGLE_HPP
+#endif // SHARED_STRUCTURES_HPP

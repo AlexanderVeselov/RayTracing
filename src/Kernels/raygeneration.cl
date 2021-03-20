@@ -1,13 +1,7 @@
-#include "src/utils/shared_structs.hpp"
+#include "shared_structures.h"
 
 #define MAX_RENDER_DIST 20000.0f
 #define INVALID_ID 0xFFFFFFFF
-
-typedef struct
-{
-    float4 origin; // w - t_min
-    float4 direction; // w - t_max
-} Ray;
 
 float GetRandomFloat(unsigned int* seed)
 {

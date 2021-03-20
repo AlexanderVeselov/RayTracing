@@ -2,7 +2,7 @@
 #define SCENE_HPP
 
 #include "mathlib/mathlib.hpp"
-#include "utils/shared_structs.hpp"
+#include "kernels/shared_structures.h"
 #include <CL/cl.hpp>
 #include <vector>
 

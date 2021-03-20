@@ -14,6 +14,7 @@ set(IO_SOURCES
 )
 
 set(KERNELS_SOURCES
+    kernels/shared_structures.h
     kernels/hit_surface.cl
     kernels/kernel_bvh.cl
     kernels/kernel_grid.cl
@@ -38,7 +39,6 @@ set(SCENE_SOURCES
 
 set(UTILS_SOURCES
     utils/cl_exception.hpp
-    utils/shared_structs.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp
 )

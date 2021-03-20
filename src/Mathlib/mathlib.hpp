@@ -55,7 +55,8 @@ private:
 
 };
 
-#define float3_aligned _declspec(align(16)) float3
+///@TODO: fix it
+typedef float3 float4;
 
 class float2
 {

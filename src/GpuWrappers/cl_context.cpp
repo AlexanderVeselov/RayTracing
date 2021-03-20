@@ -121,11 +121,18 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
     std::string source((std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
 
     cl_int status;
-    cl::Program program(cl_context.GetContext(), source, true, &status);
+    cl::Program program(cl_context.GetContext(), source, false, &status);
 
     if (status != CL_SUCCESS)
     {
-        throw CLException("Error building" + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
+        throw CLException("Failed to create program from file " + std::string(filename), status);
+    }
+
+    status = program.build("-I src/kernels/");
+
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Error building " + std::string(filename) + ": " + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
             cl_context.GetDevices()[0]), status);
     }
 
