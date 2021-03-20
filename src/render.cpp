@@ -156,7 +156,6 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
     scene_ = std::make_unique<Scene>("meshes/dragon.obj", *cl_context_);
-    scene_->UploadBuffers();
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_ = std::make_shared<Camera>(*framebuffer_, *this);
@@ -165,6 +164,10 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     acc_structure_ = std::make_unique<Bvh>(*cl_context_);
     // Build it right here
     acc_structure_->BuildCPU(scene_->GetTriangles());
+
+    // TODO, NOTE: this is done after building the acc structure because it reorders triangles
+    // Need to get rid of reordering
+    scene_->UploadBuffers();
 
     // Create estimator
     estimator_ = std::make_unique<PathTraceEstimator>(width_, height_, *cl_context_,

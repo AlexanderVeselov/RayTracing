@@ -43,8 +43,8 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     // Create kernels
     raygen_kernel_ = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
     miss_kernel_ = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
-    //render_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_bvh.cl", cl_context_);
-    copy_kernel_ = std::make_unique<CLKernel>("src/Kernels/kernel_copy.cl", cl_context_);
+    hit_surface_kernel_ = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_);
+    resolve_kernel_ = std::make_unique<CLKernel>("src/Kernels/resolve.cl", cl_context_);
 
     // Setup kernels
     cl_mem radiance_buffer_mem = (*radiance_buffer_)();
@@ -63,16 +63,17 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     miss_kernel_->SetArgument(2, &hits_buffer_mem, sizeof(hits_buffer_mem));
     miss_kernel_->SetArgument(4, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
 
-    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_OUT,
-    //    &radiance_buffer_mem, sizeof(radiance_buffer_mem));
-    //render_kernel_->SetArgument(RenderKernelArgument_t::WIDTH, &width_, sizeof(std::uint32_t));
-    //render_kernel_->SetArgument(RenderKernelArgument_t::HEIGHT, &height_, sizeof(std::uint32_t));
+    // Setup hit surface kernel
+    hit_surface_kernel_->SetArgument(0, &rays_buffer_mem, sizeof(rays_buffer_mem));
+    hit_surface_kernel_->SetArgument(1, &num_rays, sizeof(num_rays));
+    hit_surface_kernel_->SetArgument(2, &hits_buffer_mem, sizeof(hits_buffer_mem));
+    hit_surface_kernel_->SetArgument(5, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
 
-    // Setup copy kernel
-    copy_kernel_->SetArgument(0, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
-    copy_kernel_->SetArgument(1, &output_image_mem, sizeof(output_image_mem));
-    copy_kernel_->SetArgument(2, &width_, sizeof(width_));
-    copy_kernel_->SetArgument(3, &width_, sizeof(height_));
+    // Setup resolve kernel
+    resolve_kernel_->SetArgument(0, &radiance_buffer_mem, sizeof(radiance_buffer_mem));
+    resolve_kernel_->SetArgument(1, &output_image_mem, sizeof(output_image_mem));
+    resolve_kernel_->SetArgument(2, &width_, sizeof(width_));
+    resolve_kernel_->SetArgument(3, &width_, sizeof(height_));
 
 }
 
@@ -111,8 +112,8 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
     cl_mem material_buffer = scene.GetMaterialBuffer();
     cl_mem env_texture = scene.GetEnvTextureBuffer();
 
-    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_SCENE, &triangle_buffer, sizeof(cl_mem));
-    //render_kernel_->SetArgument(RenderKernelArgument_t::BUFFER_MATERIAL, &material_buffer, sizeof(cl_mem));
+    hit_surface_kernel_->SetArgument(3, &triangle_buffer, sizeof(cl_mem));
+    hit_surface_kernel_->SetArgument(4, &material_buffer, sizeof(cl_mem));
     miss_kernel_->SetArgument(3, &env_texture, sizeof(cl_mem));
 }
 
@@ -123,10 +124,11 @@ void PathTraceEstimator::Estimate()
     cl_context_.ExecuteKernel(*raygen_kernel_, max_num_rays);
     acc_structure_.IntersectRays(*rays_buffer_, max_num_rays, *hits_buffer_);
     cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
+    cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
 
     // Copy radiance to the interop image
     cl_context_.AcquireGLObject((*output_image_)());
-    cl_context_.ExecuteKernel(*copy_kernel_, width_ * height_);
+    cl_context_.ExecuteKernel(*resolve_kernel_, width_ * height_);
     cl_context_.Finish();
     cl_context_.ReleaseGLObject((*output_image_)());
 

@@ -14,12 +14,13 @@ set(IO_SOURCES
 )
 
 set(KERNELS_SOURCES
+    kernels/hit_surface.cl
     kernels/kernel_bvh.cl
     kernels/kernel_grid.cl
-    kernels/kernel_copy.cl
     kernels/kernel_bvh.cl
     kernels/miss.cl
     kernels/raygeneration.cl
+    kernels/resolve.cl
     kernels/trace_bvh.cl
 )
 
