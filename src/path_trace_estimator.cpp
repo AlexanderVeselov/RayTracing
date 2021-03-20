@@ -26,7 +26,6 @@ namespace args
             kRayCounterBuffer,
             kPixelIndicesBuffer,
             kThroughputsBuffer,
-            kRadianceBuffer,
         };
     }
 
@@ -58,6 +57,7 @@ namespace args
             kBounce,
             kWidth,
             kHeight,
+            kSampleCounterBuffer,
             kSobolBuffer,
             kScramblingTileBuffer,
             kRankingTileBuffer,
@@ -78,6 +78,7 @@ namespace args
             kWidth,
             kHeight,
             kRadianceBuffer,
+            kSampleCounterBuffer,
             // Output
             kResolvedTexture,
         };
@@ -123,7 +124,7 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
         throw CLException("Failed to create radiance buffer", status);
     }
 
-    frame_index_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+    sample_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         sizeof(std::uint32_t), nullptr, &status);
 
     // Sampler buffers
@@ -145,24 +146,29 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     }
 
     // Create kernels
+    reset_kernel_ = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_);
     raygen_kernel_ = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
     miss_kernel_ = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
     hit_surface_kernel_ = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_);
     clear_counter_kernel_ = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_);
     increment_counter_kernel_ = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_);
-    resolve_kernel_ = std::make_unique<CLKernel>("src/Kernels/resolve.cl", cl_context_);
+    resolve_kernel_ = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_);
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
 
-    // Setup render kernel
+    // Setup reset kernel
+    reset_kernel_->SetArgument(0, &width_, sizeof(width_));
+    reset_kernel_->SetArgument(1, &height_, sizeof(height_));
+    reset_kernel_->SetArgument(2, &radiance_buffer_, sizeof(radiance_buffer_));
+
+    // Setup raygen kernel
     raygen_kernel_->SetArgument(args::Raygen::kWidth, &width_, sizeof(width_));
     raygen_kernel_->SetArgument(args::Raygen::kHeight, &height_, sizeof(height_));
     raygen_kernel_->SetArgument(args::Raygen::kRayBuffer, &rays_buffer_[0], sizeof(rays_buffer_[0]));
     raygen_kernel_->SetArgument(args::Raygen::kRayCounterBuffer, &ray_counter_buffer_[0], sizeof(ray_counter_buffer_[0]));
     raygen_kernel_->SetArgument(args::Raygen::kPixelIndicesBuffer, &pixel_indices_buffer_[0], sizeof(pixel_indices_buffer_[0]));
     raygen_kernel_->SetArgument(args::Raygen::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
-    raygen_kernel_->SetArgument(args::Raygen::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
 
     // Setup miss kernel
     miss_kernel_->SetArgument(args::Miss::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
@@ -182,6 +188,9 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     hit_surface_kernel_->SetArgument(args::HitSurface::kHeight,
         &height_, sizeof(height_));
 
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSampleCounterBuffer,
+        &sample_counter_buffer_, sizeof(sample_counter_buffer_));
+
     hit_surface_kernel_->SetArgument(args::HitSurface::kSobolBuffer,
         &sampler_sobol_buffer_, sizeof(sampler_sobol_buffer_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kScramblingTileBuffer,
@@ -192,8 +201,10 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
     // Setup resolve kernel
     resolve_kernel_->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
     resolve_kernel_->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
+    resolve_kernel_->SetArgument(args::Resolve::kSampleCounterBuffer, &sample_counter_buffer_, sizeof(sample_counter_buffer_));
     resolve_kernel_->SetArgument(args::Resolve::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
     resolve_kernel_->SetArgument(args::Resolve::kResolvedTexture, &output_image_mem, sizeof(output_image_mem));
+
 
     // Don't forget to reset frame index
     Reset();
@@ -202,9 +213,12 @@ PathTraceEstimator::PathTraceEstimator(std::uint32_t width, std::uint32_t height
 void PathTraceEstimator::Reset()
 {
     // Reset frame index
-    clear_counter_kernel_->SetArgument(0, &frame_index_buffer_,
-        sizeof(frame_index_buffer_));
+    clear_counter_kernel_->SetArgument(0, &sample_counter_buffer_,
+        sizeof(sample_counter_buffer_));
     cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);
+
+    // Reset radiance buffer
+    cl_context_.ExecuteKernel(*reset_kernel_, width_ * height_);
 }
 
 void PathTraceEstimator::SetCameraData(Camera const& camera)
@@ -242,10 +256,10 @@ void PathTraceEstimator::SetSceneData(Scene const& scene)
     miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
 }
 
-void PathTraceEstimator::AdvanceFrameIndex()
+void PathTraceEstimator::AdvanceSampleCount()
 {
-    increment_counter_kernel_->SetArgument(0, &frame_index_buffer_,
-        sizeof(frame_index_buffer_));
+    increment_counter_kernel_->SetArgument(0, &sample_counter_buffer_,
+        sizeof(sample_counter_buffer_));
     cl_context_.ExecuteKernel(*increment_counter_kernel_, 1);
 }
 
@@ -325,7 +339,6 @@ void PathTraceEstimator::ResolveRadiance()
 
 void PathTraceEstimator::Estimate()
 {
-    AdvanceFrameIndex();
     GenerateRays();
 
     for (std::uint32_t bounce = 0; bounce < max_bounces_; ++bounce)
@@ -336,5 +349,6 @@ void PathTraceEstimator::Estimate()
         ShadeSurfaceHits(bounce);
     }
 
+    AdvanceSampleCount();
     ResolveRadiance();
 }

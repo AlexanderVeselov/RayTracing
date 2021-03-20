@@ -15,6 +15,7 @@ set(IO_SOURCES
 
 set(KERNELS_SOURCES
     kernels/bxdf.h
+    kernels/constants.h
     kernels/shared_structures.h
     kernels/clear_counter.cl
     kernels/hit_surface.cl
@@ -24,8 +25,10 @@ set(KERNELS_SOURCES
     kernels/kernel_bvh.cl
     kernels/miss.cl
     kernels/raygeneration.cl
-    kernels/resolve.cl
+    kernels/reset_radiance.cl
+    kernels/resolve_radiance.cl
     kernels/trace_bvh.cl
+    kernels/utils.h
 )
 
 set(MATHLIB_SOURCES

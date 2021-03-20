@@ -243,6 +243,14 @@ void Render::RenderFrame()
 
     camera_->Update();
     estimator_->SetCameraData(*camera_);
+
+    ///@TODO: need to fix this hack
+    bool need_to_reset = (camera_->GetFrameCount() == 1);
+    if (need_to_reset)
+    {
+        estimator_->Reset();
+    }
+
     estimator_->Estimate();
     framebuffer_->Present();
 

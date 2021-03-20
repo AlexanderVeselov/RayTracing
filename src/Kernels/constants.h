@@ -1,0 +1,12 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define MAX_RENDER_DIST 20000.0f
+#define EPS 1e-3f
+#define PI 3.14159265359f
+#define TWO_PI 6.28318530718f
+#define INV_PI 0.31830988618f
+#define INV_TWO_PI 0.15915494309f
+#define INVALID_ID 0xFFFFFFFF
+
+#endif // CONSTANTS_H

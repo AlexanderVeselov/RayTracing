@@ -44,10 +44,11 @@ __kernel void KernelEntry
 
     Ray ray = rays[ray_idx];
     Hit hit = hits[ray_idx];
-    uint pixel_idx = pixel_indices[ray_idx];
 
     if (hit.primitive_id == INVALID_ID)
     {
-        result_radiance[pixel_idx] += SampleSky(ray.direction.xyz, tex);
+        uint pixel_idx = pixel_indices[ray_idx];
+        float3 throughput = throughputs[pixel_idx];
+        result_radiance[pixel_idx] += SampleSky(ray.direction.xyz, tex) * throughput;
     }
 }
