@@ -241,11 +241,20 @@ void Render::RenderFrame()
     glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    ///@TODO: need to fix this hack
+    bool need_to_reset = false;
+
+    if (input->IsKeyDown('R'))
+    {
+        integrator_->ReloadKernels();
+        integrator_->SetSceneData(*scene_);
+        need_to_reset = true;
+    }
+
     camera_->Update();
     integrator_->SetCameraData(*camera_);
 
-    ///@TODO: need to fix this hack
-    bool need_to_reset = (camera_->GetFrameCount() == 1);
+    need_to_reset = need_to_reset || (camera_->GetFrameCount() == 1);
     if (need_to_reset)
     {
         integrator_->Reset();
