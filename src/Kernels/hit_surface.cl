@@ -30,52 +30,49 @@ float3 SampleDiffuse(float2 s, Material material, float3 normal, float2 texcoord
     *outgoing = SampleHemisphereCosine(normal, s);
     *pdf = dot(*outgoing, normal) * INV_PI;
 
-    float3 albedo = (sin(texcoord.x * 64) > 0) * (sin(texcoord.y * 64) > 0) + (sin(texcoord.x * 64 + PI) > 0) * (sin(texcoord.y * 64 + PI) > 0) * 2.0f;
-    return albedo * material.diffuse * INV_PI;
+    return /*material.diffuse */ INV_PI;
 }
 
 float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incoming, float3* outgoing, float* pdf)
 {
-    float alpha = material.roughness;
-    float cosTheta;
-    float3 wh = SampleGGX(s, normal, alpha, &cosTheta);
-
+    float alpha = 0.02f;// material.roughness;
+    float3 wh = GGX_Sample(s, normal, alpha);
     *outgoing = reflect(incoming, wh);
-    if (dot(*outgoing, normal) * dot(incoming, normal) < 0.0f) return 0.0f;
 
-    float D = DistributionGGX(cosTheta, alpha);
-    *pdf = D * cosTheta / (4.0f * dot(incoming, wh));
-    // Actually, _material->ior_ isn't ior value, this is f0 value for now
-    return D / (4.0f * dot(*outgoing, normal) * dot(incoming, normal)) * material.specular;
+    float n_dot_o = dot(normal, *outgoing);
+    float n_dot_h = dot(normal, wh);
+    float n_dot_i = dot(normal, incoming);
+
+    float denom = 4.0 * n_dot_o * n_dot_i;
+
+    if (denom < 0.0f)
+    {
+        return 0.0f;
+    }
+
+    float f0 = 1.0f;
+    float D = GGX_D(alpha, n_dot_h);
+    float F = FresnelShlick(f0, n_dot_o);
+    float G = Schlick_G(alpha, n_dot_i);
+
+    *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
+
+    return D * F * G / denom;// *material.specular;
 }
 
-float3 SampleBrdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
+float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
 {
-    bool doSpecular = dot(material.specular, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
-    bool doDiffuse = dot(material.diffuse, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f;
+    float specular_w = 0.1;
 
-    if (doSpecular && !doDiffuse)
+    if (s1 < specular_w)
     {
+        // Sample specular
         return SampleSpecular(s, material, normal, incoming, outgoing, pdf);
-    }
-    else if (!doSpecular && doDiffuse)
-    {
-        return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf);
-    }
-    else if (doSpecular && doDiffuse)
-    {
-        if (s1 > 0.5f)
-        {
-            return SampleSpecular(s, material, normal, incoming, outgoing, pdf) * 2.0f;
-        }
-        else
-        {
-            return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf) * 2.0f;
-        }
     }
     else
     {
-        return 0.0f;
+        // Sample diffuse
+        return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf);
     }
 }
 
@@ -150,7 +147,7 @@ __kernel void KernelEntry
     float pdf = 0.0f;
     float3 throughput = 0.0f;
     float3 outgoing;
-    float3 bxdf = SampleBrdf(s1, s, material, normal, texcoord, incoming, &outgoing, &pdf);
+    float3 bxdf = SampleBxdf(s1, s, material, normal, texcoord, incoming, &outgoing, &pdf);
 
     if (pdf > 0.0)
     {

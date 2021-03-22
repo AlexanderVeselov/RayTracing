@@ -57,6 +57,13 @@ private:
     std::unique_ptr<Scene>       scene_;
     std::unique_ptr<Framebuffer> framebuffer_;
 
+    struct GuiParams
+    {
+        bool enable_white_furnace = false;
+        float camera_aperture = 0.0f;
+        float camera_focus_distance = 10.0f;
+    } gui_params_;
+
 };
 
 #endif // RENDER_HPP

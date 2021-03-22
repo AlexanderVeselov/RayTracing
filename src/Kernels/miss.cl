@@ -30,6 +30,7 @@ __kernel void KernelEntry
     __global uint* pixel_indices,
     __global float3* throughputs,
     __read_only image2d_t tex,
+    uint enable_white_furnace,
     // Output
     __global float3* result_radiance
 )
@@ -49,6 +50,7 @@ __kernel void KernelEntry
     {
         uint pixel_idx = pixel_indices[ray_idx];
         float3 throughput = throughputs[pixel_idx];
-        result_radiance[pixel_idx] += SampleSky(ray.direction.xyz, tex) * throughput;
+        float3 sky_radiance = (enable_white_furnace != 0) ? 0.5f : SampleSky(ray.direction.xyz, tex);
+        result_radiance[pixel_idx] += sky_radiance * throughput;
     }
 }

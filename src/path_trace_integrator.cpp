@@ -39,6 +39,7 @@ namespace args
             kPixelIndicesBuffer,
             kThroughputsBuffer,
             kIblTextureBuffer,
+            kEnableWhiteFurnace,
             kRadianceBuffer,
         };
     }
@@ -184,6 +185,9 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.miss->SetArgument(args::Miss::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
     kernels.miss->SetArgument(args::Miss::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
     kernels.miss->SetArgument(args::Miss::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
+    // We can't bind bool in OCL, so bind uint instead
+    std::uint32_t enable_white_furnace_arg = enable_white_furnace_ ? 1u : 0u;
+    kernels.miss->SetArgument(args::Miss::kEnableWhiteFurnace, &enable_white_furnace_arg, sizeof(enable_white_furnace_arg));
 
     // Setup hit surface kernel
     kernels.hit_surface->SetArgument(args::HitSurface::kHitsBuffer,
@@ -232,15 +236,22 @@ void PathTraceIntegrator::ReloadKernels()
     }
 }
 
-void PathTraceIntegrator::Reset()
+void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
 {
-    // Reset frame index
-    kernels_.clear_counter->SetArgument(0, &sample_counter_buffer_,
-        sizeof(sample_counter_buffer_));
-    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    if (enable == enable_white_furnace_)
+    {
+        return;
+    }
 
-    // Reset radiance buffer
-    cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
+    enable_white_furnace_ = enable;
+
+    // Set new argument value
+    // We can't bind bool in OCL, so bind uint instead
+    std::uint32_t enable_white_furnace_arg = enable_white_furnace_ ? 1u : 0u;
+    kernels_.miss->SetArgument(args::Miss::kEnableWhiteFurnace,
+        &enable_white_furnace_arg, sizeof(enable_white_furnace_arg));
+
+    RequestReset();
 }
 
 void PathTraceIntegrator::SetCameraData(Camera const& camera)
@@ -276,6 +287,17 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
     kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
     kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));
     kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
+}
+
+void PathTraceIntegrator::Reset()
+{
+    // Reset frame index
+    kernels_.clear_counter->SetArgument(0, &sample_counter_buffer_,
+        sizeof(sample_counter_buffer_));
+    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+
+    // Reset radiance buffer
+    cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
 }
 
 void PathTraceIntegrator::AdvanceSampleCount()
@@ -361,6 +383,12 @@ void PathTraceIntegrator::ResolveRadiance()
 
 void PathTraceIntegrator::Integrate()
 {
+    if (request_reset_)
+    {
+        Reset();
+        request_reset_ = false;
+    }
+
     GenerateRays();
 
     for (std::uint32_t bounce = 0; bounce < max_bounces_; ++bounce)
