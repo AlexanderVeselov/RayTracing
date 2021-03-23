@@ -16,4 +16,13 @@ float3 reflect(float3 v, float3 n)
     return -v + 2.0f * dot(v, n) * n;
 }
 
+float3 TangentToWorld(float3 dir, float3 n)
+{
+    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 b = cross(n, t);
+
+    return normalize(b * dir.x + t * dir.y + n * dir.z);
+}
+
 #endif // UTILS_H

@@ -391,7 +391,7 @@ void PathTraceIntegrator::Integrate()
 
     GenerateRays();
 
-    for (std::uint32_t bounce = 0; bounce < max_bounces_; ++bounce)
+    for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
         ShadeMissedRays(bounce);

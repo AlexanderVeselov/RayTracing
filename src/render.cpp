@@ -236,6 +236,11 @@ void Render::DrawGUI()
             camera_->SetFocusDistance(gui_params_.camera_focus_distance);
         }
 
+        if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
+        {
+            integrator_->SetMaxBounces((std::uint32_t)gui_params_.max_bounces);
+        }
+
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
         {
             integrator_->EnableWhiteFurnace(gui_params_.enable_white_furnace);

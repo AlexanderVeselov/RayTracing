@@ -27,8 +27,8 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
 
 float3 SampleDiffuse(float2 s, Material material, float3 normal, float2 texcoord, float3* outgoing, float* pdf)
 {
-    *outgoing = SampleHemisphereCosine(normal, s);
-    *pdf = dot(*outgoing, normal) * INV_PI;
+    float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
+    *outgoing = TangentToWorld(tbn_outgoing, normal);
 
     return /*material.diffuse */ INV_PI;
 }
@@ -60,11 +60,18 @@ float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incomin
     return D * F * G / denom;// *material.specular;
 }
 
+/*
+float3 EvaluateMaterial(Material material, float3 incoming, float3 outgoing, float3 normal)
+{
+    
+}
+*/
+
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
 {
     float specular_w = 0.1;
 
-    if (s1 < specular_w)
+    if (false)//s1 < specular_w)
     {
         // Sample specular
         return SampleSpecular(s, material, normal, incoming, outgoing, pdf);

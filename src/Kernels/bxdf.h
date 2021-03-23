@@ -3,17 +3,16 @@
 
 #include "constants.h"
 
-float3 SampleHemisphereCosine(float3 n, float2 s)
+float3 SampleHemisphereCosine(float2 s, float* pdf)
 {
     float phi = TWO_PI * s.x;
-    float sinThetaSqr = s.y;
-    float sinTheta = sqrt(sinThetaSqr);
+    float sin_theta_sqr = s.y;
+    float sin_theta = sqrt(sin_theta_sqr);
 
-    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
-    float3 t = normalize(cross(axis, n));
-    float3 b = cross(n, t);
+    float cos_theta = sqrt(1.0f - sin_theta_sqr);
+    *pdf = cos_theta * INV_PI;
 
-    return normalize(b * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * sqrt(1.0f - sinThetaSqr));
+    return (float3)(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
 // See http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
@@ -51,6 +50,7 @@ float Schlick_G(float alpha, float n_dot_i)
     return n_dot_i / (n_dot_i * (1.0f - k) + k);
 }
 
+/*
 float3 Blinn_Sample(float3 n, float alpha, unsigned int* seed)
 {
     float phi = TWO_PI * GetRandomFloat(seed);
@@ -64,7 +64,7 @@ float3 Blinn_Sample(float3 n, float alpha, unsigned int* seed)
     return normalize(s * cos(phi) * sinTheta + t * sin(phi) * sinTheta + n * cosTheta);
 
 }
-/*
+
 
 float3 Beckmann_Sample(float2 s, float3 n, float alpha)
 {

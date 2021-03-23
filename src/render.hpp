@@ -59,9 +59,10 @@ private:
 
     struct GuiParams
     {
-        bool enable_white_furnace = false;
         float camera_aperture = 0.0f;
         float camera_focus_distance = 10.0f;
+        int max_bounces = 3u;
+        bool enable_white_furnace = false;
     } gui_params_;
 
 };

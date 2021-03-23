@@ -19,6 +19,7 @@ public:
     void RequestReset() { request_reset_ = true; };
     void ReloadKernels();
     void EnableWhiteFurnace(bool enable);
+    void SetMaxBounces(std::uint32_t max_bounces) { max_bounces_ = max_bounces; }
 
 private:
     struct Kernels
