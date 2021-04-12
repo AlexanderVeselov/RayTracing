@@ -60,13 +60,6 @@ float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incomin
     return D * F * G / denom;// *material.specular;
 }
 
-/*
-float3 EvaluateMaterial(Material material, float3 incoming, float3 outgoing, float3 normal)
-{
-    
-}
-*/
-
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
 {
     float specular_w = 0.1;
@@ -81,6 +74,51 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float2 t
         // Sample diffuse
         return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf);
     }
+}
+
+
+float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
+{
+    float D = GGX_D(alpha, n_dot_h);
+    float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
+
+    return D * G;
+}
+
+float3 EvaluateDiffuse(float3 albedo)
+{
+    return albedo * Lambert();
+}
+
+float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
+{
+    float3 half_vec = normalize(incoming + outgoing);
+    float n_dot_i = dot(normal, incoming);
+    float n_dot_o = dot(normal, outgoing);
+    float n_dot_h = dot(normal, half_vec);
+    float h_dot_o = dot(half_vec, outgoing);
+
+    // Perceptual roughness remapping
+    float alpha = material.roughness * material.roughness;
+
+    // Frostbite remapping function for dielectrics
+    // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+    float3 f0_dielectric = 0.16 * material.reflectance * material.reflectance;
+    float3 f0_metal = material.albedo.xyz;
+
+    // TODO: lerp
+    float3 f0 = f0_dielectric * (1.0 - material.metalness) + f0_metal * material.metalness;
+
+    // Since metals don't have diffuse term, fade it to zero
+    float3 diffuse_color = (1.0 - material.metalness) * material.albedo.xyz;
+
+    float fresnel = FresnelSchlick(f0, h_dot_o);
+
+    float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
+    float3 diffuse = EvaluateDiffuse(diffuse_color);
+
+    return fresnel * specular + (1.0f - fresnel) * diffuse;
+
 }
 
 __kernel void KernelEntry

@@ -3,6 +3,8 @@
 
 #include "constants.h"
 
+// See http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
+
 float3 SampleHemisphereCosine(float2 s, float* pdf)
 {
     float phi = TWO_PI * s.x;
@@ -15,11 +17,24 @@ float3 SampleHemisphereCosine(float2 s, float* pdf)
     return (float3)(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
-// See http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
-
-float FresnelShlick(float f0, float n_dot_o)
+// See https://en.wikipedia.org/wiki/Schlick%27s_approximation
+float IorToF0(float ior_incident, float ior_transmitted)
 {
-    return f0 + (1.0f - f0) * pow(1.0f - n_dot_o, 5.0f);
+    float result = (ior_transmitted - ior_incident) / (ior_transmitted + ior_incident);
+    return result * result;
+}
+
+float F0ToIor(float f0)
+{
+    float r = sqrt(f0);
+    return (1.0 + r) / (1.0 - r);
+}
+
+// Use half vector instead of normal when evaluating fresnel in microfacet models
+// It doesn't matter to pass h_dot_o or h_dot_i because they are equivalent values
+float FresnelSchlick(float f0, float h_dot_o)
+{
+    return f0 + (1.0f - f0) * pow(1.0f - h_dot_o, 5.0f);
 }
 
 float Blinn_D(float3 normal, float3 wh, float alpha)
@@ -48,6 +63,28 @@ float Schlick_G(float alpha, float n_dot_i)
     // Schlick-GGX from UE4
     float k = alpha * 0.5f;
     return n_dot_i / (n_dot_i * (1.0f - k) + k);
+}
+
+float V_SmithGGXCorrelated(float n_dot_i, float n_dot_o, float alphaG)
+{
+    // Original formulation of G_SmithGGX Correlated
+    // lambda_v = ( -1 + sqrt ( alphaG2 * (1 - NdotL2 ) / NdotL2 + 1)) * 0.5 f;
+    // lambda_l = ( -1 + sqrt ( alphaG2 * (1 - NdotV2 ) / NdotV2 + 1)) * 0.5 f;
+    // G_SmithGGXCorrelated = 1 / (1 + lambda_v + lambda_l );
+    // V_SmithGGXCorrelated = G_SmithGGXCorrelated / (4.0 f * NdotL * NdotV );
+
+    // This is the optimize version
+    float alphaG2 = alphaG * alphaG;
+    // Caution : the " NdotL *" and " NdotV *" are explicitely inversed , this is not a mistake .
+    float Lambda_GGXV = n_dot_o * sqrt((-n_dot_i * alphaG2 + n_dot_i) * n_dot_i + alphaG2);
+    float Lambda_GGXL = n_dot_i * sqrt((-n_dot_o * alphaG2 + n_dot_o) * n_dot_o + alphaG2);
+
+    return 0.5f / (Lambda_GGXV + Lambda_GGXL);
+}
+
+float Lambert()
+{
+    return INV_PI;
 }
 
 /*
