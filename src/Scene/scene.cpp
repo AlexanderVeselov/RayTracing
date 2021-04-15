@@ -1,3 +1,6 @@
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 #include "scene.hpp"
 #include "mathlib/mathlib.hpp"
 #include "render.hpp"
@@ -62,12 +65,12 @@ std::vector<Triangle>& Scene::GetTriangles()
 
 void Scene::LoadTriangles(const char* filename)
 {
-    char mtlname[80];
-    memset(mtlname, 0, 80);
-    strncpy(mtlname, filename, strlen(filename) - 4);
-    strcat(mtlname, ".mtl");
+    //char mtlname[80];
+    //memset(mtlname, 0, 80);
+    //strncpy(mtlname, filename, strlen(filename) - 4);
+    //strcat(mtlname, ".mtl");
 
-    LoadMaterials(mtlname);
+    //LoadMaterials(mtlname);
 
     std::vector<float3> positions;
     std::vector<float3> normals;
@@ -77,77 +80,98 @@ void Scene::LoadTriangles(const char* filename)
 
     std::cout << "Loading object file " << filename << std::endl;
 
-    FILE* file = fopen(filename, "r");
-    if (!file)
-    {
-        throw std::runtime_error("Failed to open scene file!");
-    }
-    
-    unsigned int materialIndex = -1;
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn;
+    std::string err;
 
-    while (true)
-    {
-        char lineHeader[128];
-        int res = fscanf(file, "%s", lineHeader);
-        if (res == EOF)
-        {
-            break;
-        }
-        if (strcmp(lineHeader, "v") == 0)
-        {
-            float3 vertex;
-            fscanf(file, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
-            positions.push_back(vertex);
-        }
-        else if (strcmp(lineHeader, "vt") == 0)
-        {
-            float2 uv;
-            fscanf(file, "%f %f\n", &uv.x, &uv.y);
-            texcoords.push_back(uv);
-        }
-        else if (strcmp(lineHeader, "vn") == 0)
-        {
-            float3 normal;
-            fscanf(file, "%f %f %f\n", &normal.x, &normal.y, &normal.z);
-            normals.push_back(normal);
-        }
-        else if (strcmp(lineHeader, "usemtl") == 0)
-        {
-            char str[80];
-            fscanf(file, "%s\n", str);
-            for (unsigned int i = 0; i < m_MaterialNames.size(); ++i)
-            {
-                if (strcmp(str, m_MaterialNames[i].c_str()) == 0)
-                {
-                    materialIndex = i;
-                    break;
-                }
-            }
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, "meshes/");
 
-        }
-        else if (strcmp(lineHeader, "f") == 0)
+    if (!success)
+    {
+        throw std::runtime_error("Failed to load scene!");
+    }
+
+    m_Materials.resize(materials.size());
+
+    const float kDefaultRoughness = 0.01f;
+
+    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
+    {
+        auto& out_material = m_Materials[material_idx];
+        auto const& in_material = materials[material_idx];
+
+        out_material.albedo.x = in_material.diffuse[0];
+        out_material.albedo.y = in_material.diffuse[1];
+        out_material.albedo.z = in_material.diffuse[2];
+
+        out_material.emission.x = in_material.emission[0];
+        out_material.emission.y = in_material.emission[1];
+        out_material.emission.z = in_material.emission[2];
+
+        out_material.roughness = kDefaultRoughness;
+
+        out_material.metalness = 0.0f;
+
+        out_material.reflectance = in_material.specular[0];
+
+    }
+
+    for (auto const& shape : shapes)
+    {
+        auto const& indices = shape.mesh.indices;
+        // The mesh is triangular
+        assert(indices.size() % 3 == 0);
+
+        for (std::uint32_t face = 0; face < indices.size() / 3; ++face)
         {
-            unsigned int iv[3], it[3], in[3];
-            int count = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &iv[0], &it[0], &in[0], &iv[1], &it[1], &in[1], &iv[2], &it[2], &in[2]);
-            if (count != 9)
-            {
-                throw std::runtime_error("Failed to load face!");
-            }
-            m_Triangles.push_back(Triangle(
-                Vertex(positions[iv[0] - 1], texcoords[it[0] - 1], normals[in[0] - 1]),
-                Vertex(positions[iv[1] - 1], texcoords[it[1] - 1], normals[in[1] - 1]),
-                Vertex(positions[iv[2] - 1], texcoords[it[2] - 1], normals[in[2] - 1]),
-                materialIndex
-                ));
+            auto pos_idx_1 = indices[face * 3 + 0].vertex_index;
+            auto pos_idx_2 = indices[face * 3 + 1].vertex_index;
+            auto pos_idx_3 = indices[face * 3 + 2].vertex_index;
+
+            auto normal_idx_1 = indices[face * 3 + 0].normal_index;
+            auto normal_idx_2 = indices[face * 3 + 1].normal_index;
+            auto normal_idx_3 = indices[face * 3 + 2].normal_index;
+
+            Vertex v1;
+            v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0];
+            v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1];
+            v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2];
+
+            v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
+            v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
+            v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+
+            Vertex v2;
+            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0];
+            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1];
+            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2];
+
+            v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
+            v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
+            v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
+
+            Vertex v3;
+            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0];
+            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1];
+            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2];
+
+            v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
+            v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
+            v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
+
+            m_Triangles.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
         }
     }
-    
-    std::cout << "Load succesful (" << m_Triangles.size() << " triangles)" << std::endl;
+
+    std::cout << "Load successful (" << m_Triangles.size() << " triangles)" << std::endl;
 
 }
 
 void Scene::LoadMaterials(const char* filename)
 {
+    /*
     FILE* file = fopen(filename, "r");
     if (!file)
     {
@@ -195,6 +219,7 @@ void Scene::LoadMaterials(const char* filename)
         }
     }
     std::cout << "Material count: " << m_Materials.size() << std::endl;
+    */
 }
 
 //UniformGridScene::UniformGridScene(const char* filename)

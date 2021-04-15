@@ -30,7 +30,7 @@ float3 SampleDiffuse(float2 s, Material material, float3 normal, float2 texcoord
     float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
     *outgoing = TangentToWorld(tbn_outgoing, normal);
 
-    return /*material.diffuse */ INV_PI;
+    return material.albedo * INV_PI;
 }
 
 float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incoming, float3* outgoing, float* pdf)
@@ -103,16 +103,16 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 
     // Frostbite remapping function for dielectrics
     // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-    float3 f0_dielectric = 0.16 * material.reflectance * material.reflectance;
+    float3 f0_dielectric = 0.16f * material.reflectance * material.reflectance;
     float3 f0_metal = material.albedo.xyz;
 
     // TODO: lerp
-    float3 f0 = f0_dielectric * (1.0 - material.metalness) + f0_metal * material.metalness;
+    float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
 
     // Since metals don't have diffuse term, fade it to zero
-    float3 diffuse_color = (1.0 - material.metalness) * material.albedo.xyz;
+    float3 diffuse_color = (1.0f - material.metalness) * material.albedo.xyz;
 
-    float fresnel = FresnelSchlick(f0, h_dot_o);
+    float3 fresnel = FresnelSchlick(f0, h_dot_o);
 
     float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
     float3 diffuse = EvaluateDiffuse(diffuse_color);
@@ -185,9 +185,9 @@ __kernel void KernelEntry
 
     // Sample bxdf
     float2 s;
-    s.x = SampleBlueNoise(x, y, sample_idx, 0, sobol_256spp_256d, scramblingTile, rankingTile);
-    s.y = SampleBlueNoise(x, y, sample_idx, 1, sobol_256spp_256d, scramblingTile, rankingTile);
-    float s1 = SampleBlueNoise(x, y, sample_idx, 2, sobol_256spp_256d, scramblingTile, rankingTile);
+    s.x = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 0, sobol_256spp_256d, scramblingTile, rankingTile);
+    s.y = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 1, sobol_256spp_256d, scramblingTile, rankingTile);
+    float s1 = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 2, sobol_256spp_256d, scramblingTile, rankingTile);
 
     float pdf = 0.0f;
     float3 throughput = 0.0f;

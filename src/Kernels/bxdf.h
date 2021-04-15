@@ -32,7 +32,12 @@ float F0ToIor(float f0)
 
 // Use half vector instead of normal when evaluating fresnel in microfacet models
 // It doesn't matter to pass h_dot_o or h_dot_i because they are equivalent values
-float FresnelSchlick(float f0, float h_dot_o)
+//float FresnelSchlick(float f0, float h_dot_o)
+//{
+//    return f0 + (1.0f - f0) * pow(1.0f - h_dot_o, 5.0f);
+//}
+
+float3 FresnelSchlick(float3 f0, float h_dot_o)
 {
     return f0 + (1.0f - f0) * pow(1.0f - h_dot_o, 5.0f);
 }
