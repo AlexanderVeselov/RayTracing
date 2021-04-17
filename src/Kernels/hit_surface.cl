@@ -25,55 +25,80 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     return v;
 }
 
-float3 SampleDiffuse(float2 s, Material material, float3 normal, float2 texcoord, float3* outgoing, float* pdf)
+float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, float3* outgoing, float* pdf)
 {
     float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
     *outgoing = TangentToWorld(tbn_outgoing, normal);
 
-    return material.albedo * INV_PI;
+    return albedo * INV_PI;
 }
 
-float3 SampleSpecular(float2 s, Material material, float3 normal, float3 incoming, float3* outgoing, float* pdf)
+float3 SampleSpecular(float2 s, float3 f0, float alpha, float3 normal, float3 incoming, float3* outgoing, float* pdf)
 {
-    float alpha = 0.02f;// material.roughness;
-    float3 wh = GGX_Sample(s, normal, alpha);
-    *outgoing = reflect(incoming, wh);
-
-    float n_dot_o = dot(normal, *outgoing);
-    float n_dot_h = dot(normal, wh);
-    float n_dot_i = dot(normal, incoming);
-
-    float denom = 4.0 * n_dot_o * n_dot_i;
-
-    if (denom < 0.0f)
+    if (alpha <= 1e-4f)
     {
-        return 0.0f;
+        *outgoing = reflect(incoming, normal);
+        *pdf = 1.0;
+        float n_dot_o = dot(*outgoing, normal);
+        return FresnelSchlick(f0, n_dot_o) / n_dot_o;
     }
+    else
+    {
+        float3 wh = GGX_Sample(s, normal, alpha);
+        *outgoing = reflect(incoming, wh);
 
-    float f0 = 1.0f;
-    float D = GGX_D(alpha, n_dot_h);
-    float F = FresnelShlick(f0, n_dot_o);
-    float G = Schlick_G(alpha, n_dot_i);
+        float n_dot_o = dot(normal, *outgoing);
+        float n_dot_h = dot(normal, wh);
+        float n_dot_i = dot(normal, incoming);
+        float h_dot_o = dot(*outgoing, wh);
 
-    *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
+        float D = GGX_D(alpha, n_dot_h);
+        float3 F = FresnelSchlick(f0, h_dot_o);
+        float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
 
-    return D * F * G / denom;// *material.specular;
+        *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
+
+        return D * F * G;
+    }
 }
 
-float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float2 texcoord, float3 incoming, float3* outgoing, float* pdf)
+float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
+    float3 incoming, float3* outgoing, float* pdf)
 {
-    float specular_w = 0.1;
+    // Perceptual roughness remapping
+    float roughness = material.roughness;
+    float alpha = roughness * roughness;
 
-    if (false)//s1 < specular_w)
+    // Frostbite remapping function for dielectrics
+    // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+    float3 f0_dielectric = 0.16f * material.reflectance * material.reflectance;
+    float3 f0_metal = material.albedo.xyz;
+
+    // TODO: lerp
+    float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
+    //float3 fresnel = FresnelSchlick(f0, h_dot_o);
+    // Since metals don't have diffuse term, fade it to zero
+    float3 diffuse_color = (1.0f - material.metalness) * material.albedo.xyz;
+
+    float specular_probability = material.metalness;
+    float diffuse_probability = 1.0f - specular_probability;
+
+    float3 bxdf = 0.0f;
+
+    if (s1 <= specular_probability)
     {
         // Sample specular
-        return SampleSpecular(s, material, normal, incoming, outgoing, pdf);
+        bxdf = SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf);
+        *pdf *= specular_probability;
     }
     else
     {
         // Sample diffuse
-        return SampleDiffuse(s, material, normal, texcoord, outgoing, pdf);
+        bxdf = SampleDiffuse(s, diffuse_color, normal, outgoing, pdf);
+        *pdf *= diffuse_probability;
     }
+
+    return bxdf;
 }
 
 
@@ -199,7 +224,7 @@ __kernel void KernelEntry
     float pdf = 0.0f;
     float3 throughput = 0.0f;
     float3 outgoing;
-    float3 bxdf = SampleBxdf(s1, s, material, normal, texcoord, incoming, &outgoing, &pdf);
+    float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf);
 
     if (pdf > 0.0)
     {

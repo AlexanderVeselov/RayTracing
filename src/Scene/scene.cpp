@@ -95,8 +95,6 @@ void Scene::LoadTriangles(const char* filename)
 
     m_Materials.resize(materials.size());
 
-    const float kDefaultRoughness = 0.01f;
-
     for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
         auto& out_material = m_Materials[material_idx];
@@ -110,9 +108,9 @@ void Scene::LoadTriangles(const char* filename)
         out_material.emission.y = in_material.emission[1];
         out_material.emission.z = in_material.emission[2];
 
-        out_material.roughness = kDefaultRoughness;
+        out_material.roughness = in_material.roughness;
 
-        out_material.metalness = 0.0f;
+        out_material.metalness = in_material.metallic;
 
         out_material.reflectance = in_material.specular[0];
 
