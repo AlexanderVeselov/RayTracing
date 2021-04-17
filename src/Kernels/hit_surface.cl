@@ -183,6 +183,13 @@ __kernel void KernelEntry
 
     Material material = materials[triangle.mtlIndex];
 
+    float3 hit_throughput = throughputs[pixel_idx];
+
+    if (dot(material.emission, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
+    {
+        result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
+    }
+
     // Sample bxdf
     float2 s;
     s.x = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 0, sobol_256spp_256d, scramblingTile, rankingTile);
