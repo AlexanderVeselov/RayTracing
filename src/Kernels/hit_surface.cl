@@ -69,16 +69,14 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     float roughness = material.roughness;
     float alpha = roughness * roughness;
 
-    // Frostbite remapping function for dielectrics
-    // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-    float3 f0_dielectric = 0.16f * material.reflectance * material.reflectance;
-    float3 f0_metal = material.albedo.xyz;
+    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0_metal = material.specular_albedo.xyz;
 
     // TODO: lerp
     float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
     //float3 fresnel = FresnelSchlick(f0, h_dot_o);
     // Since metals don't have diffuse term, fade it to zero
-    float3 diffuse_color = (1.0f - material.metalness) * material.albedo.xyz;
+    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     float specular_probability = material.metalness;
     float diffuse_probability = 1.0f - specular_probability;
@@ -100,7 +98,6 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 
     return bxdf;
 }
-
 
 float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
 {
@@ -126,16 +123,14 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     // Perceptual roughness remapping
     float alpha = material.roughness * material.roughness;
 
-    // Frostbite remapping function for dielectrics
-    // https://seblagarde.files.wordpress.com/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
-    float3 f0_dielectric = 0.16f * material.reflectance * material.reflectance;
-    float3 f0_metal = material.albedo.xyz;
+    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0_metal = material.specular_albedo.xyz;
 
     // TODO: lerp
     float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
 
     // Since metals don't have diffuse term, fade it to zero
-    float3 diffuse_color = (1.0f - material.metalness) * material.albedo.xyz;
+    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
 

@@ -38,11 +38,12 @@ typedef struct Material
 #ifdef __cplusplus
     Material() {}
 #endif
-    float3 albedo;
+    float3 diffuse_albedo;
+    float3 specular_albedo;
     float3 emission;
     float roughness;
     float metalness;
-    float reflectance;
+    float ior;
     unsigned int padding;
 
 } Material;

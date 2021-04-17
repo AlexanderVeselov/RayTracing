@@ -100,9 +100,13 @@ void Scene::LoadTriangles(const char* filename)
         auto& out_material = m_Materials[material_idx];
         auto const& in_material = materials[material_idx];
 
-        out_material.albedo.x = in_material.diffuse[0];
-        out_material.albedo.y = in_material.diffuse[1];
-        out_material.albedo.z = in_material.diffuse[2];
+        out_material.diffuse_albedo.x = in_material.diffuse[0];
+        out_material.diffuse_albedo.y = in_material.diffuse[1];
+        out_material.diffuse_albedo.z = in_material.diffuse[2];
+
+        out_material.specular_albedo.x = in_material.specular[0];
+        out_material.specular_albedo.y = in_material.specular[1];
+        out_material.specular_albedo.z = in_material.specular[2];
 
         out_material.emission.x = in_material.emission[0];
         out_material.emission.y = in_material.emission[1];
@@ -112,8 +116,7 @@ void Scene::LoadTriangles(const char* filename)
 
         out_material.metalness = in_material.metallic;
 
-        out_material.reflectance = in_material.specular[0];
-
+        out_material.ior = in_material.ior;
     }
 
     for (auto const& shape : shapes)
