@@ -155,6 +155,8 @@ void Scene::LoadTriangles(const char* filename)
             v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
             v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
 
+            assert(shape.mesh.material_ids[face] >= 0
+                && shape.mesh.material_ids[face] < m_Materials.size());
             m_Triangles.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
         }
     }

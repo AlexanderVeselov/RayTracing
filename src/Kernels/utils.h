@@ -25,4 +25,9 @@ float3 TangentToWorld(float3 dir, float3 n)
     return normalize(b * dir.x + t * dir.y + n * dir.z);
 }
 
+float Luma(float3 rgb)
+{
+    return dot(rgb, (float3)(0.299f, 0.587f, 0.114f));
+}
+
 #endif // UTILS_H

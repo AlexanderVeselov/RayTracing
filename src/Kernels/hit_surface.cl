@@ -25,7 +25,8 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     return v;
 }
 
-float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, float3* outgoing, float* pdf)
+float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
+    float3 incoming, float3* outgoing, float* pdf)
 {
     float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
     *outgoing = TangentToWorld(tbn_outgoing, normal);
@@ -33,14 +34,15 @@ float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, float3* outgoing, f
     return albedo * INV_PI;
 }
 
-float3 SampleSpecular(float2 s, float3 f0, float alpha, float3 normal, float3 incoming, float3* outgoing, float* pdf)
+float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
+    float3 normal, float3 incoming, float3* outgoing, float* pdf)
 {
     if (alpha <= 1e-4f)
     {
         *outgoing = reflect(incoming, normal);
         *pdf = 1.0;
         float n_dot_o = dot(*outgoing, normal);
-        return FresnelSchlick(f0, n_dot_o) / n_dot_o;
+        return FresnelSchlick(f0, n_dot_o) * albedo / n_dot_o;
     }
     else
     {
@@ -58,45 +60,8 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha, float3 normal, float3 in
 
         *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
 
-        return D * F * G;
+        return D * F * G * albedo;
     }
-}
-
-float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf)
-{
-    // Perceptual roughness remapping
-    float roughness = material.roughness;
-    float alpha = roughness * roughness;
-
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
-    float3 f0_metal = material.specular_albedo.xyz;
-
-    // TODO: lerp
-    float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
-    //float3 fresnel = FresnelSchlick(f0, h_dot_o);
-    // Since metals don't have diffuse term, fade it to zero
-    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
-
-    float specular_probability = material.metalness;
-    float diffuse_probability = 1.0f - specular_probability;
-
-    float3 bxdf = 0.0f;
-
-    if (s1 <= specular_probability)
-    {
-        // Sample specular
-        bxdf = SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf);
-        *pdf *= specular_probability;
-    }
-    else
-    {
-        // Sample diffuse
-        bxdf = SampleDiffuse(s, diffuse_color, normal, outgoing, pdf);
-        *pdf *= diffuse_probability;
-    }
-
-    return bxdf;
 }
 
 float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
@@ -121,24 +86,84 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float h_dot_o = dot(half_vec, outgoing);
 
     // Perceptual roughness remapping
-    float alpha = material.roughness * material.roughness;
+    // Perceptual roughness remapping
+    float roughness = material.roughness;
+    float alpha = roughness * roughness;
 
+    // Compute f0 values for metals and dielectrics
     float3 f0_dielectric = IorToF0(1.0f, material.ior);
     float3 f0_metal = material.specular_albedo.xyz;
 
-    // TODO: lerp
-    float3 f0 = f0_dielectric * (1.0f - material.metalness) + f0_metal * material.metalness;
+    // Blend f0 values based on metalness
+    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
 
-    // Since metals don't have diffuse term, fade it to zero
-    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
+    // Since metals don't have the diffuse term, fade it to zero
+    //@TODO: precompute it?
+    float3 diffuse_color = (1.0f - material.metalness)* material.diffuse_albedo.xyz;
+
+    // This is the scaling value for specular bxdf
+    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
 
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
 
     float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
     float3 diffuse = EvaluateDiffuse(diffuse_color);
+    // diffuse *= (1.0f - fresnel) // ???
 
-    return fresnel * specular + (1.0f - fresnel) * diffuse;
+    return fresnel * specular + diffuse;
+}
 
+float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
+    float3 incoming, float3* outgoing, float* pdf)
+{
+#ifdef WHITE_FURNACE
+    material.diffuse_albedo = 1.0f;
+    material.specular_albedo = 1.0f;
+#endif
+
+    // Perceptual roughness remapping
+    float roughness = material.roughness;
+    float alpha = roughness * roughness;
+
+    // Compute f0 values for metals and dielectrics
+    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0_metal = material.specular_albedo.xyz;
+
+    // Blend f0 values based on metalness
+    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
+
+    // Since metals don't have the diffuse term, fade it to zero
+    //@TODO: precompute it?
+    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
+
+    // This is the scaling value for specular bxdf
+    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
+
+    // This is not an actual fresnel value, because we didn't sample a microfacet at this point
+    // it's a "heuristic" used for better layer importance sampling
+    float3 pseudo_fresnel = FresnelSchlick(f0, dot(normal, incoming));
+    float specular_sampling_pdf = Luma(specular_albedo * pseudo_fresnel);
+    float diffuse_sampling_pdf = 1.0f - specular_sampling_pdf;
+
+    //@TODO: reduce diffuse intensity where the specular value is high
+    //@TODO: evaluate all layers at once?
+
+    float3 bxdf = 0.0f;
+
+    if (s1 <= specular_sampling_pdf)
+    {
+        // Sample specular
+        bxdf = SampleSpecular(s, specular_albedo, f0, alpha, normal, incoming, outgoing, pdf);
+        *pdf *= specular_sampling_pdf;
+    }
+    else
+    {
+        // Sample diffuse
+        bxdf = SampleDiffuse(s, diffuse_color, f0, normal, incoming, outgoing, pdf);
+        *pdf *= diffuse_sampling_pdf;
+    }
+
+    return bxdf;
 }
 
 __kernel void KernelEntry
@@ -205,10 +230,12 @@ __kernel void KernelEntry
 
     float3 hit_throughput = throughputs[pixel_idx];
 
+#ifndef WHITE_FURNACE
     if (dot(material.emission, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
         result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
     }
+#endif
 
     // Sample bxdf
     float2 s;
