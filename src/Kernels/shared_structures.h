@@ -33,6 +33,11 @@ typedef struct
     float t;
 } Hit;
 
+typedef struct
+{
+    unsigned int emissive_count;
+} SceneInfo;
+
 typedef struct Material
 {
 #ifdef __cplusplus

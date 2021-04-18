@@ -189,11 +189,13 @@ __kernel void KernelEntry
     __global uint* incoming_pixel_indices,
     __global Hit* hits,
     __global Triangle* triangles,
+    __global uint* emissive_indices,
     __global Material* materials,
     uint bounce,
     uint width,
     uint height,
     __global uint* sample_counter,
+    SceneInfo scene_info,
     // Sampler
     __global int* sobol_256spp_256d,
     __global int* scramblingTile,
