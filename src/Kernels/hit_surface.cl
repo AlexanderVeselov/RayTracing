@@ -43,7 +43,7 @@ float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
     return albedo * INV_PI;
 }
 
-float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
+float3 SampleSpecular(float2 s, float3 f0, float alpha,
     float3 normal, float3 incoming, float3* outgoing, float* pdf)
 {
     if (alpha <= 1e-4f)
@@ -52,7 +52,7 @@ float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
         *pdf = 1.0;
         float n_dot_o = dot(*outgoing, normal);
         // Don't apply fresnel here, it's applied in the external function
-        return albedo / n_dot_o;
+        return 1.0f / n_dot_o;
     }
     else
     {
@@ -71,7 +71,7 @@ float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
 
         *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
 
-        return D /* F */ * G * albedo;
+        return D /* F */ * G;
     }
 }
 
@@ -151,7 +151,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 
     // This is not an actual fresnel value, because we need to use half vector instead of normal here
     // it's a "heuristic" used for better layer importance sampling and energy conservation
-    float3 fresnel = FresnelSchlick(f0, dot(normal, incoming));
+    float3 fresnel = FresnelSchlick(f0, dot(normal, incoming)) * specular_albedo;
 
     float specular_weight = Luma(specular_albedo * fresnel);
     float diffuse_weight = Luma(diffuse_albedo * (1.0f - fresnel));
@@ -168,7 +168,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     if (s1 <= specular_sampling_pdf)
     {
         // Sample specular
-        bxdf = fresnel * SampleSpecular(s, specular_albedo, f0, alpha, normal, incoming, outgoing, pdf);
+        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf);
         *pdf *= specular_sampling_pdf;
     }
     else

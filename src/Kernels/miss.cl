@@ -53,7 +53,7 @@ __kernel void KernelEntry
 #ifdef ENABLE_WHITE_FURNACE
         float3 sky_radiance = 0.5f;
 #else
-        float3 sky_radiance = SampleSky(ray.direction.xyz, tex);
+        float3 sky_radiance = min(SampleSky(ray.direction.xyz, tex), 2.0f);
 #endif
         result_radiance[pixel_idx] += sky_radiance * throughput;
     }

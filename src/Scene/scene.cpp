@@ -88,18 +88,21 @@ void Scene::LoadTriangles(const char* filename)
 
     m_Materials.resize(materials.size());
 
+    const float kGamma = 2.2f;
+
     for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
         auto& out_material = m_Materials[material_idx];
         auto const& in_material = materials[material_idx];
 
-        out_material.diffuse_albedo.x = in_material.diffuse[0];
-        out_material.diffuse_albedo.y = in_material.diffuse[1];
-        out_material.diffuse_albedo.z = in_material.diffuse[2];
+        // Convert from sRGB to linear
+        out_material.diffuse_albedo.x = pow(in_material.diffuse[0], kGamma);
+        out_material.diffuse_albedo.y = pow(in_material.diffuse[1], kGamma);
+        out_material.diffuse_albedo.z = pow(in_material.diffuse[2], kGamma);
 
-        out_material.specular_albedo.x = in_material.specular[0];
-        out_material.specular_albedo.y = in_material.specular[1];
-        out_material.specular_albedo.z = in_material.specular[2];
+        out_material.specular_albedo.x = pow(in_material.specular[0], kGamma);
+        out_material.specular_albedo.y = pow(in_material.specular[1], kGamma);
+        out_material.specular_albedo.z = pow(in_material.specular[2], kGamma);
 
         out_material.emission.x = in_material.emission[0];
         out_material.emission.y = in_material.emission[1];
@@ -188,7 +191,7 @@ void Scene::UploadBuffers()
     image_format.image_channel_data_type = CL_FLOAT;
 
     Image image;
-    HDRLoader::Load("textures/Topanga_Forest_B_3k.hdr", image);
+    HDRLoader::Load("textures/studio_small_03_4k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.colors, &status);
 

@@ -155,7 +155,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
-    scene_ = std::make_unique<Scene>("meshes/CornellBox_Dragon.obj", *cl_context_);
+    scene_ = std::make_unique<Scene>("meshes/ShaderBalls.obj", *cl_context_);
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_ = std::make_shared<Camera>(*framebuffer_, *this);
