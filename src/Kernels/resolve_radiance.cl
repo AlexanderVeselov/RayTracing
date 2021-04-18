@@ -13,5 +13,9 @@ __kernel void KernelEntry
 
     int x = global_id % width;
     int y = global_id / width;
-    write_imagef(result, (int2)(x, y), radiance[global_id] / (float)sample_count);
+
+    float3 hdr = radiance[global_id].xyz / (float)sample_count;
+    float3 ldr = hdr / (hdr + 1.0f);
+
+    write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
 }

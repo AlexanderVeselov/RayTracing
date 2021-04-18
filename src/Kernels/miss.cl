@@ -49,6 +49,12 @@ __kernel void KernelEntry
     {
         uint pixel_idx = pixel_indices[ray_idx];
         float3 throughput = throughputs[pixel_idx];
-        result_radiance[pixel_idx] += SampleSky(ray.direction.xyz, tex) * throughput;
+
+#ifdef ENABLE_WHITE_FURNACE
+        float3 sky_radiance = 0.5f;
+#else
+        float3 sky_radiance = min(SampleSky(ray.direction.xyz, tex), 2.0f);
+#endif
+        result_radiance[pixel_idx] += sky_radiance * throughput;
     }
 }

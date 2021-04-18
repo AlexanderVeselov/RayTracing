@@ -7,10 +7,10 @@
 Camera::Camera(Framebuffer& framebuffer, Render& render)
     : m_Render(render)
     , framebuffer_(framebuffer)
-    , m_Origin(0.0f, -20.0f, 20.0f)
+    , m_Origin(0.0f, -1.0f, 1.0f)
     , m_Pitch(MATH_PIDIV2)
     , m_Yaw(MATH_PIDIV2)
-    , m_Speed(32.0f)
+    , m_Speed(1.0f)
     , m_FrameCount(0)
     , m_Up(0.0f, 0.0f, 1.0f)
 {

@@ -108,7 +108,8 @@ void CLContext::ReleaseGLObject(cl_mem mem)
     }
 }
 
-CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
+CLKernel::CLKernel(const char* filename, const CLContext& cl_context,
+    std::vector<std::string> const& definitions)
 {
     std::ifstream input_file(filename);
 
@@ -128,7 +129,14 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context)
         throw CLException("Failed to create program from file " + std::string(filename), status);
     }
 
-    status = program.build("-I src/kernels/");
+    std::string build_options = "-I src/kernels/";
+
+    for (auto const& definition : definitions)
+    {
+        build_options += " -D " + definition;
+    }
+
+    status = program.build(build_options.c_str());
 
     if (status != CL_SUCCESS)
     {

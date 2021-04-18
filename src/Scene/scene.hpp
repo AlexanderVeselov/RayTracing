@@ -20,7 +20,6 @@ public:
 
 private:
     void LoadTriangles(const char* filename);
-    void LoadMaterials(const char* filename);
 
     CLContext& cl_context_;
     std::vector<std::string> m_MaterialNames;

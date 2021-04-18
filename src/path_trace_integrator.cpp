@@ -158,8 +158,20 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     // Create kernels
     kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_);
     kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
-    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
-    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_);
+
+    std::vector<std::string> definitions;
+    if (enable_white_furnace_)
+    {
+        definitions.push_back("ENABLE_WHITE_FURNACE");
+    }
+
+    if (sampler_type_ == SamplerType::kBlueNoise)
+    {
+        definitions.push_back("BLUE_NOISE_SAMPLER");
+    }
+
+    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, definitions);
+    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_);
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_);
     kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_);
@@ -232,15 +244,16 @@ void PathTraceIntegrator::ReloadKernels()
     }
 }
 
-void PathTraceIntegrator::Reset()
+void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
 {
-    // Reset frame index
-    kernels_.clear_counter->SetArgument(0, &sample_counter_buffer_,
-        sizeof(sample_counter_buffer_));
-    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    if (enable == enable_white_furnace_)
+    {
+        return;
+    }
 
-    // Reset radiance buffer
-    cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
+    enable_white_furnace_ = enable;
+    ReloadKernels();
+    RequestReset();
 }
 
 void PathTraceIntegrator::SetCameraData(Camera const& camera)
@@ -276,6 +289,35 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
     kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
     kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));
     kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
+}
+
+void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
+{
+    max_bounces_ = max_bounces;
+    RequestReset();
+}
+
+void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
+{
+    if (sampler_type == sampler_type_)
+    {
+        return;
+    }
+
+    sampler_type_ = sampler_type;
+    ReloadKernels();
+    RequestReset();
+}
+
+void PathTraceIntegrator::Reset()
+{
+    // Reset frame index
+    kernels_.clear_counter->SetArgument(0, &sample_counter_buffer_,
+        sizeof(sample_counter_buffer_));
+    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+
+    // Reset radiance buffer
+    cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
 }
 
 void PathTraceIntegrator::AdvanceSampleCount()
@@ -361,9 +403,15 @@ void PathTraceIntegrator::ResolveRadiance()
 
 void PathTraceIntegrator::Integrate()
 {
+    if (request_reset_)
+    {
+        Reset();
+        request_reset_ = false;
+    }
+
     GenerateRays();
 
-    for (std::uint32_t bounce = 0; bounce < max_bounces_; ++bounce)
+    for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
         ShadeMissedRays(bounce);

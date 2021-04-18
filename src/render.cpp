@@ -155,7 +155,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
 
-    scene_ = std::make_unique<Scene>("meshes/dragon.obj", *cl_context_);
+    scene_ = std::make_unique<Scene>("meshes/ShaderBalls.obj", *cl_context_);
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_ = std::make_shared<Camera>(*framebuffer_, *this);
@@ -215,20 +215,43 @@ void Render::DrawGUI()
 {
     ImGui::Begin("PerformanceStats", nullptr,
         ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
-    ImGui::SetWindowPos(ImVec2(10, 10));
-    ImGui::SetWindowSize(ImVec2(350, 50));
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-        1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::Text("Press \"R\" to reload kernels");
+    {
+        ImGui::SetWindowPos(ImVec2(10, 10));
+        ImGui::SetWindowSize(ImVec2(350, 50));
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+            1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("Press \"R\" to reload kernels");
+    }
     ImGui::End();
 
-    ImGui::Begin("Camera controls");
-    static float aperture = 0.0f;
-    ImGui::SliderFloat("Camera aperture", &aperture, 0.0, 1.0);
-    camera_->SetAperture(aperture);
-    static float focus_distance = 10.0f;
-    ImGui::SliderFloat("Camera focus distance", &focus_distance, 0.0, 100.0);
-    camera_->SetFocusDistance(focus_distance);
+    ImGui::Begin("Controls");
+    {
+        if (ImGui::SliderFloat("Camera aperture", &gui_params_.camera_aperture, 0.0, 1.0))
+        {
+            camera_->SetAperture(gui_params_.camera_aperture);
+        }
+
+        if (ImGui::SliderFloat("Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
+        {
+            camera_->SetFocusDistance(gui_params_.camera_focus_distance);
+        }
+
+        if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
+        {
+            integrator_->SetMaxBounces((std::uint32_t)gui_params_.max_bounces);
+        }
+
+        if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
+        {
+            integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
+                PathTraceIntegrator::SamplerType::kBlueNoise : PathTraceIntegrator::SamplerType::kRandom);
+        }
+
+        if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
+        {
+            integrator_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
+        }
+    }
     ImGui::End();
 
     ImGui::Render();
@@ -242,23 +265,24 @@ void Render::RenderFrame()
     glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    ///@TODO: need to fix this hack
     bool need_to_reset = false;
 
     if (input->IsKeyDown('R'))
     {
         integrator_->ReloadKernels();
-        integrator_->SetSceneData(*scene_);
         need_to_reset = true;
     }
 
     camera_->Update();
+    integrator_->SetSceneData(*scene_);
     integrator_->SetCameraData(*camera_);
 
+    ///@TODO: need to fix this hack
     need_to_reset = need_to_reset || (camera_->GetFrameCount() == 1);
+
     if (need_to_reset)
     {
-        integrator_->Reset();
+        integrator_->RequestReset();
     }
 
     integrator_->Integrate();

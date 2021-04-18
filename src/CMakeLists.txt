@@ -78,6 +78,7 @@ source_group("Utils" FILES ${UTILS_SOURCES})
 add_executable(RayTracingApp ${SOURCES})
 
 target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader)
 
 target_link_libraries(RayTracingApp PUBLIC OpenCL::OpenCL OpenGL::GL GLEW::GLEW OpenGL::GLU imgui)
 set_target_properties(RayTracingApp PROPERTIES
