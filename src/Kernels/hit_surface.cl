@@ -2,6 +2,8 @@
 #include "bxdf.h"
 #include "utils.h"
 
+//#define WHITE_FURNACE
+
 float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension,
     __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
 {
@@ -25,6 +27,15 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     return v;
 }
 
+float SampleRandom(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension)
+{
+    uint seed = WangHash(pixel_i);
+    seed = WangHash(seed + WangHash(pixel_j));
+    seed = WangHash(seed + WangHash(sampleIndex));
+    seed = WangHash(seed + WangHash(sampleDimension));
+    return seed * 2.3283064365386963e-10f;
+}
+
 float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
     float3 incoming, float3* outgoing, float* pdf)
 {
@@ -42,7 +53,8 @@ float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
         *outgoing = reflect(incoming, normal);
         *pdf = 1.0;
         float n_dot_o = dot(*outgoing, normal);
-        return FresnelSchlick(f0, n_dot_o) * albedo / n_dot_o;
+        // Don't apply fresnel here, it's applied in the external function
+        return albedo / n_dot_o;
     }
     else
     {
@@ -55,12 +67,13 @@ float3 SampleSpecular(float2 s, float3 albedo, float3 f0, float alpha,
         float h_dot_o = dot(*outgoing, wh);
 
         float D = GGX_D(alpha, n_dot_h);
-        float3 F = FresnelSchlick(f0, h_dot_o);
+        // Don't apply fresnel here, it's applied in the external function
+        //float3 F = FresnelSchlick(f0, h_dot_o);
         float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
 
         *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
 
-        return D * F * G * albedo;
+        return D /* F */ * G * albedo;
     }
 }
 
@@ -108,9 +121,8 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 
     float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
     float3 diffuse = EvaluateDiffuse(diffuse_color);
-    // diffuse *= (1.0f - fresnel) // ???
 
-    return fresnel * specular + diffuse;
+    return fresnel * specular + (1.0f - fresnel) * diffuse;
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
@@ -134,16 +146,21 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 
     // Since metals don't have the diffuse term, fade it to zero
     //@TODO: precompute it?
-    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
+    float3 diffuse_albedo = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     // This is the scaling value for specular bxdf
     float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
 
-    // This is not an actual fresnel value, because we didn't sample a microfacet at this point
-    // it's a "heuristic" used for better layer importance sampling
-    float3 pseudo_fresnel = FresnelSchlick(f0, dot(normal, incoming));
-    float specular_sampling_pdf = Luma(specular_albedo * pseudo_fresnel);
-    float diffuse_sampling_pdf = 1.0f - specular_sampling_pdf;
+    // This is not an actual fresnel value, because we need to use half vector instead of normal here
+    // it's a "heuristic" used for better layer importance sampling and energy conservation
+    float3 fresnel = FresnelSchlick(f0, dot(normal, incoming));
+
+    float specular_weight = Luma(specular_albedo * fresnel);
+    float diffuse_weight = Luma(diffuse_albedo * (1.0f - fresnel));
+    float weight_sum = diffuse_weight + specular_weight;
+
+    float specular_sampling_pdf = specular_weight / weight_sum;
+    float diffuse_sampling_pdf = diffuse_weight / weight_sum;
 
     //@TODO: reduce diffuse intensity where the specular value is high
     //@TODO: evaluate all layers at once?
@@ -153,13 +170,13 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     if (s1 <= specular_sampling_pdf)
     {
         // Sample specular
-        bxdf = SampleSpecular(s, specular_albedo, f0, alpha, normal, incoming, outgoing, pdf);
+        bxdf = fresnel * SampleSpecular(s, specular_albedo, f0, alpha, normal, incoming, outgoing, pdf);
         *pdf *= specular_sampling_pdf;
     }
     else
     {
         // Sample diffuse
-        bxdf = SampleDiffuse(s, diffuse_color, f0, normal, incoming, outgoing, pdf);
+        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf);
         *pdf *= diffuse_sampling_pdf;
     }
 
@@ -239,9 +256,15 @@ __kernel void KernelEntry
 
     // Sample bxdf
     float2 s;
+#if 1
+    s.x = SampleRandom(x, y, sample_idx, bounce * 3 + 0);
+    s.y = SampleRandom(x, y, sample_idx, bounce * 3 + 1);
+    float s1 = SampleRandom(x, y, sample_idx, bounce * 3 + 2);
+#else
     s.x = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 0, sobol_256spp_256d, scramblingTile, rankingTile);
     s.y = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 1, sobol_256spp_256d, scramblingTile, rankingTile);
     float s1 = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 2, sobol_256spp_256d, scramblingTile, rankingTile);
+#endif
 
     float pdf = 0.0f;
     float3 throughput = 0.0f;

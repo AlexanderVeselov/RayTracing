@@ -131,4 +131,28 @@ float3 GGX_Sample(float2 s, float3 n, float alpha)
     return normalize(b * cos(phi) * sin_theta + t * sin(phi) * sin_theta + n * cos_theta);
 }
 
+// Eric Heitz. Sampling the GGX Distribution of Visible Normals
+// http://jcgt.org/published/0007/04/01/
+float3 GGXVNDF_Sample(float2 u, float3 n, float alpha, float3 incoming)
+{
+    // Section 3.2: transforming the view direction to the hemisphere configuration
+    float3 Vh = normalize((float3)(alpha * incoming.x, alpha * incoming.y, incoming.z));
+    // Section 4.1: orthonormal basis (with special case if cross product is zero)
+    float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
+    float3 T1 = lensq > 0 ? (float3)(-Vh.y, Vh.x, 0) / sqrt(lensq) : (float3)(1, 0, 0);
+    float3 T2 = cross(Vh, T1);
+    // Section 4.2: parameterization of the projected area
+    float r = sqrt(u.y);
+    float phi = TWO_PI * u.x;
+    float t1 = r * cos(phi);
+    float t2 = r * sin(phi);
+    float s = 0.5f * (1.0f + Vh.z);
+    t2 = (1.0f - s) * sqrt(1.0f - t1 * t1) + s * t2;
+    // Section 4.3: reprojection onto hemisphere
+    float3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * Vh;
+    // Section 3.4: transforming the normal back to the ellipsoid configuration
+    float3 Ne = normalize((float3)(alpha * Nh.x, alpha * Nh.y, max(0.0f, Nh.z)));
+    return Ne;
+}
+
 #endif // BXDF_H
