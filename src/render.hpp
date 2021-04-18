@@ -63,6 +63,7 @@ private:
         float camera_focus_distance = 10.0f;
         int max_bounces = 3u;
         bool enable_white_furnace = false;
+        bool enable_blue_noise = false;
     } gui_params_;
 
 };

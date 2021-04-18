@@ -11,6 +11,12 @@ class AccelerationStructure;
 class PathTraceIntegrator
 {
 public:
+    enum class SamplerType
+    {
+        kRandom,
+        kBlueNoise
+    };
+
     PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
     void Integrate();
@@ -19,7 +25,8 @@ public:
     void RequestReset() { request_reset_ = true; };
     void ReloadKernels();
     void EnableWhiteFurnace(bool enable);
-    void SetMaxBounces(std::uint32_t max_bounces) { max_bounces_ = max_bounces; }
+    void SetMaxBounces(std::uint32_t max_bounces);
+    void SetSamplerType(SamplerType sampler_type);
 
 private:
     struct Kernels
@@ -48,6 +55,8 @@ private:
     std::uint32_t height_;
 
     std::uint32_t max_bounces_ = 5u;
+    SamplerType sampler_type_ = SamplerType::kRandom;
+
     bool request_reset_ = false;
     // For debugging
     bool enable_white_furnace_ = false;

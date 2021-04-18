@@ -2,8 +2,6 @@
 #include "bxdf.h"
 #include "utils.h"
 
-//#define WHITE_FURNACE
-
 float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension,
     __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
 {
@@ -128,10 +126,10 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     float3 incoming, float3* outgoing, float* pdf)
 {
-#ifdef WHITE_FURNACE
+#ifdef ENABLE_WHITE_FURNACE
     material.diffuse_albedo = 1.0f;
     material.specular_albedo = 1.0f;
-#endif
+#endif // ENABLE_WHITE_FURNACE
 
     // Perceptual roughness remapping
     float roughness = material.roughness;
@@ -247,23 +245,23 @@ __kernel void KernelEntry
 
     float3 hit_throughput = throughputs[pixel_idx];
 
-#ifndef WHITE_FURNACE
+#ifndef ENABLE_WHITE_FURNACE
     if (dot(material.emission, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
         result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
     }
-#endif
+#endif // ENABLE_WHITE_FURNACE
 
     // Sample bxdf
     float2 s;
-#if 1
-    s.x = SampleRandom(x, y, sample_idx, bounce * 3 + 0);
-    s.y = SampleRandom(x, y, sample_idx, bounce * 3 + 1);
-    float s1 = SampleRandom(x, y, sample_idx, bounce * 3 + 2);
-#else
+#ifdef BLUE_NOISE_SAMPLER
     s.x = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 0, sobol_256spp_256d, scramblingTile, rankingTile);
     s.y = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 1, sobol_256spp_256d, scramblingTile, rankingTile);
     float s1 = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 2, sobol_256spp_256d, scramblingTile, rankingTile);
+#else
+    s.x = SampleRandom(x, y, sample_idx, bounce * 3 + 0);
+    s.y = SampleRandom(x, y, sample_idx, bounce * 3 + 1);
+    float s1 = SampleRandom(x, y, sample_idx, bounce * 3 + 2);
 #endif
 
     float pdf = 0.0f;

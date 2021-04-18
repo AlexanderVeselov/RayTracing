@@ -5,6 +5,8 @@
 #include <CL/cl.hpp>
 #include <memory>
 #include <Windows.h>
+#include <vector>
+#include <string>
 
 // OpenCL & OpenGL interop
 // https://software.intel.com/en-us/articles/opencl-and-opengl-interoperability-tutorial
@@ -37,7 +39,8 @@ private:
 class CLKernel
 {
 public:
-    CLKernel(const char* filename, const CLContext& cl_context);
+    CLKernel(const char* filename, const CLContext& cl_context,
+        std::vector<std::string> const& definitions = std::vector<std::string>());
     void SetArgument(std::uint32_t argIndex, void const* data, size_t size);
     const cl::Kernel& GetKernel() const { return m_Kernel; }
 

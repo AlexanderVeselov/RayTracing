@@ -39,7 +39,6 @@ namespace args
             kPixelIndicesBuffer,
             kThroughputsBuffer,
             kIblTextureBuffer,
-            kEnableWhiteFurnace,
             kRadianceBuffer,
         };
     }
@@ -159,8 +158,20 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     // Create kernels
     kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_);
     kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
-    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_);
-    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_);
+
+    std::vector<std::string> definitions;
+    if (enable_white_furnace_)
+    {
+        definitions.push_back("ENABLE_WHITE_FURNACE");
+    }
+
+    if (sampler_type_ == SamplerType::kBlueNoise)
+    {
+        definitions.push_back("BLUE_NOISE_SAMPLER");
+    }
+
+    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, definitions);
+    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_);
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_);
     kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_);
@@ -185,9 +196,6 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.miss->SetArgument(args::Miss::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
     kernels.miss->SetArgument(args::Miss::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
     kernels.miss->SetArgument(args::Miss::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
-    // We can't bind bool in OCL, so bind uint instead
-    std::uint32_t enable_white_furnace_arg = enable_white_furnace_ ? 1u : 0u;
-    kernels.miss->SetArgument(args::Miss::kEnableWhiteFurnace, &enable_white_furnace_arg, sizeof(enable_white_furnace_arg));
 
     // Setup hit surface kernel
     kernels.hit_surface->SetArgument(args::HitSurface::kHitsBuffer,
@@ -244,13 +252,7 @@ void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
     }
 
     enable_white_furnace_ = enable;
-
-    // Set new argument value
-    // We can't bind bool in OCL, so bind uint instead
-    std::uint32_t enable_white_furnace_arg = enable_white_furnace_ ? 1u : 0u;
-    kernels_.miss->SetArgument(args::Miss::kEnableWhiteFurnace,
-        &enable_white_furnace_arg, sizeof(enable_white_furnace_arg));
-
+    ReloadKernels();
     RequestReset();
 }
 
@@ -287,6 +289,24 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
     kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
     kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));
     kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
+}
+
+void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
+{
+    max_bounces_ = max_bounces;
+    RequestReset();
+}
+
+void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
+{
+    if (sampler_type == sampler_type_)
+    {
+        return;
+    }
+
+    sampler_type_ = sampler_type;
+    ReloadKernels();
+    RequestReset();
 }
 
 void PathTraceIntegrator::Reset()
