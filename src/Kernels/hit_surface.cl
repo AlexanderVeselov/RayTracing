@@ -181,7 +181,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     return bxdf;
 }
 
-__kernel void KernelEntry
+__kernel void HitSurface
 (
     // Input
     __global Ray* incoming_rays,

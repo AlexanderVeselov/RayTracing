@@ -10,7 +10,7 @@ namespace
 Bvh::Bvh(CLContext& cl_context)
     : AccelerationStructure(cl_context)
 {
-    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context);
+    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh");
 }
 
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)

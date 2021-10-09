@@ -1,4 +1,4 @@
-__kernel void KernelEntry
+__kernel void ResolveRadiance
 (
     uint width,
     uint height,

@@ -1,4 +1,4 @@
-__kernel void KernelEntry(__global uint* counter)
+__kernel void IncrementCounter(__global uint* counter)
 {
     uint global_id = get_global_id(0);
 

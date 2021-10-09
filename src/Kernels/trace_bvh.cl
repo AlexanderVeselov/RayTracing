@@ -74,7 +74,7 @@ bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv
     return (tmax >= tmin);
 }
 
-__kernel void KernelEntry
+__kernel void TraceBvh
 (
     // Input
     __global Ray* rays,
