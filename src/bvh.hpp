@@ -14,7 +14,7 @@ public:
     // TODO: USE CONSTANT REF
     void BuildCPU(std::vector<Triangle> & triangles) override;
     void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
-        std::uint32_t max_num_rays, cl::Buffer const& hits_buffer) override;
+        std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit = true) override;
 
     struct BVHPrimitiveInfo
     {
@@ -78,6 +78,7 @@ private:
     cl::Buffer triangles_buffer_;
     cl::Buffer nodes_buffer_;
     std::unique_ptr<CLKernel> intersect_kernel_;
+    std::unique_ptr<CLKernel> intersect_shadow_kernel_;
 };
 
 #endif // BVH_HPP

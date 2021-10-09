@@ -129,6 +129,10 @@ __kernel void TraceBvh
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;
+
+#ifdef SHADOW_RAYS
+                        goto endtrace;
+#endif
                     }
                 }
 
@@ -165,6 +169,7 @@ __kernel void TraceBvh
         }
     }
 
+endtrace:
     // Write the result to the output buffer
     hits[ray_idx] = hit;
 }
