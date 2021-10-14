@@ -40,7 +40,7 @@ unsigned int HashUInt32(unsigned int x)
 #endif
 }
 
-__kernel void KernelEntry
+__kernel void RayGeneration
 (
     // Input
     uint width,

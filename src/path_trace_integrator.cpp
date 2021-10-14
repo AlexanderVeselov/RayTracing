@@ -156,8 +156,8 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     Kernels kernels;
 
     // Create kernels
-    kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_);
-    kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_);
+    kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_, "ResetRadiance");
+    kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_, "RayGeneration");
 
     std::vector<std::string> definitions;
     if (enable_white_furnace_)
@@ -170,11 +170,11 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
         definitions.push_back("BLUE_NOISE_SAMPLER");
     }
 
-    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, definitions);
-    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, definitions);
-    kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_);
-    kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_);
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_);
+    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
+    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
+    kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
+    kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
+    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();

@@ -21,7 +21,7 @@ float3 SampleSky(float3 dir, __read_only image2d_t tex)
 
 }
 
-__kernel void KernelEntry
+__kernel void Miss
 (
     // Input
     __global Ray* rays,

@@ -116,8 +116,8 @@ void Render::InitGL()
     int pixelFormat = ChoosePixelFormat(hdc, &pfd);
     SetPixelFormat(hdc, pixelFormat, &pfd);
 
-    m_GLContext = wglCreateContext(hdc);
-    wglMakeCurrent(hdc, m_GLContext);
+    gl_context_ = wglCreateContext(hdc);
+    wglMakeCurrent(hdc, gl_context_);
 
     printf("GL version: %s\n", (char*)glGetString(GL_VERSION));
 
@@ -153,7 +153,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
         throw std::runtime_error("No OpenCL platforms found");
     }
 
-    cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), m_GLContext);
+    cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), gl_context_);
 
     scene_ = std::make_unique<Scene>("meshes/ShaderBalls.obj", *cl_context_);
 
@@ -190,7 +190,7 @@ double Render::GetCurtime() const
 
 double Render::GetDeltaTime() const
 {
-    return GetCurtime() - m_PreviousFrameTime;
+    return GetCurtime() - prev_frame_time_;
 }
 
 std::uint32_t Render::GetGlobalWorkSize() const
@@ -200,7 +200,7 @@ std::uint32_t Render::GetGlobalWorkSize() const
 
 void Render::FrameBegin()
 {
-    m_StartFrameTime = GetCurtime();
+    start_frame_time_ = GetCurtime();
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -208,7 +208,7 @@ void Render::FrameBegin()
 
 void Render::FrameEnd()
 {
-    m_PreviousFrameTime = m_StartFrameTime;
+    prev_frame_time_ = start_frame_time_;
 }
 
 void Render::DrawGUI()
