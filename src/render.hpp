@@ -24,7 +24,6 @@ public:
     const HWND    GetHWND()           const { return hwnd_; };
     double        GetCurtime()        const;
     double        GetDeltaTime()      const;
-    std::uint32_t GetGlobalWorkSize() const;
 
     std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; };
 

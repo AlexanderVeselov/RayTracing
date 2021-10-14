@@ -86,9 +86,17 @@ inline const char* GetClErrorString(int error)
 class CLException : public std::exception
 {
 public:
-    CLException(const std::string& message, int errorCode)
-        : std::exception((message + " (" + GetClErrorString(errorCode) + ")").c_str()) {}
+    CLException(char const* message, int errorCode)
+        : std::exception((std::string(message) + " (" + GetClErrorString(errorCode) + ")").c_str()) {}
 
 };
+
+inline void ThrowIfFailed(int status, char const* message)
+{
+    if (status != CL_SUCCESS)
+    {
+        throw CLException(message, status);
+    }
+}
 
 #endif // CL_EXCEPTION_HPP

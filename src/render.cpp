@@ -193,11 +193,6 @@ double Render::GetDeltaTime() const
     return GetCurtime() - prev_frame_time_;
 }
 
-std::uint32_t Render::GetGlobalWorkSize() const
-{
-    return width_ * height_;
-}
-
 void Render::FrameBegin()
 {
     start_frame_time_ = GetCurtime();
@@ -208,6 +203,12 @@ void Render::FrameBegin()
 
 void Render::FrameEnd()
 {
+    glFinish();
+
+    HDC hdc = GetDC(hwnd_);
+    SwapBuffers(hdc);
+    ReleaseDC(hwnd_, hdc);
+
     prev_frame_time_ = start_frame_time_;
 }
 
@@ -290,12 +291,6 @@ void Render::RenderFrame()
 
     // Draw GUI
     DrawGUI();
-
-    glFinish();
-
-    HDC hdc = GetDC(hwnd_);
-    SwapBuffers(hdc);
-    ReleaseDC(hwnd_, hdc);
 
     FrameEnd();
 }

@@ -184,12 +184,12 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 __kernel void HitSurface
 (
     // Input
-    __global Ray* incoming_rays,
-    __global uint* incoming_ray_counter,
-    __global uint* incoming_pixel_indices,
-    __global Hit* hits,
+    __global Ray*      incoming_rays,
+    __global uint*     incoming_ray_counter,
+    __global uint*     incoming_pixel_indices,
+    __global Hit*      hits,
     __global Triangle* triangles,
-    __global uint* emissive_indices,
+    __global uint*     emissive_indices,
     __global Material* materials,
     uint bounce,
     uint width,
@@ -202,9 +202,13 @@ __kernel void HitSurface
     __global int* rankingTile,
     // Output
     __global float3* throughputs,
-    __global Ray* outgoing_rays,
-    __global uint* outgoing_ray_counter,
-    __global uint* outgoing_pixel_indices,
+    __global Ray*    outgoing_rays,
+    __global uint*   outgoing_ray_counter,
+    __global uint*   outgoing_pixel_indices,
+    __global Ray*    shadow_rays,
+    __global uint*   shadow_ray_counter,
+    __global uint*   shadow_pixel_indices,
+    __global float4* direct_light_samples,
     __global float4* result_radiance
 )
 {
@@ -253,6 +257,25 @@ __kernel void HitSurface
         result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
     }
 #endif // ENABLE_WHITE_FURNACE
+
+    bool spawn_shadow_ray = true;
+    if (spawn_shadow_ray)
+    {
+        Ray shadow_ray;
+        shadow_ray.origin.xyz = position + normal * EPS;
+        shadow_ray.origin.w = 0.0f;
+        shadow_ray.direction.xyz = normalize((float3)(1.0f, 1.0f, 1.0f));
+        shadow_ray.direction.w = MAX_RENDER_DIST;
+        float3 light_sample = max(dot(shadow_ray.direction.xyz, normal), 0.0f);
+
+        ///@TODO: use LDS
+        uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
+
+        // Store to the memory
+        shadow_rays[shadow_ray_idx] = shadow_ray;
+        shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
+        direct_light_samples[shadow_ray_idx] = light_sample;
+    }
 
     // Sample bxdf
     float2 s;

@@ -68,6 +68,10 @@ namespace args
             kOutgoingRayBuffer,
             kOutgoingRayCounterBuffer,
             kOutgoingPixelIndicesBuffer,
+            kShadowRayBuffer,
+            kShadowRayCounterBuffer,
+            kShadowPixelIndicesBuffer,
+            kDirectLightSamplesBuffer,
             kRadianceBuffer,
         };
     }
@@ -102,50 +106,67 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
 
     radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create radiance buffer");
 
     for (int i = 0; i < 2; ++i)
     {
         rays_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             num_rays * sizeof(Ray), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create ray buffer");
 
         pixel_indices_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             num_rays * sizeof(std::uint32_t), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create pixel indices buffer");
 
         ray_counter_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             sizeof(std::uint32_t), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create ray counter buffer");
     }
+
+    shadow_rays_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(Ray), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create shadow ray buffer");
+
+    shadow_pixel_indices_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(std::uint32_t), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create shadow pixel indices buffer");
+
+    shadow_ray_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        sizeof(std::uint32_t), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create shadow ray counter buffer");
 
     hits_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         num_rays * sizeof(Hit), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create hits buffer");
+
+    shadow_hits_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        num_rays * sizeof(std::uint32_t), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create shadow hits buffer");
 
     throughputs_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         num_rays * sizeof(cl_float3), nullptr, &status);
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create radiance buffer", status);
-    }
+    ThrowIfFailed(status, "Failed to create throughputs buffer");
 
     sample_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         sizeof(std::uint32_t), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create sample counter buffer");
 
     // Sampler buffers
     sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sizeof(sobol_256spp_256d), (void*)sobol_256spp_256d, &status);
+    ThrowIfFailed(status, "Failed to create sobol buffer");
 
     sampler_scrambling_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sizeof(scramblingTile), (void*)scramblingTile, &status);
+    ThrowIfFailed(status, "Failed to create scrambling tile buffer");
 
     sampler_ranking_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sizeof(rankingTile), (void*)rankingTile, &status);
+    ThrowIfFailed(status, "Failed to create ranking tile tile buffer");
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
         GL_TEXTURE_2D, 0, gl_interop_image_, &status);
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create output image", status);
-    }
+    ThrowIfFailed(status, "Failed to create output image");
 
     kernels_ = CreateKernels();
 

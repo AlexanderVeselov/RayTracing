@@ -72,9 +72,13 @@ private:
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    cl::Buffer shadow_rays_buffer_;
     cl::Buffer pixel_indices_buffer_[2];
+    cl::Buffer shadow_pixel_indices_buffer_;
     cl::Buffer ray_counter_buffer_[2];
+    cl::Buffer shadow_ray_counter_buffer_;
     cl::Buffer hits_buffer_;
+    cl::Buffer shadow_hits_buffer_;
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
