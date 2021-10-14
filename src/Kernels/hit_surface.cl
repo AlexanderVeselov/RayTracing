@@ -181,7 +181,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     return bxdf;
 }
 
-__kernel void KernelEntry
+__kernel void HitSurface
 (
     // Input
     __global Ray* incoming_rays,
@@ -282,7 +282,7 @@ __kernel void KernelEntry
 
     if (spawn_outgoing_ray)
     {
-        ///@TODO: reduct atomic memory traffic by using LDS
+        ///@TODO: use LDS
         uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
 
         Ray outgoing_ray;

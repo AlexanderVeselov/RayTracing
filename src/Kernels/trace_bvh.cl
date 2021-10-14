@@ -74,7 +74,7 @@ bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv
     return (tmax >= tmin);
 }
 
-__kernel void KernelEntry
+__kernel void TraceBvh
 (
     // Input
     __global Ray* rays,
@@ -129,6 +129,10 @@ __kernel void KernelEntry
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;
+
+#ifdef SHADOW_RAYS
+                        goto endtrace;
+#endif
                     }
                 }
 
@@ -165,6 +169,7 @@ __kernel void KernelEntry
         }
     }
 
+endtrace:
     // Write the result to the output buffer
     hits[ray_idx] = hit;
 }

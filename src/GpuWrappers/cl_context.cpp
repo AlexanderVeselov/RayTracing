@@ -108,7 +108,7 @@ void CLContext::ReleaseGLObject(cl_mem mem)
     }
 }
 
-CLKernel::CLKernel(const char* filename, const CLContext& cl_context,
+CLKernel::CLKernel(char const* filename, CLContext const& cl_context, char const* kernel_name,
     std::vector<std::string> const& definitions)
 {
     std::ifstream input_file(filename);
@@ -144,7 +144,7 @@ CLKernel::CLKernel(const char* filename, const CLContext& cl_context,
             cl_context.GetDevices()[0]), status);
     }
 
-    m_Kernel = cl::Kernel(program, "KernelEntry", &status);
+    m_Kernel = cl::Kernel(program, kernel_name, &status);
     if (status != CL_SUCCESS)
     {
         throw CLException("Failed to create kernel", status);

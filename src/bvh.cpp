@@ -10,7 +10,10 @@ namespace
 Bvh::Bvh(CLContext& cl_context)
     : AccelerationStructure(cl_context)
 {
-    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context);
+    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh");
+
+    std::vector<std::string> definitions = { "SHADOW_RAYS" };
+    intersect_shadow_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh", definitions);
 }
 
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)
@@ -60,108 +63,6 @@ void Bvh::BuildCPU(std::vector<Triangle> & triangles)
     }
 
 }
-
-/*
-void DrawTree(BVHBuildNode* node, float x, float y, int depth)
-{
-    float size_x = 0.025f;
-    float size_y = 0.03f;
-    if (node->children[0])
-    {
-        DrawTree(node->children[0], x - 1.0f / y, y + 1, depth * 2);
-    }
-
-    if (node->nPrimitives == 0)
-    {
-        glColor3f(1, 0, 0);
-    }
-    else
-    {
-        glColor3f(0, 1, 0);
-    }
-
-    glRectf(x / 4 - size_x, 1 - y / 8 - size_y, x / 4 + size_x, 1 - y / 8 + size_y);
-
-    if (node->children[1])
-    {
-        DrawTree(node->children[1], x + 1.0f / y, y + 1, depth * 2);
-    }
-}
-
-void Bvh::DrawDebug()
-{
-    // XYZ Arrows
-    glColor3f(1, 0, 0);
-    glLineWidth(4);
-    glBegin(GL_LINE_LOOP);
-    glColor3f(1, 0, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(200, 0, 0);
-    glEnd();
-    glBegin(GL_LINE_LOOP);
-    glColor3f(0, 1, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 200, 0);
-    glEnd();
-    glBegin(GL_LINE_LOOP);
-    glColor3f(0, 0, 1);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 0, 200);
-    glEnd();
-    glColor3f(1, 0, 0);
-    glLineWidth(1);
-
-    glColor3f(0, 1, 0);
-    glBegin(GL_LINES);
-    for (unsigned int i = 0; i < nodes_.size(); ++i)
-    {
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.min.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.min.y, nodes_[i].bounds.max.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-
-        glVertex3f(nodes_[i].bounds.min.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-        glVertex3f(nodes_[i].bounds.max.x, nodes_[i].bounds.max.y, nodes_[i].bounds.max.z);
-
-
-    }
-
-    glEnd();
-
-
-    //DrawTree(root_node_, 0.0f, 1.0f, 1);
-
-}
-*/
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(
     std::vector<Triangle> const& triangles,
@@ -344,14 +245,15 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
 }
 
 void Bvh::IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
-    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer)
+    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit)
 {
-    intersect_kernel_->SetArgument(0, &rays_buffer, sizeof(rays_buffer));
-    intersect_kernel_->SetArgument(1, &ray_counter_buffer, sizeof(ray_counter_buffer));
-    intersect_kernel_->SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
-    intersect_kernel_->SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
-    intersect_kernel_->SetArgument(4, &hits_buffer, sizeof(hits_buffer));
+    CLKernel& kernel = closest_hit ? *intersect_kernel_ : *intersect_shadow_kernel_;
+    kernel.SetArgument(0, &rays_buffer, sizeof(rays_buffer));
+    kernel.SetArgument(1, &ray_counter_buffer, sizeof(ray_counter_buffer));
+    kernel.SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
+    kernel.SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
+    kernel.SetArgument(4, &hits_buffer, sizeof(hits_buffer));
 
     ///@TODO: use indirect dispatch
-    cl_context_.ExecuteKernel(*intersect_kernel_, max_num_rays);
+    cl_context_.ExecuteKernel(kernel, max_num_rays);
 }

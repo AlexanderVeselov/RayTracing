@@ -27,42 +27,6 @@ std::vector<Triangle>& Scene::GetTriangles()
     return triangles_;
 }
 
-//void ComputeTangentSpace(Vertex& v1, Vertex& v2, Vertex& v3)
-//{
-//    const float3& v1p = v1.position;
-//    const float3& v2p = v2.position;
-//    const float3& v3p = v3.position;
-//
-//    const float2& v1t = v1.texcoord;
-//    const float2& v2t = v2.texcoord;
-//    const float2& v3t = v3.texcoord;
-//
-//    double x1 = v2p.x - v1p.x;
-//    double x2 = v3p.x - v1p.x;
-//    double y1 = v2p.y - v1p.y;
-//    double y2 = v3p.y - v1p.y;
-//    double z1 = v2p.z - v1p.z;
-//    double z2 = v3p.z - v1p.z;
-//
-//    double s1 = v2t.x - v1t.x;
-//    double s2 = v3t.x - v1t.x;
-//    double t1 = v2t.y - v1t.y;
-//    double t2 = v3t.y - v1t.y;
-//
-//    double r = 1.0 / (s1 * t2 - s2 * t1);
-//    float3 sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r);
-//    float3 tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r);
-//
-//    v1.tangent_s += sdir;
-//    v2.tangent_s += sdir;
-//    v3.tangent_s += sdir;
-//
-//    v1.tangent_t += tdir;
-//    v2.tangent_t += tdir;
-//    v3.tangent_t += tdir;
-//
-//}
-
 void Scene::LoadTriangles(const char* filename)
 {
     std::cout << "Loading object file " << filename << std::endl;
