@@ -1,7 +1,5 @@
 #include "shared_structures.h"
-
-#define MAX_RENDER_DIST 20000.0f
-#define INVALID_ID 0xFFFFFFFF
+#include "constants.h"
 
 bool RayTriangle(Ray ray, const __global Triangle* triangle, float2* bc, float* out_t)
 {
@@ -82,7 +80,11 @@ __kernel void TraceBvh
     __global Triangle* triangles,
     __global LinearBVHNode* nodes,
     // Output
+#ifdef SHADOW_RAYS
+    __global uint* shadow_hits
+#else
     __global Hit* hits
+#endif
 )
 {
     uint ray_idx = get_global_id(0);
@@ -101,6 +103,10 @@ __kernel void TraceBvh
     ray_sign[0] = ray_inv_dir.x < 0;
     ray_sign[1] = ray_inv_dir.y < 0;
     ray_sign[2] = ray_inv_dir.z < 0;
+
+#ifdef SHADOW_RAYS
+    uint shadow_hit = INVALID_ID;
+#endif
 
     Hit hit;
     hit.primitive_id = INVALID_ID;
@@ -131,6 +137,7 @@ __kernel void TraceBvh
                         ray.direction.w = hit.t;
 
 #ifdef SHADOW_RAYS
+                        shadow_hit = 0;
                         goto endtrace;
 #endif
                     }
@@ -171,5 +178,9 @@ __kernel void TraceBvh
 
 endtrace:
     // Write the result to the output buffer
+#ifdef SHADOW_RAYS
+    shadow_hits[ray_idx] = shadow_hit;
+#else
     hits[ray_idx] = hit;
+#endif
 }

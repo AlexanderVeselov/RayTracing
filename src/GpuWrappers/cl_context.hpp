@@ -21,18 +21,19 @@ public:
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
     void ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const;
-    void Finish() const { m_Queue.finish(); }
+    void Finish() const { queue_.finish(); }
     void AcquireGLObject(cl_mem mem);
     void ReleaseGLObject(cl_mem mem);
 
-    const cl::Context& GetContext() const { return m_Context; }
+    const cl::Context& GetContext() const { return context_; }
     std::vector<cl::Device> const& GetDevices() const { return devices_; }
+
 
 private:
     cl::Platform platform_;
     std::vector<cl::Device> devices_;
-    cl::Context m_Context;
-    cl::CommandQueue m_Queue;
+    cl::Context context_;
+    cl::CommandQueue queue_;
 
 };
 

@@ -14,6 +14,7 @@ set(IO_SOURCES
 )
 
 set(KERNELS_SOURCES
+    kernels/accumulate_direct_samples.cl
     kernels/bxdf.h
     kernels/constants.h
     kernels/shared_structures.h

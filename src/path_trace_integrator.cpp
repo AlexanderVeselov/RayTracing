@@ -76,6 +76,20 @@ namespace args
         };
     }
 
+    namespace AccumulateDirectSamples
+    {
+        enum
+        {
+            // Input
+            kShadowHitsBuffer,
+            kShadowRayCounterBuffer,
+            kShadowPixelIndicesBuffer,
+            kDirectLightSamplesBuffer,
+            // Output
+            kRadianceBuffer,
+        };
+    }
+
     namespace Resolve
     {
         enum
@@ -103,10 +117,6 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
 
     // Create buffers and images
     cl_int status;
-
-    radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        width_ * height_ * sizeof(cl_float4), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create radiance buffer");
 
     for (int i = 0; i < 2; ++i)
     {
@@ -150,6 +160,10 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     sample_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         sizeof(std::uint32_t), nullptr, &status);
     ThrowIfFailed(status, "Failed to create sample counter buffer");
+
+    direct_light_samples_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        width_ * height_ * sizeof(cl_float4), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create direct light samples buffer");
 
     // Sampler buffers
     sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -195,6 +209,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
 
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
     kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
+    kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
     kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
@@ -221,27 +236,18 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.miss->SetArgument(args::Miss::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
 
     // Setup hit surface kernel
-    kernels.hit_surface->SetArgument(args::HitSurface::kHitsBuffer,
-        &hits_buffer_, sizeof(hits_buffer_));
-    kernels.hit_surface->SetArgument(args::HitSurface::kThroughputsBuffer,
-        &throughputs_buffer_, sizeof(throughputs_buffer_));
-    kernels.hit_surface->SetArgument(args::HitSurface::kRadianceBuffer,
+
+    // Setup accumulate direct samples kernel
+    kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowHitsBuffer,
+        &shadow_hits_buffer_, sizeof(shadow_hits_buffer_));
+    kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowRayCounterBuffer,
+        &shadow_ray_counter_buffer_, sizeof(shadow_ray_counter_buffer_));
+    kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowPixelIndicesBuffer,
+        &shadow_pixel_indices_buffer_, sizeof(shadow_pixel_indices_buffer_));
+    kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kDirectLightSamplesBuffer,
+        &direct_light_samples_buffer_, sizeof(direct_light_samples_buffer_));
+    kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kRadianceBuffer,
         &radiance_buffer_, sizeof(radiance_buffer_));
-
-    kernels.hit_surface->SetArgument(args::HitSurface::kWidth,
-        &width_, sizeof(width_));
-    kernels.hit_surface->SetArgument(args::HitSurface::kHeight,
-        &height_, sizeof(height_));
-
-    kernels.hit_surface->SetArgument(args::HitSurface::kSampleCounterBuffer,
-        &sample_counter_buffer_, sizeof(sample_counter_buffer_));
-
-    kernels.hit_surface->SetArgument(args::HitSurface::kSobolBuffer,
-        &sampler_sobol_buffer_, sizeof(sampler_sobol_buffer_));
-    kernels.hit_surface->SetArgument(args::HitSurface::kScramblingTileBuffer,
-        &sampler_scrambling_tile_buffer_, sizeof(sampler_scrambling_tile_buffer_));
-    kernels.hit_surface->SetArgument(args::HitSurface::kRankingTileBuffer,
-        &sampler_ranking_tile_buffer_, sizeof(sampler_ranking_tile_buffer_));
 
     // Setup resolve kernel
     kernels.resolve->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
@@ -370,6 +376,14 @@ void PathTraceIntegrator::IntersectRays(std::uint32_t bounce)
         max_num_rays, hits_buffer_);
 }
 
+void PathTraceIntegrator::IntersectShadowRays()
+{
+    std::uint32_t max_num_rays = width_ * height_;
+
+    acc_structure_.IntersectRays(shadow_rays_buffer_, shadow_ray_counter_buffer_,
+        max_num_rays, shadow_hits_buffer_, false);
+}
+
 void PathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
 {
     std::uint32_t max_num_rays = width_ * height_;
@@ -398,6 +412,29 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
         &pixel_indices_buffer_[incoming_idx], sizeof(pixel_indices_buffer_[incoming_idx]));
     kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingRayCounterBuffer,
         &ray_counter_buffer_[incoming_idx], sizeof(ray_counter_buffer_[incoming_idx]));
+
+    kernels_.hit_surface->SetArgument(args::HitSurface::kHitsBuffer,
+        &hits_buffer_, sizeof(hits_buffer_));
+
+    kernels_.hit_surface->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kWidth,
+        &width_, sizeof(width_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kHeight,
+        &height_, sizeof(height_));
+
+    kernels_.hit_surface->SetArgument(args::HitSurface::kSampleCounterBuffer,
+        &sample_counter_buffer_, sizeof(sample_counter_buffer_));
+
+    kernels_.hit_surface->SetArgument(args::HitSurface::kSobolBuffer,
+        &sampler_sobol_buffer_, sizeof(sampler_sobol_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kScramblingTileBuffer,
+        &sampler_scrambling_tile_buffer_, sizeof(sampler_scrambling_tile_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kRankingTileBuffer,
+        &sampler_ranking_tile_buffer_, sizeof(sampler_ranking_tile_buffer_));
+
+    kernels_.hit_surface->SetArgument(args::HitSurface::kThroughputsBuffer,
+        &throughputs_buffer_, sizeof(throughputs_buffer_));
+
     // Outgoing rays
     kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayBuffer,
         &rays_buffer_[outgoing_idx], sizeof(rays_buffer_[outgoing_idx]));
@@ -405,10 +442,28 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
         &pixel_indices_buffer_[outgoing_idx], sizeof(pixel_indices_buffer_[outgoing_idx]));
     kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayCounterBuffer,
         &ray_counter_buffer_[outgoing_idx], sizeof(ray_counter_buffer_[outgoing_idx]));
-    // Other data
-    kernels_.hit_surface->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
+
+    // Shadow
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayBuffer,
+        &shadow_rays_buffer_, sizeof(shadow_rays_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayCounterBuffer,
+        &shadow_ray_counter_buffer_, sizeof(shadow_ray_counter_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowPixelIndicesBuffer,
+        &shadow_pixel_indices_buffer_, sizeof(shadow_pixel_indices_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kDirectLightSamplesBuffer,
+        &direct_light_samples_buffer_, sizeof(direct_light_samples_buffer_));
+
+    // Output radiance
+    kernels_.hit_surface->SetArgument(args::HitSurface::kRadianceBuffer,
+        &radiance_buffer_, sizeof(radiance_buffer_));
 
     cl_context_.ExecuteKernel(*kernels_.hit_surface, max_num_rays);
+}
+
+void PathTraceIntegrator::AccumulateDirectSamples()
+{
+    std::uint32_t max_num_rays = width_ * height_;
+    cl_context_.ExecuteKernel(*kernels_.accumulate_direct_samples, max_num_rays);
 }
 
 void PathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
@@ -417,6 +472,13 @@ void PathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 
     kernels_.clear_counter->SetArgument(0, &ray_counter_buffer_[outgoing_idx],
         sizeof(ray_counter_buffer_[outgoing_idx]));
+    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+}
+
+void PathTraceIntegrator::ClearShadowRayCounter()
+{
+    kernels_.clear_counter->SetArgument(0, &shadow_ray_counter_buffer_,
+        sizeof(shadow_ray_counter_buffer_));
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 }
 
@@ -444,7 +506,10 @@ void PathTraceIntegrator::Integrate()
         IntersectRays(bounce);
         ShadeMissedRays(bounce);
         ClearOutgoingRayCounter(bounce);
+        ClearShadowRayCounter();
         ShadeSurfaceHits(bounce);
+        //IntersectShadowRays();
+        //AccumulateDirectSamples();
     }
 
     AdvanceSampleCount();

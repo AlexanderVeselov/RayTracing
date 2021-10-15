@@ -44,10 +44,10 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
     }
 
     cl_int status;
-    m_Context = cl::Context(devices_, props, 0, 0, &status);
+    context_ = cl::Context(devices_, props, 0, 0, &status);
     ThrowIfFailed(status, "Failed to create OpenCL context");
 
-    m_Queue = cl::CommandQueue(m_Context, devices_[0], 0, &status);
+    queue_ = cl::CommandQueue(context_, devices_[0], 0, &status);
     ThrowIfFailed(status, "Failed to create queue");
 
     std::cout << "Successfully created context " << std::endl;
@@ -56,31 +56,31 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
 
 void CLContext::WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const
 {
-    cl_int status = m_Queue.enqueueWriteBuffer(buffer, true, 0, size, data);
+    cl_int status = queue_.enqueueWriteBuffer(buffer, true, 0, size, data);
     ThrowIfFailed(status, "Failed to write buffer");
 }
 
 void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) const
 {
-    cl_int status = m_Queue.enqueueReadBuffer(buffer, false, 0, size, data);
+    cl_int status = queue_.enqueueReadBuffer(buffer, false, 0, size, data);
     ThrowIfFailed(status, "Failed to read buffer");
 }
 
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
-    cl_int status = m_Queue.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
+    cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
     ThrowIfFailed(status, "Failed to enqueue kernel");
 }
 
 void CLContext::AcquireGLObject(cl_mem mem)
 {
-    cl_int status = clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    cl_int status = clEnqueueAcquireGLObjects(queue_(), 1, &mem, 0, 0, NULL);
     ThrowIfFailed(status, "Failed to acquire GL object");
 }
 
 void CLContext::ReleaseGLObject(cl_mem mem)
 {
-    cl_int status = clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
+    cl_int status = clEnqueueReleaseGLObjects(queue_(), 1, &mem, 0, 0, NULL);
     ThrowIfFailed(status, "Failed to release GL object");
 }
 
