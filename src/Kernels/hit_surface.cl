@@ -231,15 +231,23 @@ __kernel void HitSurface
     bool spawn_shadow_ray = true;
     if (spawn_shadow_ray)
     {
+
+        float s_light = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
+        int light_idx = clamp((int)(s_light * (float)scene_info.analytic_light_count), 0, (int)scene_info.analytic_light_count - 1);
+        Light light = analytic_lights[light_idx];
+
+        float3 light_radiance = light.radiance;
+        float3 light_direction = light.origin;
+
         Ray shadow_ray;
         shadow_ray.origin.xyz = position + normal * EPS;
         shadow_ray.origin.w = 0.0f;
-        shadow_ray.direction.xyz = normalize((float3)(-1.0f, -1.0f, 1.0f));
+        shadow_ray.direction.xyz = light_direction;
         shadow_ray.direction.w = MAX_RENDER_DIST;
 
-        float3 brdf = EvaluateMaterial(material, normal, incoming, shadow_ray.direction.xyz);
-        float3 light_radiance = (float3)(1.0f, 1.0f, 1.0f) * 10.0f;
-        float3 light_sample = light_radiance * hit_throughput * max(brdf, (float3)(0.0f, 0.0f, 0.0f)) * max(dot(shadow_ray.direction.xyz, normal), 0.0f);
+        float3 brdf = EvaluateMaterial(material, normal, incoming, light_direction);
+
+        float3 light_sample = light_radiance * hit_throughput * max(brdf, (float3)(0.0f, 0.0f, 0.0f)) * max(dot(light_direction, normal), 0.0f);
 
         ///@TODO: use LDS
         uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
