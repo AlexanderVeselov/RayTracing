@@ -91,10 +91,10 @@ float3 EvaluateDiffuse(float3 albedo)
 float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
 {
     float3 half_vec = normalize(incoming + outgoing);
-    float n_dot_i = dot(normal, incoming);
-    float n_dot_o = dot(normal, outgoing);
-    float n_dot_h = dot(normal, half_vec);
-    float h_dot_o = dot(half_vec, outgoing);
+    float n_dot_i = max(dot(normal, incoming), EPS);
+    float n_dot_o = max(dot(normal, outgoing), EPS);
+    float n_dot_h = max(dot(normal, half_vec), EPS);
+    float h_dot_o = max(dot(half_vec, outgoing), EPS);
 
     // Perceptual roughness remapping
     // Perceptual roughness remapping
@@ -110,7 +110,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 
     // Since metals don't have the diffuse term, fade it to zero
     //@TODO: precompute it?
-    float3 diffuse_color = (1.0f - material.metalness)* material.diffuse_albedo.xyz;
+    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     // This is the scaling value for specular bxdf
     float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
@@ -267,7 +267,9 @@ __kernel void HitSurface
         shadow_ray.direction.xyz = normalize((float3)(-1.0f, -1.0f, 1.0f));
         shadow_ray.direction.w = MAX_RENDER_DIST;
 
-        float3 light_sample = hit_throughput * max(dot(shadow_ray.direction.xyz, normal), 0.0f);
+        float3 brdf = EvaluateMaterial(material, normal, incoming, shadow_ray.direction.xyz);
+        float3 light_radiance = (float3)(1.0f, 1.0f, 1.0f) * 10.0f;
+        float3 light_sample = light_radiance * hit_throughput * max(brdf, (float3)(0.0f, 0.0f, 0.0f)) * max(dot(shadow_ray.direction.xyz, normal), 0.0f);
 
         ///@TODO: use LDS
         uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
