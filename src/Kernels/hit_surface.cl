@@ -258,14 +258,13 @@ __kernel void HitSurface
     }
 #endif // ENABLE_WHITE_FURNACE
 
-    /*
     bool spawn_shadow_ray = true;
     if (spawn_shadow_ray)
     {
         Ray shadow_ray;
         shadow_ray.origin.xyz = position + normal * EPS;
         shadow_ray.origin.w = 0.0f;
-        shadow_ray.direction.xyz = normalize((float3)(1.0f, 1.0f, 1.0f));
+        shadow_ray.direction.xyz = normalize((float3)(-1.0f, -1.0f, 1.0f));
         shadow_ray.direction.w = MAX_RENDER_DIST;
 
         float3 light_sample = hit_throughput * max(dot(shadow_ray.direction.xyz, normal), 0.0f);
@@ -274,11 +273,11 @@ __kernel void HitSurface
         uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
 
         // Store to the memory
-        //shadow_rays[shadow_ray_idx] = shadow_ray;
-        //shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
-        //direct_light_samples[shadow_ray_idx] = light_sample;
+        shadow_rays[shadow_ray_idx] = shadow_ray;
+        shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
+        direct_light_samples[shadow_ray_idx] = light_sample;
     }
-    */
+
     // Sample bxdf
     float2 s;
 #ifdef BLUE_NOISE_SAMPLER

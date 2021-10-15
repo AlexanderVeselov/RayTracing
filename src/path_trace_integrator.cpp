@@ -118,6 +118,10 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     // Create buffers and images
     cl_int status;
 
+    radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+        width_ * height_ * sizeof(cl_float4), nullptr, &status);
+    ThrowIfFailed(status, "Failed to create radiance buffer");
+
     for (int i = 0; i < 2; ++i)
     {
         rays_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
@@ -508,8 +512,8 @@ void PathTraceIntegrator::Integrate()
         ClearOutgoingRayCounter(bounce);
         ClearShadowRayCounter();
         ShadeSurfaceHits(bounce);
-        //IntersectShadowRays();
-        //AccumulateDirectSamples();
+        IntersectShadowRays();
+        AccumulateDirectSamples();
     }
 
     AdvanceSampleCount();
