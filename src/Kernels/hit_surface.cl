@@ -1,38 +1,7 @@
 #include "shared_structures.h"
 #include "bxdf.h"
 #include "utils.h"
-
-float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension,
-    __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
-{
-    // wrap arguments
-    pixel_i = pixel_i & 127;
-    pixel_j = pixel_j & 127;
-    sampleIndex = sampleIndex & 255;
-    sampleDimension = sampleDimension & 255;
-
-    // xor index based on optimized ranking
-    int rankedSampleIndex = sampleIndex ^ rankingTile[sampleDimension + (pixel_i + pixel_j * 128) * 8];
-
-    // fetch value in sequence
-    int value = sobol_256spp_256d[sampleDimension + rankedSampleIndex * 256];
-
-    // If the dimension is optimized, xor sequence value based on optimized scrambling
-    value = value ^ scramblingTile[(sampleDimension % 8) + (pixel_i + pixel_j * 128) * 8];
-
-    // convert to float and return
-    float v = (0.5f + value) / 256.0f;
-    return v;
-}
-
-float SampleRandom(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension)
-{
-    uint seed = WangHash(pixel_i);
-    seed = WangHash(seed + WangHash(pixel_j));
-    seed = WangHash(seed + WangHash(sampleIndex));
-    seed = WangHash(seed + WangHash(sampleDimension));
-    return seed * 2.3283064365386963e-10f;
-}
+#include "sampling.h"
 
 float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
     float3 incoming, float3* outgoing, float* pdf)
@@ -189,6 +158,7 @@ __kernel void HitSurface
     __global uint*     incoming_pixel_indices,
     __global Hit*      hits,
     __global Triangle* triangles,
+    __global Light*    analytic_lights,
     __global uint*     emissive_indices,
     __global Material* materials,
     uint bounce,
@@ -196,7 +166,7 @@ __kernel void HitSurface
     uint height,
     __global uint* sample_counter,
     SceneInfo scene_info,
-    // Sampler
+    // Blue noise sampler
     __global int* sobol_256spp_256d,
     __global int* scramblingTile,
     __global int* rankingTile,
@@ -282,15 +252,9 @@ __kernel void HitSurface
 
     // Sample bxdf
     float2 s;
-#ifdef BLUE_NOISE_SAMPLER
-    s.x = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 0, sobol_256spp_256d, scramblingTile, rankingTile);
-    s.y = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 1, sobol_256spp_256d, scramblingTile, rankingTile);
-    float s1 = SampleBlueNoise(x, y, sample_idx, bounce * 3 + 2, sobol_256spp_256d, scramblingTile, rankingTile);
-#else
-    s.x = SampleRandom(x, y, sample_idx, bounce * 3 + 0);
-    s.y = SampleRandom(x, y, sample_idx, bounce * 3 + 1);
-    float s1 = SampleRandom(x, y, sample_idx, bounce * 3 + 2);
-#endif
+    s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
+    s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
+    float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
 
     float pdf = 0.0f;
     float3 throughput = 0.0f;

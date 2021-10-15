@@ -156,6 +156,9 @@ Render::Render(std::uint32_t width, std::uint32_t height)
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), gl_context_);
 
     scene_ = std::make_unique<Scene>("meshes/ShaderBalls.obj", *cl_context_);
+    scene_->AddDirectionalLight({ 1.0f, 1.0f, 1.0f }, { 10.0f, 0.0f, 0.0f });
+    scene_->AddDirectionalLight({-1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 10.0f });
+    scene_->AddDirectionalLight({ 1.0f,-1.0f, 1.0f }, { 0.0f, 10.0f, 0.0f });
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_ = std::make_shared<Camera>(*framebuffer_, *this);
@@ -167,7 +170,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     // TODO, NOTE: this is done after building the acc structure because it reorders triangles
     // Need to get rid of reordering
-    scene_->UploadBuffers();
+    scene_->Finalize();
 
     // Create estimator
     integrator_ = std::make_unique<PathTraceIntegrator>(width_, height_, *cl_context_,

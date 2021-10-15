@@ -53,6 +53,7 @@ namespace args
             kIncomingPixelIndicesBuffer,
             kHitsBuffer,
             kTrianglesBuffer,
+            kAnalyticLightsBuffer,
             kEmissiveIndicesBuffer,
             kMaterialsBuffer,
             kBounce,
@@ -316,12 +317,14 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
 {
     // Set scene buffers
     cl_mem triangle_buffer = scene.GetTriangleBuffer();
+    cl_mem analytic_lights_buffer = scene.GetAnalyticLightBuffer();
     cl_mem emissive_indices_buffer = scene.GetEmissiveIndicesBuffer();
     cl_mem material_buffer = scene.GetMaterialBuffer();
     cl_mem env_texture = scene.GetEnvTextureBuffer();
     SceneInfo scene_info = scene.GetSceneInfo();
 
     kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kAnalyticLightsBuffer, &analytic_lights_buffer, sizeof(cl_mem));
     kernels_.hit_surface->SetArgument(args::HitSurface::kEmissiveIndicesBuffer,
         &emissive_indices_buffer, sizeof(cl_mem));
     kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));

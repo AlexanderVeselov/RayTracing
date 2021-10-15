@@ -141,34 +141,39 @@ void Scene::CollectEmissiveTriangles()
             emissive_indices_.push_back(triangle_idx);
         }
     }
-
-    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }
 
-void Scene::UploadBuffers()
+void Scene::AddPointLight(float3 origin, float3 radiance)
+{
+    Light light = { origin, radiance, LIGHT_TYPE_POINT };
+    lights_.push_back(std::move(light));
+}
+
+void Scene::AddDirectionalLight(float3 direction, float3 radiance)
+{
+    Light light = { direction.Normalize(), radiance, LIGHT_TYPE_DIRECTIONAL };
+    lights_.emplace_back(std::move(light));
+}
+
+void Scene::Finalize()
 {
     cl_int status;
 
     triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         triangles_.size() * sizeof(Triangle), triangles_.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create scene buffer", status);
-    }
+    ThrowIfFailed(status, "Failed to create scene buffer");
 
     material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         materials_.size() * sizeof(Material), materials_.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create material buffer", status);
-    }
+    ThrowIfFailed(status, "Failed to create material buffer");
 
     emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         emissive_indices_.size() * sizeof(std::uint32_t), emissive_indices_.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create emissive buffer", status);
-    }
+    ThrowIfFailed(status, "Failed to create emissive buffer");
+
+    analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        lights_.size() * sizeof(Light), lights_.data(), &status);
+    ThrowIfFailed(status, "Failed to create analytic light buffer");
 
     ///@TODO: remove from here
     // Texture Buffers
@@ -180,10 +185,8 @@ void Scene::UploadBuffers()
     HDRLoader::Load("textures/studio_small_03_4k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.colors, &status);
+    ThrowIfFailed(status, "Failed to create environment image");
 
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create environment image", status);
-    }
-
+    scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
+    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }

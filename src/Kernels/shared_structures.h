@@ -12,6 +12,9 @@
 #define MATERIAL_ORENNAYAR 4
 #define MATERIAL_PHONG 5
 
+#define LIGHT_TYPE_POINT 0
+#define LIGHT_TYPE_DIRECTIONAL 1
+
 #ifndef __cplusplus
 typedef struct
 {
@@ -35,7 +38,9 @@ typedef struct
 
 typedef struct
 {
+    unsigned int analytic_light_count;
     unsigned int emissive_count;
+    unsigned int padding[2];
 } SceneInfo;
 
 typedef struct Material
@@ -50,8 +55,15 @@ typedef struct Material
     float metalness;
     float ior;
     unsigned int padding;
-
 } Material;
+
+typedef struct
+{
+    float3 origin;
+    float3 radiance;
+    unsigned int type;
+    unsigned int padding[3];
+} Light;
 
 typedef struct Vertex
 {
@@ -109,7 +121,6 @@ typedef struct CellData
     unsigned int start_index;
     unsigned int count;
 } CellData;
-
 
 typedef struct LinearBVHNode
 {

@@ -17,8 +17,11 @@ public:
     cl_mem GetEmissiveIndicesBuffer() const { return emissive_buffer_(); }
     cl_mem GetMaterialBuffer() const { return material_buffer_(); }
     cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
+    cl_mem GetAnalyticLightBuffer() const { return analytic_light_buffer_(); }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
-    void UploadBuffers();
+    void Finalize();
+    void AddPointLight(float3 origin, float3 radiance);
+    void AddDirectionalLight(float3 direction, float3 radiance);
 
 private:
     void LoadTriangles(const char* filename);
@@ -28,11 +31,13 @@ private:
     std::vector<Triangle> triangles_;
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<Material> materials_;
+    std::vector<Light> lights_;
     SceneInfo scene_info_ = {};
 
     cl::Buffer triangle_buffer_;
     cl::Buffer material_buffer_;
     cl::Buffer emissive_buffer_;
+    cl::Buffer analytic_light_buffer_;
     cl::Buffer scene_info_buffer_;
     cl::Image2D env_texture_;
 

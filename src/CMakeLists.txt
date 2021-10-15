@@ -25,6 +25,7 @@ set(KERNELS_SOURCES
     kernels/raygeneration.cl
     kernels/reset_radiance.cl
     kernels/resolve_radiance.cl
+    kernels/sampling.h
     kernels/trace_bvh.cl
     kernels/utils.h
 )
