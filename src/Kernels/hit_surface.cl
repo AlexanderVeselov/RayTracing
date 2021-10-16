@@ -27,6 +27,23 @@
 #include "sampling.h"
 #include "light.h"
 
+float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
+{
+    float2 temp = uv * (float2)(texture.width, texture.height);
+    int temp_x = (int)temp.x;
+    int temp_y = (int)temp.y;
+    int2 int_coords = clamp((int2)(temp.x, temp.y), (int2)(0, 0), (int2)(texture.width - 1, texture.height - 1));
+    int texel_addr = texture.data_start + int_coords.y * texture.width + int_coords.x;
+    uint texel = texture_data[texel_addr];
+
+    float r = (float)(texel & 0x000000FF) / 255.0f;
+    float g = (float)(texel & 0x0000FF00) / 255.0f;
+    float b = (float)(texel & 0x00FF0000) / 255.0f;
+    float a = (float)(texel & 0xFF000000) / 255.0f;
+
+    return (float3)(r, g, b);
+}
+
 __kernel void HitSurface
 (
     // Input
@@ -97,6 +114,7 @@ __kernel void HitSurface
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
     Material material = materials[triangle.mtlIndex];
+    material.diffuse_albedo = SampleTexture(textures[0], texcoord, texture_data);
 
     float3 hit_throughput = throughputs[pixel_idx];
 

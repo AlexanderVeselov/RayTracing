@@ -113,6 +113,10 @@ void Scene::Load(const char* filename)
             auto normal_idx_2 = indices[face * 3 + 1].normal_index;
             auto normal_idx_3 = indices[face * 3 + 2].normal_index;
 
+            auto texcoord_idx_1 = indices[face * 3 + 0].texcoord_index;
+            auto texcoord_idx_2 = indices[face * 3 + 1].texcoord_index;
+            auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
+
             Vertex v1;
             v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0];
             v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1];
@@ -121,6 +125,9 @@ void Scene::Load(const char* filename)
             v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
             v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
             v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+
+            v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
+            v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
 
             Vertex v2;
             v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0];
@@ -131,6 +138,9 @@ void Scene::Load(const char* filename)
             v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
             v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
 
+            v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
+            v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
+
             Vertex v3;
             v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0];
             v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1];
@@ -139,6 +149,9 @@ void Scene::Load(const char* filename)
             v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
             v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
             v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
+
+            v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
+            v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
 
             assert(shape.mesh.material_ids[face] >= 0
                 && shape.mesh.material_ids[face] < materials_.size());
@@ -224,8 +237,9 @@ void Scene::Finalize()
 {
     CollectEmissiveTriangles();
 
-    scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
+    //scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
     scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
+    LoadTexture("textures/checker3.jpg");
 
     cl_int status;
 

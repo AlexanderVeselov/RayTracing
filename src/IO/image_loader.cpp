@@ -23,9 +23,9 @@
  *****************************************************************************/
 
 #include "image_loader.hpp"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include <cassert>
 
 bool LoadSTB(const char* filename, Image& result)
 {
@@ -36,6 +36,22 @@ bool LoadSTB(const char* filename, Image& result)
     if (!data)
     {
         return false;
+    }
+
+    std::uint32_t* uint32_data = (std::uint32_t*)data;
+
+    result.width = width;
+    result.height = height;
+    result.data.resize(width * height);
+
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            int input_base = (y * width + x) * num_channels;
+            std::uint32_t value = data[input_base];
+            result.data[y * width + x] = value;
+        }
     }
 
     stbi_image_free(data);
