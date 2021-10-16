@@ -1,154 +1,7 @@
 #include "shared_structures.h"
-#include "bxdf.h"
-#include "utils.h"
+#include "material.h"
 #include "sampling.h"
-
-float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf)
-{
-    float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
-    *outgoing = TangentToWorld(tbn_outgoing, normal);
-
-    return albedo * INV_PI;
-}
-
-float3 SampleSpecular(float2 s, float3 f0, float alpha,
-    float3 normal, float3 incoming, float3* outgoing, float* pdf)
-{
-    if (alpha <= 1e-4f)
-    {
-        *outgoing = reflect(incoming, normal);
-        *pdf = 1.0;
-        float n_dot_o = dot(*outgoing, normal);
-        // Don't apply fresnel here, it's applied in the external function
-        return 1.0f / n_dot_o;
-    }
-    else
-    {
-        float3 wh = GGX_Sample(s, normal, alpha);
-        *outgoing = reflect(incoming, wh);
-
-        float n_dot_o = dot(normal, *outgoing);
-        float n_dot_h = dot(normal, wh);
-        float n_dot_i = dot(normal, incoming);
-        float h_dot_o = dot(*outgoing, wh);
-
-        float D = GGX_D(alpha, n_dot_h);
-        // Don't apply fresnel here, it's applied in the external function
-        //float3 F = FresnelSchlick(f0, h_dot_o);
-        float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
-
-        *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
-
-        return D /* F */ * G;
-    }
-}
-
-float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
-{
-    float D = GGX_D(alpha, n_dot_h);
-    float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
-
-    return D * G;
-}
-
-float3 EvaluateDiffuse(float3 albedo)
-{
-    return albedo * Lambert();
-}
-
-float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
-{
-    float3 half_vec = normalize(incoming + outgoing);
-    float n_dot_i = max(dot(normal, incoming), EPS);
-    float n_dot_o = max(dot(normal, outgoing), EPS);
-    float n_dot_h = max(dot(normal, half_vec), EPS);
-    float h_dot_o = max(dot(half_vec, outgoing), EPS);
-
-    // Perceptual roughness remapping
-    // Perceptual roughness remapping
-    float roughness = material.roughness;
-    float alpha = roughness * roughness;
-
-    // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
-    float3 f0_metal = material.specular_albedo.xyz;
-
-    // Blend f0 values based on metalness
-    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
-
-    // Since metals don't have the diffuse term, fade it to zero
-    //@TODO: precompute it?
-    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
-
-    // This is the scaling value for specular bxdf
-    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
-
-    float3 fresnel = FresnelSchlick(f0, h_dot_o);
-
-    float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
-    float3 diffuse = EvaluateDiffuse(diffuse_color);
-
-    return fresnel * specular + (1.0f - fresnel) * diffuse;
-}
-
-float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf)
-{
-#ifdef ENABLE_WHITE_FURNACE
-    material.diffuse_albedo = 1.0f;
-    material.specular_albedo = 1.0f;
-#endif // ENABLE_WHITE_FURNACE
-
-    // Perceptual roughness remapping
-    float roughness = material.roughness;
-    float alpha = roughness * roughness;
-
-    // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
-    float3 f0_metal = material.specular_albedo.xyz;
-
-    // Blend f0 values based on metalness
-    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
-
-    // Since metals don't have the diffuse term, fade it to zero
-    //@TODO: precompute it?
-    float3 diffuse_albedo = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
-
-    // This is the scaling value for specular bxdf
-    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
-
-    // This is not an actual fresnel value, because we need to use half vector instead of normal here
-    // it's a "heuristic" used for better layer importance sampling and energy conservation
-    float3 fresnel = FresnelSchlick(f0, dot(normal, incoming)) * specular_albedo;
-
-    float specular_weight = Luma(specular_albedo * fresnel);
-    float diffuse_weight = Luma(diffuse_albedo * (1.0f - fresnel));
-    float weight_sum = diffuse_weight + specular_weight;
-
-    float specular_sampling_pdf = specular_weight / weight_sum;
-    float diffuse_sampling_pdf = diffuse_weight / weight_sum;
-
-    //@TODO: reduce diffuse intensity where the specular value is high
-    //@TODO: evaluate all layers at once?
-
-    float3 bxdf = 0.0f;
-
-    if (s1 <= specular_sampling_pdf)
-    {
-        // Sample specular
-        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf);
-        *pdf *= specular_sampling_pdf;
-    }
-    else
-    {
-        // Sample diffuse
-        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf);
-        *pdf *= diffuse_sampling_pdf;
-    }
-
-    return bxdf;
-}
+#include "light.h"
 
 __kernel void HitSurface
 (
@@ -228,69 +81,75 @@ __kernel void HitSurface
     }
 #endif // ENABLE_WHITE_FURNACE
 
-    bool spawn_shadow_ray = true;
-    if (spawn_shadow_ray)
+    // Direct lighting
     {
-
         float s_light = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
-        int light_idx = clamp((int)(s_light * (float)scene_info.analytic_light_count), 0, (int)scene_info.analytic_light_count - 1);
-        Light light = analytic_lights[light_idx];
+        float3 outgoing;
+        float pdf;
+        float3 light_radiance = Light_Sample(analytic_lights, scene_info, position, normal, s_light, &outgoing, &pdf);
 
-        float3 light_radiance = light.radiance;
-        float3 light_direction = light.origin;
+        float distance_to_light = length(outgoing);
+        outgoing = normalize(outgoing);
 
-        Ray shadow_ray;
-        shadow_ray.origin.xyz = position + normal * EPS;
-        shadow_ray.origin.w = 0.0f;
-        shadow_ray.direction.xyz = light_direction;
-        shadow_ray.direction.w = MAX_RENDER_DIST;
+        float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
+        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
 
-        float3 brdf = EvaluateMaterial(material, normal, incoming, light_direction);
+        bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
 
-        float3 light_sample = light_radiance * hit_throughput * max(brdf, (float3)(0.0f, 0.0f, 0.0f)) * max(dot(light_direction, normal), 0.0f);
+        if (spawn_shadow_ray)
+        {
+            Ray shadow_ray;
+            shadow_ray.origin.xyz = position + normal * EPS;
+            shadow_ray.origin.w = 0.0f;
+            shadow_ray.direction.xyz = outgoing;
+            shadow_ray.direction.w = distance_to_light;
 
-        ///@TODO: use LDS
-        uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
+            ///@TODO: use LDS
+            uint shadow_ray_idx = atomic_add(shadow_ray_counter, 1);
 
-        // Store to the memory
-        shadow_rays[shadow_ray_idx] = shadow_ray;
-        shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
-        direct_light_samples[shadow_ray_idx] = light_sample;
+            // Store to the memory
+            shadow_rays[shadow_ray_idx] = shadow_ray;
+            shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
+            direct_light_samples[shadow_ray_idx] = light_sample;
+        }
     }
 
-    // Sample bxdf
-    float2 s;
-    s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
-    s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
-    float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
-
-    float pdf = 0.0f;
-    float3 throughput = 0.0f;
-    float3 outgoing;
-    float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf);
-
-    if (pdf > 0.0)
+    // Indirect lighting
     {
-        throughput = bxdf / pdf * max(dot(outgoing, normal), 0.0f);
-    }
+        // Sample bxdf
+        float2 s;
+        s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
+        s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
+        float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
 
-    throughputs[pixel_idx] *= throughput;
+        float pdf = 0.0f;
+        float3 throughput = 0.0f;
+        float3 outgoing;
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf);
 
-    bool spawn_outgoing_ray = (pdf > 0.0);
+        if (pdf > 0.0)
+        {
+            throughput = bxdf / pdf * max(dot(outgoing, normal), 0.0f);
+        }
 
-    if (spawn_outgoing_ray)
-    {
-        ///@TODO: use LDS
-        uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
+        throughputs[pixel_idx] *= throughput;
 
-        Ray outgoing_ray;
-        outgoing_ray.origin.xyz = position + normal * EPS;
-        outgoing_ray.origin.w = 0.0f;
-        outgoing_ray.direction.xyz = outgoing;
-        outgoing_ray.direction.w = MAX_RENDER_DIST;
+        bool spawn_outgoing_ray = (pdf > 0.0);
 
-        outgoing_rays[outgoing_ray_idx] = outgoing_ray;
-        outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
+        if (spawn_outgoing_ray)
+        {
+            ///@TODO: use LDS
+            uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
+
+            Ray outgoing_ray;
+            outgoing_ray.origin.xyz = position + normal * EPS;
+            outgoing_ray.origin.w = 0.0f;
+            outgoing_ray.direction.xyz = outgoing;
+            outgoing_ray.direction.w = MAX_RENDER_DIST;
+
+            outgoing_rays[outgoing_ray_idx] = outgoing_ray;
+            outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
+        }
     }
 
 }

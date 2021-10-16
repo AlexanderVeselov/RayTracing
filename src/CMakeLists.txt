@@ -21,6 +21,8 @@ set(KERNELS_SOURCES
     kernels/clear_counter.cl
     kernels/hit_surface.cl
     kernels/increment_counter.cl
+    kernels/light.h
+    kernels/material.h
     kernels/miss.cl
     kernels/raygeneration.cl
     kernels/reset_radiance.cl
