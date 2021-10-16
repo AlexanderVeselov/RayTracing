@@ -121,8 +121,8 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     float3 incoming, float3* outgoing, float* pdf)
 {
 #ifdef ENABLE_WHITE_FURNACE
-    material.diffuse_albedo = 1.0f;
-    material.specular_albedo = 1.0f;
+    material.diffuse_albedo.xyz = 1.0f;
+    material.specular_albedo.xyz = 1.0f;
 #endif // ENABLE_WHITE_FURNACE
 
     // Perceptual roughness remapping

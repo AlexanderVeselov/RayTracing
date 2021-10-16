@@ -114,14 +114,20 @@ __kernel void HitSurface
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
     Material material = materials[triangle.mtlIndex];
-    material.diffuse_albedo = SampleTexture(textures[0], texcoord, texture_data);
+
+    uint texture_index = as_uint(material.diffuse_albedo.w);
+
+    if (texture_index != 0xFFFFFFFF)
+    {
+        material.diffuse_albedo.xyz = SampleTexture(textures[texture_index], texcoord, texture_data);
+    }
 
     float3 hit_throughput = throughputs[pixel_idx];
 
 #ifndef ENABLE_WHITE_FURNACE
-    if (dot(material.emission, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
+    if (dot(material.emission.xyz, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
-        result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
+        result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
     }
 #endif // ENABLE_WHITE_FURNACE
 

@@ -40,10 +40,21 @@
 #include <cctype>
 #include <GL/glew.h>
 
-Scene::Scene(const char* filename, CLContext& cl_context)
+namespace
+{
+Material CreateDefaultMaterial()
+{
+    Material material = {};
+    material.diffuse_albedo.y = 1.0f;
+    material.diffuse_albedo.z = 1.0f;
+    return material;
+}
+}
+
+Scene::Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz)
     : cl_context_(cl_context)
 {
-    Load(filename);
+    Load(filename, scale, flip_yz);
 }
 
 std::vector<Triangle>& Scene::GetTriangles()
@@ -51,7 +62,7 @@ std::vector<Triangle>& Scene::GetTriangles()
     return triangles_;
 }
 
-void Scene::Load(const char* filename)
+void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
     std::cout << "Loading object file " << filename << std::endl;
 
@@ -68,9 +79,11 @@ void Scene::Load(const char* filename)
         throw std::runtime_error("Failed to load the scene!");
     }
 
-    materials_.resize(materials.size());
+    materials_.resize(materials.size() + 1);
+    materials_[0] = CreateDefaultMaterial();
 
     const float kGamma = 2.2f;
+    const std::uint32_t kInvalidTextureIndex = 0xFFFFFFFF;
 
     for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
@@ -81,19 +94,22 @@ void Scene::Load(const char* filename)
         out_material.diffuse_albedo.x = pow(in_material.diffuse[0], kGamma);
         out_material.diffuse_albedo.y = pow(in_material.diffuse[1], kGamma);
         out_material.diffuse_albedo.z = pow(in_material.diffuse[2], kGamma);
+        out_material.diffuse_albedo.padding = kInvalidTextureIndex;
 
         if (!in_material.diffuse_texname.empty())
         {
-            out_material.diffuse_albedo.padding = LoadTexture(in_material.diffuse_texname.c_str());
+            out_material.diffuse_albedo.padding = LoadTexture((std::string("assets/") + in_material.diffuse_texname.c_str()).c_str());
         }
 
         out_material.specular_albedo.x = pow(in_material.specular[0], kGamma);
         out_material.specular_albedo.y = pow(in_material.specular[1], kGamma);
         out_material.specular_albedo.z = pow(in_material.specular[2], kGamma);
+        out_material.specular_albedo.padding = kInvalidTextureIndex;
 
         out_material.emission.x = in_material.emission[0];
         out_material.emission.y = in_material.emission[1];
         out_material.emission.z = in_material.emission[2];
+        out_material.emission.padding = kInvalidTextureIndex;
 
         out_material.roughness = in_material.roughness;
 
@@ -101,6 +117,14 @@ void Scene::Load(const char* filename)
 
         out_material.ior = in_material.ior;
     }
+
+    auto flip_vector = [](float3& vec, bool do_flip)
+    {
+        if (do_flip)
+        {
+            std::swap(vec.y, vec.z);
+        }
+    };
 
     for (auto const& shape : shapes)
     {
@@ -123,9 +147,9 @@ void Scene::Load(const char* filename)
             auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
 
             Vertex v1;
-            v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0];
-            v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1];
-            v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2];
+            v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0] * scale;
+            v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1] * scale;
+            v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2] * scale;
 
             v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
             v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
@@ -135,9 +159,9 @@ void Scene::Load(const char* filename)
             v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
 
             Vertex v2;
-            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0];
-            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1];
-            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2];
+            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
+            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
+            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
 
             v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
             v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
@@ -147,9 +171,9 @@ void Scene::Load(const char* filename)
             v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
 
             Vertex v3;
-            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0];
-            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1];
-            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2];
+            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
+            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
+            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
 
             v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
             v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
@@ -158,9 +182,27 @@ void Scene::Load(const char* filename)
             v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
             v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
 
-            assert(shape.mesh.material_ids[face] >= 0
-                && shape.mesh.material_ids[face] < materials_.size());
-            triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
+            flip_vector(v1.position, flip_yz);
+            flip_vector(v1.normal, flip_yz);
+            flip_vector(v2.position, flip_yz);
+            flip_vector(v2.normal, flip_yz);
+            flip_vector(v3.position, flip_yz);
+            flip_vector(v3.normal, flip_yz);
+
+            if (flip_yz)
+            {
+                std::swap(v1, v2);
+            }
+
+            if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
+            {
+                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face] + 1);
+            }
+            else
+            {
+                // Use the default material
+                triangles_.emplace_back(v1, v2, v3, 0);
+            }
         }
     }
 
@@ -187,9 +229,10 @@ std::size_t Scene::LoadTexture(char const* filename)
     Image image;
     if (strcmp(file_extension, ".hdr") == 0)
     {
+        assert(!"Not implemented yet!");
         LoadHDR(filename, image);
     }
-    else if (strcmp(file_extension, ".jpg") == 0)
+    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0 || strcmp(file_extension, ".png") == 0)
     {
         LoadSTB(filename, image);
     }
@@ -244,7 +287,6 @@ void Scene::Finalize()
 
     //scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
     scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
-    LoadTexture("textures/checker3.jpg");
 
     cl_int status;
 
@@ -280,7 +322,7 @@ void Scene::Finalize()
     image_format.image_channel_data_type = CL_FLOAT;
 
     Image image;
-    LoadHDR("assets/ibl/studio_small_03_4k.hdr", image);
+    LoadHDR("assets/ibl/Topanga_Forest_B_3k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.data.data(), &status);
     ThrowIfFailed(status, "Failed to create environment image");

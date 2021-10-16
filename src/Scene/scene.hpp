@@ -34,7 +34,7 @@ class CLContext;
 class Scene
 {
 public:
-    Scene(const char* filename, CLContext& cl_context);
+    Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz);
     // TODO: REPLACE TO CONST REF
     std::vector<Triangle> & GetTriangles();
     cl_mem GetTriangleBuffer() const { return triangle_buffer_(); }
@@ -50,7 +50,7 @@ public:
     void AddDirectionalLight(float3 direction, float3 radiance);
 
 private:
-    void Load(char const* filename);
+    void Load(char const* filename, float scale, bool flip_yz);
     // Returns texture index in textures_
     std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
