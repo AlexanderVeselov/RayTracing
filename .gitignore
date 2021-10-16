@@ -6,5 +6,5 @@
 *.sdf
 *.obj
 *.mtl
-
+imgui.ini
 build/
