@@ -44,19 +44,11 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
     }
 
     cl_int status;
-    m_Context = cl::Context(devices_, props, 0, 0, &status);
+    context_ = cl::Context(devices_, props, 0, 0, &status);
+    ThrowIfFailed(status, "Failed to create OpenCL context");
 
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create context", status);
-    }
-
-    m_Queue = cl::CommandQueue(m_Context, devices_[0], 0, &status);
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create queue", status);
-    }
+    queue_ = cl::CommandQueue(context_, devices_[0], 0, &status);
+    ThrowIfFailed(status, "Failed to create queue");
 
     std::cout << "Successfully created context " << std::endl;
 
@@ -64,48 +56,32 @@ CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl
 
 void CLContext::WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const
 {
-    cl_int status = m_Queue.enqueueWriteBuffer(buffer, true, 0, size, data);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to write buffer", status);
-    }
+    cl_int status = queue_.enqueueWriteBuffer(buffer, true, 0, size, data);
+    ThrowIfFailed(status, "Failed to write buffer");
 }
 
 void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) const
 {
-    cl_int status = m_Queue.enqueueReadBuffer(buffer, false, 0, size, data);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to read buffer", status);
-    }
+    cl_int status = queue_.enqueueReadBuffer(buffer, false, 0, size, data);
+    ThrowIfFailed(status, "Failed to read buffer");
 }
 
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
-    cl_int status = m_Queue.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to enqueue kernel", status);
-    }
-
+    cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
+    ThrowIfFailed(status, "Failed to enqueue kernel");
 }
 
 void CLContext::AcquireGLObject(cl_mem mem)
 {
-    cl_int status = clEnqueueAcquireGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to acquire GL object", status);
-    }
+    cl_int status = clEnqueueAcquireGLObjects(queue_(), 1, &mem, 0, 0, NULL);
+    ThrowIfFailed(status, "Failed to acquire GL object");
 }
 
 void CLContext::ReleaseGLObject(cl_mem mem)
 {
-    cl_int status = clEnqueueReleaseGLObjects(m_Queue(), 1, &mem, 0, 0, NULL);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to release GL object", status);
-    }
+    cl_int status = clEnqueueReleaseGLObjects(queue_(), 1, &mem, 0, 0, NULL);
+    ThrowIfFailed(status, "Failed to release GL object");
 }
 
 CLKernel::CLKernel(char const* filename, CLContext const& cl_context, char const* kernel_name,
@@ -123,11 +99,7 @@ CLKernel::CLKernel(char const* filename, CLContext const& cl_context, char const
 
     cl_int status;
     cl::Program program(cl_context.GetContext(), source, false, &status);
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create program from file " + std::string(filename), status);
-    }
+    ThrowIfFailed(status, ("Failed to create program from file " + std::string(filename)).c_str());
 
     std::string build_options = "-I src/kernels/";
 
@@ -137,27 +109,14 @@ CLKernel::CLKernel(char const* filename, CLContext const& cl_context, char const
     }
 
     status = program.build(build_options.c_str());
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Error building " + std::string(filename) + ": " + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(
-            cl_context.GetDevices()[0]), status);
-    }
+    ThrowIfFailed(status, ("Error building " + std::string(filename) + ": " + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(cl_context.GetDevices()[0])).c_str());
 
     m_Kernel = cl::Kernel(program, kernel_name, &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create kernel", status);
-    }
-
+    ThrowIfFailed(status, ("Failed to create kernel " + std::string(kernel_name)).c_str());
 }
 
 void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size)
 {
     cl_int status = m_Kernel.setArg(argIndex, size, data);
-
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to set kernel argument", status);
-    }
+    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
 }

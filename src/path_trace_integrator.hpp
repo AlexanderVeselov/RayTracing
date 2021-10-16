@@ -34,6 +34,7 @@ private:
         std::unique_ptr<CLKernel> raygen;
         std::unique_ptr<CLKernel> miss;
         std::unique_ptr<CLKernel> hit_surface;
+        std::unique_ptr<CLKernel> accumulate_direct_samples;
         std::unique_ptr<CLKernel> reset;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
@@ -47,7 +48,10 @@ private:
     void IntersectRays(std::uint32_t bounce);
     void ShadeMissedRays(std::uint32_t bounce);
     void ShadeSurfaceHits(std::uint32_t bounce);
+    void IntersectShadowRays();
+    void AccumulateDirectSamples();
     void ClearOutgoingRayCounter(std::uint32_t bounce);
+    void ClearShadowRayCounter();
     void ResolveRadiance();
 
     // Render size
@@ -72,12 +76,17 @@ private:
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    cl::Buffer shadow_rays_buffer_;
     cl::Buffer pixel_indices_buffer_[2];
+    cl::Buffer shadow_pixel_indices_buffer_;
     cl::Buffer ray_counter_buffer_[2];
+    cl::Buffer shadow_ray_counter_buffer_;
     cl::Buffer hits_buffer_;
+    cl::Buffer shadow_hits_buffer_;
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
+    cl::Buffer direct_light_samples_buffer_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

@@ -19,12 +19,11 @@ public:
     Render(std::uint32_t width, std::uint32_t weight);
     ~Render();
 
-    void          RenderFrame();
+    void       RenderFrame();
 
-    const HWND    GetHWND()           const { return hwnd_; };
-    double        GetCurtime()        const;
-    double        GetDeltaTime()      const;
-    std::uint32_t GetGlobalWorkSize() const;
+    const HWND GetHWND()      const { return hwnd_; };
+    double     GetCurtime()   const;
+    double     GetDeltaTime() const;
 
     std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; };
 
@@ -47,7 +46,7 @@ private:
     double prev_frame_time_ = 0.0;
     // Contexts
     HGLRC gl_context_;
-    std::shared_ptr<CLContext>   cl_context_;
+    std::shared_ptr<CLContext> cl_context_;
     // Estimator
     std::unique_ptr<PathTraceIntegrator> integrator_;
     // Acceleration structure
@@ -61,9 +60,9 @@ private:
     {
         float camera_aperture = 0.0f;
         float camera_focus_distance = 10.0f;
-        int max_bounces = 3u;
-        bool enable_white_furnace = false;
-        bool enable_blue_noise = false;
+        int   max_bounces = 3u;
+        bool  enable_white_furnace = false;
+        bool  enable_blue_noise = false;
     } gui_params_;
 
 };

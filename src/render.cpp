@@ -155,7 +155,22 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], GetDC(hwnd_), gl_context_);
 
-    scene_ = std::make_unique<Scene>("meshes/ShaderBalls.obj", *cl_context_);
+    scene_ = std::make_unique<Scene>("meshes/CornellBox_Dragon.obj", *cl_context_);
+
+    auto get_rand = [](float min, float max)
+    {
+        return min + (float)rand() / RAND_MAX * (max - min);
+    };
+
+    scene_->AddDirectionalLight({-1.0f, -1.0f, 1.0f }, { 5.0f, 5.0f, 5.0f });
+
+    //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
+
+    //for (int i = 0; i < 100; ++i)
+    //{
+    //    scene_->AddPointLight({ get_rand(-1.0f, 1.0f), get_rand(-1.0f, 1.0f), 2.0f },
+    //        { get_rand(0.0f, 10.0f), get_rand(0.0f, 50.0f), get_rand(0.0f, 50.0f) });
+    //}
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_ = std::make_shared<Camera>(*framebuffer_, *this);
@@ -167,7 +182,7 @@ Render::Render(std::uint32_t width, std::uint32_t height)
 
     // TODO, NOTE: this is done after building the acc structure because it reorders triangles
     // Need to get rid of reordering
-    scene_->UploadBuffers();
+    scene_->Finalize();
 
     // Create estimator
     integrator_ = std::make_unique<PathTraceIntegrator>(width_, height_, *cl_context_,
@@ -193,11 +208,6 @@ double Render::GetDeltaTime() const
     return GetCurtime() - prev_frame_time_;
 }
 
-std::uint32_t Render::GetGlobalWorkSize() const
-{
-    return width_ * height_;
-}
-
 void Render::FrameBegin()
 {
     start_frame_time_ = GetCurtime();
@@ -208,6 +218,12 @@ void Render::FrameBegin()
 
 void Render::FrameEnd()
 {
+    glFinish();
+
+    HDC hdc = GetDC(hwnd_);
+    SwapBuffers(hdc);
+    ReleaseDC(hwnd_, hdc);
+
     prev_frame_time_ = start_frame_time_;
 }
 
@@ -290,12 +306,6 @@ void Render::RenderFrame()
 
     // Draw GUI
     DrawGUI();
-
-    glFinish();
-
-    HDC hdc = GetDC(hwnd_);
-    SwapBuffers(hdc);
-    ReleaseDC(hwnd_, hdc);
 
     FrameEnd();
 }

@@ -14,16 +14,20 @@ set(IO_SOURCES
 )
 
 set(KERNELS_SOURCES
+    kernels/accumulate_direct_samples.cl
     kernels/bxdf.h
     kernels/constants.h
     kernels/shared_structures.h
     kernels/clear_counter.cl
     kernels/hit_surface.cl
     kernels/increment_counter.cl
+    kernels/light.h
+    kernels/material.h
     kernels/miss.cl
     kernels/raygeneration.cl
     kernels/reset_radiance.cl
     kernels/resolve_radiance.cl
+    kernels/sampling.h
     kernels/trace_bvh.cl
     kernels/utils.h
 )

@@ -1,11 +1,5 @@
 #include "shared_structures.h"
-
-#define MAX_RENDER_DIST 20000.0f
-#define PI 3.14159265359f
-#define TWO_PI 6.28318530718f
-#define INV_PI 0.31830988618f
-#define INV_TWO_PI 0.15915494309f
-#define INVALID_ID 0xFFFFFFFF
+#include "constants.h"
 
 float3 SampleSky(float3 dir, __read_only image2d_t tex)
 {

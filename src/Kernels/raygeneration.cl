@@ -1,7 +1,5 @@
 #include "shared_structures.h"
-
-#define MAX_RENDER_DIST 20000.0f
-#define INVALID_ID 0xFFFFFFFF
+#include "constants.h"
 
 float GetRandomFloat(unsigned int* seed)
 {

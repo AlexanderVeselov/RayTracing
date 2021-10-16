@@ -24,17 +24,11 @@ Scene::Scene(const char* filename, CLContext& cl_context)
 
 std::vector<Triangle>& Scene::GetTriangles()
 {
-    return m_Triangles;
+    return triangles_;
 }
 
 void Scene::LoadTriangles(const char* filename)
 {
-    std::vector<float3> positions;
-    std::vector<float3> normals;
-    std::vector<float2> texcoords;
-
-    Material currentMaterial;
-
     std::cout << "Loading object file " << filename << std::endl;
 
     tinyobj::attrib_t attrib;
@@ -50,13 +44,13 @@ void Scene::LoadTriangles(const char* filename)
         throw std::runtime_error("Failed to load scene!");
     }
 
-    m_Materials.resize(materials.size());
+    materials_.resize(materials.size());
 
     const float kGamma = 2.2f;
 
     for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
-        auto& out_material = m_Materials[material_idx];
+        auto& out_material = materials_[material_idx];
         auto const& in_material = materials[material_idx];
 
         // Convert from sRGB to linear
@@ -123,30 +117,63 @@ void Scene::LoadTriangles(const char* filename)
             v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
 
             assert(shape.mesh.material_ids[face] >= 0
-                && shape.mesh.material_ids[face] < m_Materials.size());
-            m_Triangles.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
+                && shape.mesh.material_ids[face] < materials_.size());
+            triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
         }
     }
 
-    std::cout << "Load successful (" << m_Triangles.size() << " triangles)" << std::endl;
+    CollectEmissiveTriangles();
+
+    std::cout << "Load successful (" << triangles_.size() << " triangles)" << std::endl;
 
 }
 
-void Scene::UploadBuffers()
+void Scene::CollectEmissiveTriangles()
+{
+    for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
+    {
+        auto const& triangle = triangles_[triangle_idx];
+        auto const& emission = materials_[triangle.mtlIndex].emission;
+
+        if (emission.x + emission.y + emission.z > 0.0f)
+        {
+            // The triangle is emissive
+            emissive_indices_.push_back(triangle_idx);
+        }
+    }
+}
+
+void Scene::AddPointLight(float3 origin, float3 radiance)
+{
+    Light light = { origin, radiance, LIGHT_TYPE_POINT };
+    lights_.push_back(std::move(light));
+}
+
+void Scene::AddDirectionalLight(float3 direction, float3 radiance)
+{
+    Light light = { direction.Normalize(), radiance, LIGHT_TYPE_DIRECTIONAL };
+    lights_.emplace_back(std::move(light));
+}
+
+void Scene::Finalize()
 {
     cl_int status;
 
-    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Triangles.size() * sizeof(Triangle), m_Triangles.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create scene buffer", status);
-    }
+    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        triangles_.size() * sizeof(Triangle), triangles_.data(), &status);
+    ThrowIfFailed(status, "Failed to create scene buffer");
 
-    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, m_Materials.size() * sizeof(Material), m_Materials.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create material buffer", status);
-    }
+    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        materials_.size() * sizeof(Material), materials_.data(), &status);
+    ThrowIfFailed(status, "Failed to create material buffer");
+
+    emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        emissive_indices_.size() * sizeof(std::uint32_t), emissive_indices_.data(), &status);
+    ThrowIfFailed(status, "Failed to create emissive buffer");
+
+    analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        lights_.size() * sizeof(Light), lights_.data(), &status);
+    ThrowIfFailed(status, "Failed to create analytic light buffer");
 
     ///@TODO: remove from here
     // Texture Buffers
@@ -158,10 +185,8 @@ void Scene::UploadBuffers()
     HDRLoader::Load("textures/studio_small_03_4k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.colors, &status);
+    ThrowIfFailed(status, "Failed to create environment image");
 
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create environment image", status);
-    }
-
+    scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
+    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }
