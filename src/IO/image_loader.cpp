@@ -49,7 +49,11 @@ bool LoadSTB(const char* filename, Image& result)
         for (int x = 0; x < width; ++x)
         {
             int input_base = (y * width + x) * num_channels;
-            std::uint32_t value = data[input_base];
+            int r = data[input_base];
+            int g = num_channels > 1 ? data[input_base + 1] : 0;
+            int b = num_channels > 2 ? data[input_base + 2] : 0;
+            int a = num_channels > 3 ? data[input_base + 3] : 0;
+            std::uint32_t value = (r << 0) | (g << 8) | (b << 16) | (a << 24);
             result.data[y * width + x] = value;
         }
     }

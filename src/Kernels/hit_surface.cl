@@ -36,12 +36,12 @@ float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
     int texel_addr = texture.data_start + int_coords.y * texture.width + int_coords.x;
     uint texel = texture_data[texel_addr];
 
-    float r = (float)(texel & 0x000000FF) / 255.0f;
-    float g = (float)(texel & 0x0000FF00) / 255.0f;
-    float b = (float)(texel & 0x00FF0000) / 255.0f;
-    float a = (float)(texel & 0xFF000000) / 255.0f;
+    float r = (float)((texel & 0x000000FF));
+    float g = (float)((texel & 0x0000FF00) >> 8);
+    float b = (float)((texel & 0x00FF0000) >> 16);
+    float a = (float)((texel & 0xFF000000) >> 24);
 
-    return (float3)(r, g, b);
+    return (float3)(r, g, b) / 255.0f;
 }
 
 __kernel void HitSurface
