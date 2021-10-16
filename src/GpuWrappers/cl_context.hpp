@@ -27,7 +27,6 @@
 #include "scene/scene.hpp"
 #include <CL/cl.hpp>
 #include <memory>
-#include <Windows.h>
 #include <vector>
 #include <string>
 
@@ -39,7 +38,7 @@ class CLKernel;
 class CLContext
 {
 public:
-    CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl_context);
+    CLContext(const cl::Platform& platform, void* display_context, void* gl_context);
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;

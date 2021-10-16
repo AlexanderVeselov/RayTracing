@@ -47,7 +47,7 @@ public:
     void AddDirectionalLight(float3 direction, float3 radiance);
 
 private:
-    void LoadTriangles(const char* filename);
+    void Load(const char* filename);
     void CollectEmissiveTriangles();
 
     CLContext& cl_context_;

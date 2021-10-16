@@ -43,7 +43,7 @@
 Scene::Scene(const char* filename, CLContext& cl_context)
     : cl_context_(cl_context)
 {
-    LoadTriangles(filename);
+    Load(filename);
 }
 
 std::vector<Triangle>& Scene::GetTriangles()
@@ -51,7 +51,7 @@ std::vector<Triangle>& Scene::GetTriangles()
     return triangles_;
 }
 
-void Scene::LoadTriangles(const char* filename)
+void Scene::Load(const char* filename)
 {
     std::cout << "Loading object file " << filename << std::endl;
 
@@ -65,7 +65,7 @@ void Scene::LoadTriangles(const char* filename)
 
     if (!success)
     {
-        throw std::runtime_error("Failed to load scene!");
+        throw std::runtime_error("Failed to load the scene!");
     }
 
     materials_.resize(materials.size());
@@ -146,8 +146,6 @@ void Scene::LoadTriangles(const char* filename)
         }
     }
 
-    CollectEmissiveTriangles();
-
     std::cout << "Load successful (" << triangles_.size() << " triangles)" << std::endl;
 
 }
@@ -165,6 +163,8 @@ void Scene::CollectEmissiveTriangles()
             emissive_indices_.push_back(triangle_idx);
         }
     }
+
+    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }
 
 void Scene::AddPointLight(float3 origin, float3 radiance)
@@ -181,6 +181,8 @@ void Scene::AddDirectionalLight(float3 direction, float3 radiance)
 
 void Scene::Finalize()
 {
+    CollectEmissiveTriangles();
+
     cl_int status;
 
     triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -212,5 +214,4 @@ void Scene::Finalize()
     ThrowIfFailed(status, "Failed to create environment image");
 
     scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
-    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }
