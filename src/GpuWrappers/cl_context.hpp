@@ -61,6 +61,8 @@ class CLKernel
 public:
     CLKernel(const char* filename, const CLContext& cl_context, char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
+    void SetArgument(std::uint32_t argIndex, cl_mem buffer);
+    void SetArgument(std::uint32_t argIndex, cl::Buffer buffer);
     void SetArgument(std::uint32_t argIndex, void const* data, size_t size);
     const cl::Kernel& GetKernel() const { return m_Kernel; }
 

@@ -144,3 +144,15 @@ void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size
     cl_int status = m_Kernel.setArg(argIndex, size, data);
     ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
 }
+
+void CLKernel::SetArgument(std::uint32_t argIndex, cl_mem buffer)
+{
+    cl_int status = m_Kernel.setArg(argIndex, sizeof(cl_mem), &buffer);
+    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
+}
+
+void CLKernel::SetArgument(std::uint32_t argIndex, cl::Buffer buffer)
+{
+    cl_int status = m_Kernel.setArg(argIndex, sizeof(cl_mem), &buffer);
+    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
+}
