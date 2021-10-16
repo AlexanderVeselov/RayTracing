@@ -45,7 +45,7 @@ public:
     double  GetDeltaTime() const;
     Window& GetWindow() const { return window_; }
 
-    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; };
+    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
 
 private:
     void FrameBegin();

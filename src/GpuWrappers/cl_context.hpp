@@ -30,9 +30,6 @@
 #include <vector>
 #include <string>
 
-// OpenCL & OpenGL interop
-// https://software.intel.com/en-us/articles/opencl-and-opengl-interoperability-tutorial
-
 class CLKernel;
 
 class CLContext

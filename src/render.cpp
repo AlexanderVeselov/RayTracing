@@ -52,7 +52,9 @@ Render::Render(Window& window)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], window_.GetDisplayContext(), window_.GetGLContext());
 
-    scene_ = std::make_unique<Scene>("meshes/CornellBox_Dragon.obj", *cl_context_);
+    char const* scene_path = "meshes/CornellBox_Dragon.obj";
+    //char const* scene_path = "meshes/ShaderBalls.obj";
+    scene_ = std::make_unique<Scene>(scene_path, *cl_context_);
 
     auto get_rand = [](float min, float max)
     {
@@ -63,9 +65,9 @@ Render::Render(Window& window)
 
     //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
 
-    //for (int i = 0; i < 100; ++i)
+    //for (int i = 0; i < 10; ++i)
     //{
-    //    scene_->AddPointLight({ get_rand(-1.0f, 1.0f), get_rand(-1.0f, 1.0f), 2.0f },
+    //    scene_->AddPointLight({ i - 5.0f, 0.0f, 2.0f },
     //        { get_rand(0.0f, 10.0f), get_rand(0.0f, 50.0f), get_rand(0.0f, 50.0f) });
     //}
 
