@@ -64,7 +64,8 @@ typedef struct
 {
     unsigned int analytic_light_count;
     unsigned int emissive_count;
-    unsigned int padding[2];
+    unsigned int environment_map_index;
+    unsigned int padding;
 } SceneInfo;
 
 typedef struct Material
@@ -88,6 +89,14 @@ typedef struct
     unsigned int type;
     unsigned int padding[3];
 } Light;
+
+typedef struct
+{
+    unsigned int data_start;
+    unsigned int width;
+    unsigned int height;
+    unsigned int padding;
+} Texture;
 
 typedef struct Vertex
 {

@@ -29,7 +29,7 @@ add_library(imgui STATIC
 )
 
 target_compile_features(imgui PRIVATE cxx_std_17)
-target_include_directories(imgui PUBLIC 3rdparty/imgui)
+target_include_directories(imgui PUBLIC 3rdparty/imgui 3rdparty/stb)
 target_compile_options(imgui PRIVATE /WX)
 target_compile_definitions(imgui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLEW)
 target_link_libraries(imgui GLEW::GLEW)

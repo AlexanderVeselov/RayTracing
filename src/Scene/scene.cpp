@@ -150,6 +150,47 @@ void Scene::Load(const char* filename)
 
 }
 
+std::size_t Scene::LoadTexture(char const* filename)
+{
+    // Try to lookup the cache
+    auto it = loaded_textures_.find(filename);
+    if (it != loaded_textures_.cend())
+    {
+        return it->second;
+    }
+
+    // Load the texture
+    char const* file_extension = strrchr(filename, '.');
+    if (file_extension == nullptr)
+    {
+        throw std::runtime_error("Invalid texture extension");
+    }
+
+    Image image;
+    if (strcmp(file_extension, ".hdr") == 0)
+    {
+        LoadHDR(filename, image);
+    }
+    else if (strcmp(file_extension, ".jpg") == 0)
+    {
+        LoadSTB(filename, image);
+    }
+
+    Texture texture;
+    texture.width = image.width;
+    texture.height = image.height;
+    texture.data_start = (std::uint32_t)texture_data_.size();
+
+    std::size_t texture_idx = textures_.size();
+    textures_.push_back(std::move(texture));
+
+    texture_data_.insert(texture_data_.end(), image.data.begin(), image.data.end());
+
+    // Cache the texture
+    loaded_textures_.emplace(filename, texture_idx);
+    return texture_idx;
+}
+
 void Scene::CollectEmissiveTriangles()
 {
     for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
@@ -183,6 +224,9 @@ void Scene::Finalize()
 {
     CollectEmissiveTriangles();
 
+    scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
+    scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
+
     cl_int status;
 
     triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -201,6 +245,15 @@ void Scene::Finalize()
         lights_.size() * sizeof(Light), lights_.data(), &status);
     ThrowIfFailed(status, "Failed to create analytic light buffer");
 
+    // TODO: don't allocate if the buffers are empty
+    texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        textures_.size() * sizeof(Texture), textures_.data(), &status);
+    ThrowIfFailed(status, "Failed to create texture buffer");
+
+    texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        texture_data_.size() * sizeof(std::uint32_t), texture_data_.data(), &status);
+    ThrowIfFailed(status, "Failed to create texture data buffer");
+
     ///@TODO: remove from here
     // Texture Buffers
     cl::ImageFormat image_format;
@@ -208,10 +261,8 @@ void Scene::Finalize()
     image_format.image_channel_data_type = CL_FLOAT;
 
     Image image;
-    HDRLoader::Load("textures/studio_small_03_4k.hdr", image);
+    LoadHDR("textures/studio_small_03_4k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        image_format, image.width, image.height, 0, image.colors, &status);
+        image_format, image.width, image.height, 0, image.data.data(), &status);
     ThrowIfFailed(status, "Failed to create environment image");
-
-    scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
 }

@@ -22,18 +22,22 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+#include "image_loader.hpp"
 
-#include <numeric>
-#include <vector>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
-class Image
+bool LoadSTB(const char* filename, Image& result)
 {
-public:
-    std::uint32_t width;
-    std::uint32_t height;
-    std::vector<std::uint32_t> data;
-};
+    int width;
+    int height;
+    int num_channels;
+    unsigned char* data = stbi_load(filename, &width, &height, &num_channels, 0);
+    if (!data)
+    {
+        return false;
+    }
 
-bool LoadHDR(const char *filename, Image& result);
-bool LoadSTB(const char* filename, Image& result);
+    stbi_image_free(data);
+    return true;
+}

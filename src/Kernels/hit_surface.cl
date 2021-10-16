@@ -38,6 +38,8 @@ __kernel void HitSurface
     __global Light*    analytic_lights,
     __global uint*     emissive_indices,
     __global Material* materials,
+    __global Texture*  textures,
+    __global uint*     texture_data,
     uint bounce,
     uint width,
     uint height,

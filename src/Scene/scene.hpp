@@ -28,6 +28,7 @@
 #include "kernels/shared_structures.h"
 #include <CL/cl.hpp>
 #include <vector>
+#include <unordered_map>
 
 class CLContext;
 class Scene
@@ -39,6 +40,8 @@ public:
     cl_mem GetTriangleBuffer() const { return triangle_buffer_(); }
     cl_mem GetEmissiveIndicesBuffer() const { return emissive_buffer_(); }
     cl_mem GetMaterialBuffer() const { return material_buffer_(); }
+    cl_mem GetTextureBuffer() const { return texture_buffer_(); }
+    cl_mem GetTextureDataBuffer() const { return texture_data_buffer_(); }
     cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
     cl_mem GetAnalyticLightBuffer() const { return analytic_light_buffer_(); }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
@@ -47,7 +50,9 @@ public:
     void AddDirectionalLight(float3 direction, float3 radiance);
 
 private:
-    void Load(const char* filename);
+    void Load(char const* filename);
+    // Returns texture index in textures_
+    std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
     CLContext& cl_context_;
@@ -55,10 +60,15 @@ private:
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<Material> materials_;
     std::vector<Light> lights_;
+    std::vector<Texture> textures_;
+    std::vector<std::uint32_t> texture_data_;
+    std::unordered_map<std::string, std::size_t> loaded_textures_;
     SceneInfo scene_info_ = {};
 
     cl::Buffer triangle_buffer_;
     cl::Buffer material_buffer_;
+    cl::Buffer texture_buffer_;
+    cl::Buffer texture_data_buffer_;
     cl::Buffer emissive_buffer_;
     cl::Buffer analytic_light_buffer_;
     cl::Buffer scene_info_buffer_;
