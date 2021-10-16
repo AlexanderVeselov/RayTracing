@@ -24,8 +24,7 @@
 
 #include "camera.hpp"
 #include "render.hpp"
-#include "io/inputsystem.hpp"
-#include <Windows.h>
+#include "Utils/window.hpp"
 #include <iostream>
 
 Camera::Camera(Framebuffer& framebuffer, Render& render)
@@ -42,30 +41,29 @@ Camera::Camera(Framebuffer& framebuffer, Render& render)
 
 void Camera::Update()
 {
-    static POINT point = { 0, 0 };
-    unsigned short x, y;
-    input->GetMousePos(&x, &y);
-    POINT mouseClient = { x, y };
-    ScreenToClient(m_Render.GetHWND(), &mouseClient);
+    Window& window = m_Render.GetWindow();
+    static int prev_x = 0, prev_y = 0;
+    int x, y;
+    window.GetMousePos(&x, &y);
 
-    if (input->IsMousePressed(MK_RBUTTON) && mouseClient.x > 0 && mouseClient.y > 0
-        && mouseClient.x < framebuffer_.GetWidth() && mouseClient.y < framebuffer_.GetHeight())
+    if (window.IsRightMouseButtonPressed())
     {
         float sensivity = 0.00075f;
-        m_Yaw -= (x - point.x) * sensivity;
-        m_Pitch += (y - point.y) * sensivity;
+        m_Yaw -= (x - prev_x) * sensivity;
+        m_Pitch += (y - prev_y) * sensivity;
         float epsilon = 0.0001f;
         m_Pitch = clamp(m_Pitch, 0.0f + epsilon, MATH_PI - epsilon);
-        input->SetMousePos(point.x, point.y);
+        window.SetMousePos(prev_x, prev_y);
         m_FrameCount = 0;
     }
     else
     {
-        point = { x, y };
+        prev_x = x;
+        prev_y = y;
     }
 
-    int frontback = input->IsKeyDown('W') - input->IsKeyDown('S');
-    int strafe = input->IsKeyDown('A') - input->IsKeyDown('D');
+    int frontback = window.IsKeyPressed('W') - window.IsKeyPressed('S');
+    int strafe = window.IsKeyPressed('A') - window.IsKeyPressed('D');
 
     if (frontback != 0 || strafe != 0)
     {

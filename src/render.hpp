@@ -30,35 +30,31 @@
 #include "scene/scene.hpp"
 #include "GpuWrappers/cl_context.hpp"
 #include "utils/framebuffer.hpp"
-#include <Windows.h>
 #include <memory>
 #include <ctime>
 
-#define BVH_INTERSECTION
-
+class Window;
 class Render
 {
 public:
-    Render(std::uint32_t width, std::uint32_t weight);
+    Render(Window& window);
     ~Render();
 
-    void       RenderFrame();
-
-    const HWND GetHWND()      const { return hwnd_; };
-    double     GetCurtime()   const;
-    double     GetDeltaTime() const;
+    void    RenderFrame();
+    double  GetCurtime()   const;
+    double  GetDeltaTime() const;
+    Window& GetWindow() const { return window_; }
 
     std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; };
 
 private:
-    void InitWindow();
-    void InitGL();
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
     
 private:
-    HWND hwnd_;
+    // Window
+    Window& window_;
 
     // Render size
     std::uint32_t width_;
@@ -67,8 +63,6 @@ private:
     // Timing
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
-    // Contexts
-    HGLRC gl_context_;
     std::shared_ptr<CLContext> cl_context_;
     // Estimator
     std::unique_ptr<PathTraceIntegrator> integrator_;

@@ -24,24 +24,45 @@
 
 #pragma once
 
-class InputSystem
+#include <numeric>
+
+class Window
 {
 public:
-    InputSystem();
+    Window(char const* title, std::uint32_t width, std::uint32_t height);
 
-    void KeyDown(unsigned int);
-    void KeyUp(unsigned int);
-    void SetMousePos(unsigned short x, unsigned short y) const;
-    bool IsKeyDown(unsigned int) const;
-    void GetMousePos(unsigned short *x, unsigned short *y) const;
-    void MousePressed(unsigned int button);
-    void MouseReleased(unsigned int button);
-    bool IsMousePressed(unsigned int button) const;
+    // Native handles
+    void* GetNativeHandle() const { return handle_; }
+    void* GetDisplayContext() const { return display_context_; }
+    void* GetGLContext() const { return gl_context_; }
+
+    std::uint32_t GetWidth() const { return width_; }
+    std::uint32_t GetHeight() const { return height_; }
+    bool ShouldClose() const { return should_close_; }
+    void PollEvents();
+    void SwapBuffers();
+    void OnKeyPressed(int key);
+    void OnKeyReleased(int key);
+    void OnMousePressed(unsigned int button);
+    void OnMouseReleased(unsigned int button);
+    bool IsKeyPressed(int key) const;
+    bool IsLeftMouseButtonPressed() const;
+    bool IsRightMouseButtonPressed() const;
+    void GetMousePos(int* x, int* y) const;
+    void SetMousePos(int x, int y) const;
+
+    ~Window();
 
 private:
-    bool m_Keys[256];
-    unsigned int m_Mouse;
+    void InitGL();
 
+    void* handle_;
+    void* display_context_;
+    void* gl_context_;
+
+    std::uint32_t width_;
+    std::uint32_t height_;
+    bool should_close_ = false;
+    bool keys_[256];
+    unsigned int mouse_ = 0;
 };
-
-extern InputSystem* input;

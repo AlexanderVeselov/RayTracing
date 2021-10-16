@@ -9,8 +9,6 @@ set(IO_SOURCES
     io/dds_loader.cpp
     io/hdr_loader.cpp
     io/image_loader.hpp
-    io/inputsystem.cpp
-    io/inputsystem.hpp
 )
 
 set(KERNELS_SOURCES
@@ -49,6 +47,8 @@ set(UTILS_SOURCES
     utils/cl_exception.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp
+    utils/window.cpp
+    utils/window.hpp
 )
 
 set(MAIN_SOURCES

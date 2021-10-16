@@ -30,7 +30,7 @@
 #include <string>
 #include <fstream>
 
-CLContext::CLContext(const cl::Platform& platform, HDC display_context, HGLRC gl_context)
+CLContext::CLContext(const cl::Platform& platform, void* display_context, void* gl_context)
     : platform_(platform)
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
