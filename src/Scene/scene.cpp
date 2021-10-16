@@ -40,16 +40,16 @@
 #include <cctype>
 #include <GL/glew.h>
 
-namespace
-{
-Material CreateDefaultMaterial()
-{
-    Material material = {};
-    material.diffuse_albedo.y = 1.0f;
-    material.diffuse_albedo.z = 1.0f;
-    return material;
-}
-}
+//namespace
+//{
+//Material CreateDefaultMaterial()
+//{
+//    Material material = {};
+//    material.diffuse_albedo.y = 1.0f;
+//    material.diffuse_albedo.z = 1.0f;
+//    return material;
+//}
+//}
 
 Scene::Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz)
     : cl_context_(cl_context)
@@ -66,21 +66,21 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
     std::cout << "Loading object file " << filename << std::endl;
 
+    std::string path_to_folder = std::string(filename, std::string(filename).rfind('/') + 1);
+
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string warn;
     std::string err;
-
-    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, "assets/");
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
 
     if (!success)
     {
         throw std::runtime_error("Failed to load the scene!");
     }
 
-    materials_.resize(materials.size() + 1);
-    materials_[0] = CreateDefaultMaterial();
+    materials_.resize(materials.size());
 
     const float kGamma = 2.2f;
     const std::uint32_t kInvalidTextureIndex = 0xFFFFFFFF;
@@ -98,7 +98,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 
         if (!in_material.diffuse_texname.empty())
         {
-            out_material.diffuse_albedo.padding = LoadTexture((std::string("assets/") + in_material.diffuse_texname.c_str()).c_str());
+            out_material.diffuse_albedo.padding = LoadTexture((path_to_folder + in_material.diffuse_texname).c_str());
         }
 
         out_material.specular_albedo.x = pow(in_material.specular[0], kGamma);
@@ -106,10 +106,20 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         out_material.specular_albedo.z = pow(in_material.specular[2], kGamma);
         out_material.specular_albedo.padding = kInvalidTextureIndex;
 
+        if (!in_material.specular_texname.empty())
+        {
+            out_material.specular_albedo.padding = LoadTexture((path_to_folder + in_material.specular_texname).c_str());
+        }
+
         out_material.emission.x = in_material.emission[0];
         out_material.emission.y = in_material.emission[1];
         out_material.emission.z = in_material.emission[2];
         out_material.emission.padding = kInvalidTextureIndex;
+
+        if (!in_material.emissive_texname.empty())
+        {
+            out_material.emission.padding = LoadTexture((path_to_folder + in_material.emissive_texname).c_str());
+        }
 
         out_material.roughness = in_material.roughness;
 
@@ -196,7 +206,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 
             if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
             {
-                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face] + 1);
+                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
             }
             else
             {

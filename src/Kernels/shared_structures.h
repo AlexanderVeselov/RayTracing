@@ -92,10 +92,10 @@ typedef struct
 
 typedef struct
 {
-    unsigned int data_start;
-    unsigned int width;
-    unsigned int height;
-    unsigned int padding;
+    int data_start;
+    int width;
+    int height;
+    int padding;
 } Texture;
 
 typedef struct Vertex

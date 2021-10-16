@@ -64,4 +64,14 @@ unsigned int WangHash(unsigned int x)
     return x;
 }
 
+float4 UnpackRGBA8(uint data)
+{
+    float r = (float)((data & 0x000000FF));
+    float g = (float)((data & 0x0000FF00) >> 8);
+    float b = (float)((data & 0x00FF0000) >> 16);
+    float a = (float)((data & 0xFF000000) >> 24);
+
+    return (float4)(r, g, b, a) / 255.0f;
+}
+
 #endif // UTILS_H

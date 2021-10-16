@@ -52,14 +52,17 @@ Render::Render(Window& window)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], window_.GetDisplayContext(), window_.GetGLContext());
 
+#ifndef NDEBUG
     //char const* scene_path = "assets/CornellBox_Dragon.obj";
-    //char const* scene_path = "assets/ShaderBalls.obj";
-    //float scene_scale = 1.0f;
-    //bool flip_yz = false;
+    char const* scene_path = "assets/ShaderBalls.obj";
+    float scene_scale = 1.0f;
+    bool flip_yz = false;
+#else
 
     char const* scene_path = "assets/sponzaPBR.obj";
     float scene_scale = 0.001f;
     bool flip_yz = true;
+#endif
 
     scene_ = std::make_unique<Scene>(scene_path, *cl_context_, scene_scale, flip_yz);
 

@@ -29,19 +29,41 @@
 
 float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
 {
-    float2 temp = uv * (float2)(texture.width, texture.height);
-    int temp_x = (int)temp.x;
-    int temp_y = (int)temp.y;
-    int2 int_coords = clamp((int2)(temp.x, temp.y), (int2)(0, 0), (int2)(texture.width - 1, texture.height - 1));
-    int texel_addr = texture.data_start + int_coords.y * texture.width + int_coords.x;
-    uint texel = texture_data[texel_addr];
+    // Wrap coords
+    uv -= floor(uv);
+    uv.y = 1.f - uv.y;
 
-    float r = (float)((texel & 0x000000FF));
-    float g = (float)((texel & 0x0000FF00) >> 8);
-    float b = (float)((texel & 0x00FF0000) >> 16);
-    float a = (float)((texel & 0xFF000000) >> 24);
+    int texel_x = clamp((int)(uv.x * texture.width), 0, texture.width - 1);
+    int texel_y = clamp((int)(uv.y * texture.height), 0, texture.height - 1);
+    int texel_addr = texture.data_start + texel_y * texture.width + texel_x;
 
-    return (float3)(r, g, b) / 255.0f;
+    float4 color = UnpackRGBA8(texture_data[texel_addr]);
+
+    return clamp(color.xyz, 0.0f, 1.0f);
+}
+
+void ApplyTextures(Material* material, float2 uv, __global Texture* textures, __global uint* texture_data)
+{
+    uint diffuse_albedo_idx = as_uint(material->diffuse_albedo.w);
+
+    if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        material->diffuse_albedo.xyz = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
+    }
+
+    uint specular_albedo_idx = as_uint(material->specular_albedo.w);
+
+    if (specular_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        material->specular_albedo.xyz = SampleTexture(textures[diffuse_albedo_idx], uv, texture_data);
+    }
+
+    uint emission_idx = as_uint(material->emission.w);
+
+    if (emission_idx != INVALID_TEXTURE_IDX)
+    {
+        material->emission.xyz = SampleTexture(textures[emission_idx], uv, texture_data);
+    }
 }
 
 __kernel void HitSurface
@@ -114,13 +136,7 @@ __kernel void HitSurface
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
     Material material = materials[triangle.mtlIndex];
-
-    uint texture_index = as_uint(material.diffuse_albedo.w);
-
-    if (texture_index != 0xFFFFFFFF)
-    {
-        material.diffuse_albedo.xyz = SampleTexture(textures[texture_index], texcoord, texture_data);
-    }
+    ApplyTextures(&material, texcoord, textures, texture_data);
 
     float3 hit_throughput = throughputs[pixel_idx];
 
