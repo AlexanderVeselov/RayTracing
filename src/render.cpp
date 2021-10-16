@@ -52,8 +52,8 @@ Render::Render(Window& window)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], window_.GetDisplayContext(), window_.GetGLContext());
 
-    //char const* scene_path = "meshes/CornellBox_Dragon.obj";
-    char const* scene_path = "meshes/ShaderBalls.obj";
+    //char const* scene_path = "assets/CornellBox_Dragon.obj";
+    char const* scene_path = "assets/ShaderBalls.obj";
     scene_ = std::make_unique<Scene>(scene_path, *cl_context_);
 
     auto get_rand = [](float min, float max)

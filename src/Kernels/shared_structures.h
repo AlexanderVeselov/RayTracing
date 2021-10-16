@@ -73,9 +73,9 @@ typedef struct Material
 #ifdef __cplusplus
     Material() {}
 #endif
-    float3 diffuse_albedo;
-    float3 specular_albedo;
-    float3 emission;
+    float4 diffuse_albedo;
+    float4 specular_albedo;
+    float4 emission;
     float roughness;
     float metalness;
     float ior;

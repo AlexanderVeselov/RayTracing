@@ -61,7 +61,7 @@ void Scene::Load(const char* filename)
     std::string warn;
     std::string err;
 
-    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, "meshes/");
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, "assets/");
 
     if (!success)
     {
@@ -81,6 +81,11 @@ void Scene::Load(const char* filename)
         out_material.diffuse_albedo.x = pow(in_material.diffuse[0], kGamma);
         out_material.diffuse_albedo.y = pow(in_material.diffuse[1], kGamma);
         out_material.diffuse_albedo.z = pow(in_material.diffuse[2], kGamma);
+
+        if (!in_material.diffuse_texname.empty())
+        {
+            out_material.diffuse_albedo.padding = LoadTexture(in_material.diffuse_texname.c_str());
+        }
 
         out_material.specular_albedo.x = pow(in_material.specular[0], kGamma);
         out_material.specular_albedo.y = pow(in_material.specular[1], kGamma);
@@ -275,7 +280,7 @@ void Scene::Finalize()
     image_format.image_channel_data_type = CL_FLOAT;
 
     Image image;
-    LoadHDR("textures/studio_small_03_4k.hdr", image);
+    LoadHDR("assets/ibl/studio_small_03_4k.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.data.data(), &status);
     ThrowIfFailed(status, "Failed to create environment image");
