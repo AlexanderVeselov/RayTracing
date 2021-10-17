@@ -40,20 +40,16 @@
 #include <cctype>
 #include <GL/glew.h>
 
-//namespace
-//{
-//Material CreateDefaultMaterial()
-//{
-//    Material material = {};
-//    material.diffuse_albedo.y = 1.0f;
-//    material.diffuse_albedo.z = 1.0f;
-//    return material;
-//}
-//}
-
 Scene::Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz)
     : cl_context_(cl_context)
 {
+    cl_int status;
+
+    std::uint32_t dummy_value = 0;
+    dummy_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(std::uint32_t), &dummy_value, &status);
+    ThrowIfFailed(status, "Failed to create dummy buffer");
+
     Load(filename, scale, flip_yz);
 }
 
@@ -122,6 +118,12 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         }
 
         out_material.roughness = in_material.roughness;
+        out_material.roughness_idx = kInvalidTextureIndex;
+
+        if (!in_material.roughness_texname.empty())
+        {
+            out_material.roughness_idx = LoadTexture((path_to_folder + in_material.roughness_texname).c_str());
+        }
 
         out_material.metalness = in_material.metallic;
 
@@ -236,15 +238,21 @@ std::size_t Scene::LoadTexture(char const* filename)
         throw std::runtime_error("Invalid texture extension");
     }
 
+    bool success = false;
     Image image;
     if (strcmp(file_extension, ".hdr") == 0)
     {
         assert(!"Not implemented yet!");
-        LoadHDR(filename, image);
+        success = LoadHDR(filename, image);
     }
     else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0 || strcmp(file_extension, ".png") == 0)
     {
-        LoadSTB(filename, image);
+        success = LoadSTB(filename, image);
+    }
+
+    if (!success)
+    {
+        throw std::runtime_error((std::string("Failed to load file ") + filename).c_str());
     }
 
     Texture texture;
@@ -300,30 +308,43 @@ void Scene::Finalize()
 
     cl_int status;
 
+    assert(!triangles_.empty());
     triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         triangles_.size() * sizeof(Triangle), triangles_.data(), &status);
     ThrowIfFailed(status, "Failed to create scene buffer");
 
+    assert(!materials_.empty());
     material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         materials_.size() * sizeof(Material), materials_.data(), &status);
     ThrowIfFailed(status, "Failed to create material buffer");
 
-    emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        emissive_indices_.size() * sizeof(std::uint32_t), emissive_indices_.data(), &status);
-    ThrowIfFailed(status, "Failed to create emissive buffer");
+    if (!emissive_indices_.empty())
+    {
+        emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            emissive_indices_.size() * sizeof(std::uint32_t), emissive_indices_.data(), &status);
+        ThrowIfFailed(status, "Failed to create emissive buffer");
+    }
 
-    analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        lights_.size() * sizeof(Light), lights_.data(), &status);
-    ThrowIfFailed(status, "Failed to create analytic light buffer");
+    if (!lights_.empty())
+    {
+        analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            lights_.size() * sizeof(Light), lights_.data(), &status);
+        ThrowIfFailed(status, "Failed to create analytic light buffer");
+    }
 
-    // TODO: don't allocate if the buffers are empty
-    texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        textures_.size() * sizeof(Texture), textures_.data(), &status);
-    ThrowIfFailed(status, "Failed to create texture buffer");
+    if (!textures_.empty())
+    {
+        texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            textures_.size() * sizeof(Texture), textures_.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture buffer");
+    }
 
-    texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        texture_data_.size() * sizeof(std::uint32_t), texture_data_.data(), &status);
-    ThrowIfFailed(status, "Failed to create texture data buffer");
+    if (!texture_data_.empty())
+    {
+        texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            texture_data_.size() * sizeof(std::uint32_t), texture_data_.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture data buffer");
+    }
 
     ///@TODO: remove from here
     // Texture Buffers

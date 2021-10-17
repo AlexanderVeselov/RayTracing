@@ -64,6 +64,11 @@ void ApplyTextures(Material* material, float2 uv, __global Texture* textures, __
     {
         material->emission.xyz = SampleTexture(textures[emission_idx], uv, texture_data);
     }
+
+    if (material->roughness_idx != INVALID_TEXTURE_IDX)
+    {
+        material->roughness = SampleTexture(textures[material->roughness_idx], uv, texture_data).x;
+    }
 }
 
 __kernel void HitSurface

@@ -91,7 +91,6 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float h_dot_o = max(dot(half_vec, outgoing), EPS);
 
     // Perceptual roughness remapping
-    // Perceptual roughness remapping
     float roughness = material.roughness;
     float alpha = roughness * roughness;
 

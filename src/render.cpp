@@ -60,7 +60,7 @@ Render::Render(Window& window)
 #else
 
     char const* scene_path = "assets/sponzaPBR.obj";
-    float scene_scale = 0.001f;
+    float scene_scale = 0.005f;
     bool flip_yz = true;
 #endif
 
@@ -71,7 +71,7 @@ Render::Render(Window& window)
         return min + (float)rand() / RAND_MAX * (max - min);
     };
 
-    scene_->AddDirectionalLight({-1.0f, -1.0f, 1.0f }, { 5.0f, 5.0f, 5.0f });
+    scene_->AddDirectionalLight({-1.0f, -1.0f, 2.0f }, { 15.0f, 15.0f, 12.0f });
 
     //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
 
@@ -210,7 +210,7 @@ void Render::RenderFrame()
     framebuffer_->Present();
 
     // Draw GUI
-    DrawGUI();
+    //DrawGUI();
 
     FrameEnd();
 }

@@ -95,7 +95,7 @@ __kernel void RayGeneration
     float invWidth = 1.0f / (float)(width);
     float invHeight = 1.0f / (float)(height);
     float aspectratio = (float)(width) / (float)(height);
-    float fov = 45.0f * 3.1415f / 180.0f;
+    float fov = 75.0f * 3.1415f / 180.0f;
     float angle = tan(0.5f * fov);
 
     unsigned int seed = pixel_idx + HashUInt32(frameCount);

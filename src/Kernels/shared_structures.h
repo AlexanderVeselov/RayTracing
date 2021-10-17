@@ -79,7 +79,7 @@ typedef struct Material
     float roughness;
     float metalness;
     float ior;
-    unsigned int padding;
+    int roughness_idx;
 } Material;
 
 typedef struct

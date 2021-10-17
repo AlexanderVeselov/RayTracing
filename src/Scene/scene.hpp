@@ -65,6 +65,7 @@ private:
     std::unordered_map<std::string, std::size_t> loaded_textures_;
     SceneInfo scene_info_ = {};
 
+    cl::Buffer dummy_buffer_;
     cl::Buffer triangle_buffer_;
     cl::Buffer material_buffer_;
     cl::Buffer texture_buffer_;
