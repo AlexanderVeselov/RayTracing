@@ -52,20 +52,32 @@ Render::Render(Window& window)
 
     cl_context_ = std::make_shared<CLContext>(all_platforms[0], window_.GetDisplayContext(), window_.GetGLContext());
 
-    scene_ = std::make_unique<Scene>("meshes/CornellBox_Dragon.obj", *cl_context_);
+#ifndef NDEBUG
+    //char const* scene_path = "assets/CornellBox_Dragon.obj";
+    char const* scene_path = "assets/ShaderBalls.obj";
+    float scene_scale = 1.0f;
+    bool flip_yz = false;
+#else
+
+    char const* scene_path = "assets/sponzaPBR.obj";
+    float scene_scale = 0.005f;
+    bool flip_yz = true;
+#endif
+
+    scene_ = std::make_unique<Scene>(scene_path, *cl_context_, scene_scale, flip_yz);
 
     auto get_rand = [](float min, float max)
     {
         return min + (float)rand() / RAND_MAX * (max - min);
     };
 
-    scene_->AddDirectionalLight({-1.0f, -1.0f, 1.0f }, { 5.0f, 5.0f, 5.0f });
+    scene_->AddDirectionalLight({ -0.6f, -1.5f, 1.5f }, { 15.0f, 10.0f, 5.0f });
 
     //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
 
-    //for (int i = 0; i < 100; ++i)
+    //for (int i = 0; i < 10; ++i)
     //{
-    //    scene_->AddPointLight({ get_rand(-1.0f, 1.0f), get_rand(-1.0f, 1.0f), 2.0f },
+    //    scene_->AddPointLight({ i - 5.0f, 0.0f, 2.0f },
     //        { get_rand(0.0f, 10.0f), get_rand(0.0f, 50.0f), get_rand(0.0f, 50.0f) });
     //}
 

@@ -80,6 +80,8 @@ namespace args
             kAnalyticLightsBuffer,
             kEmissiveIndicesBuffer,
             kMaterialsBuffer,
+            kTexturesBuffer,
+            kTextureDataBuffer,
             kBounce,
             kWidth,
             kHeight,
@@ -249,41 +251,41 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     // Setup reset kernel
     kernels.reset->SetArgument(0, &width_, sizeof(width_));
     kernels.reset->SetArgument(1, &height_, sizeof(height_));
-    kernels.reset->SetArgument(2, &radiance_buffer_, sizeof(radiance_buffer_));
+    kernels.reset->SetArgument(2, radiance_buffer_);
 
     // Setup raygen kernel
     kernels.raygen->SetArgument(args::Raygen::kWidth, &width_, sizeof(width_));
     kernels.raygen->SetArgument(args::Raygen::kHeight, &height_, sizeof(height_));
-    kernels.raygen->SetArgument(args::Raygen::kRayBuffer, &rays_buffer_[0], sizeof(rays_buffer_[0]));
-    kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, &ray_counter_buffer_[0], sizeof(ray_counter_buffer_[0]));
-    kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, &pixel_indices_buffer_[0], sizeof(pixel_indices_buffer_[0]));
-    kernels.raygen->SetArgument(args::Raygen::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
+    kernels.raygen->SetArgument(args::Raygen::kRayBuffer, rays_buffer_[0]);
+    kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, ray_counter_buffer_[0]);
+    kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
+    kernels.raygen->SetArgument(args::Raygen::kThroughputsBuffer, throughputs_buffer_);
 
     // Setup miss kernel
-    kernels.miss->SetArgument(args::Miss::kHitsBuffer, &hits_buffer_, sizeof(hits_buffer_));
-    kernels.miss->SetArgument(args::Miss::kThroughputsBuffer, &throughputs_buffer_, sizeof(throughputs_buffer_));
-    kernels.miss->SetArgument(args::Miss::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
+    kernels.miss->SetArgument(args::Miss::kHitsBuffer, hits_buffer_);
+    kernels.miss->SetArgument(args::Miss::kThroughputsBuffer, throughputs_buffer_);
+    kernels.miss->SetArgument(args::Miss::kRadianceBuffer, radiance_buffer_);
 
     // Setup hit surface kernel
 
     // Setup accumulate direct samples kernel
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowHitsBuffer,
-        &shadow_hits_buffer_, sizeof(shadow_hits_buffer_));
+        shadow_hits_buffer_);
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowRayCounterBuffer,
-        &shadow_ray_counter_buffer_, sizeof(shadow_ray_counter_buffer_));
+        shadow_ray_counter_buffer_);
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kShadowPixelIndicesBuffer,
-        &shadow_pixel_indices_buffer_, sizeof(shadow_pixel_indices_buffer_));
+        shadow_pixel_indices_buffer_);
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kDirectLightSamplesBuffer,
-        &direct_light_samples_buffer_, sizeof(direct_light_samples_buffer_));
+        direct_light_samples_buffer_);
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kRadianceBuffer,
-        &radiance_buffer_, sizeof(radiance_buffer_));
+        radiance_buffer_);
 
     // Setup resolve kernel
     kernels.resolve->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
     kernels.resolve->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
-    kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, &sample_counter_buffer_, sizeof(sample_counter_buffer_));
-    kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, &radiance_buffer_, sizeof(radiance_buffer_));
-    kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, &output_image_mem, sizeof(output_image_mem));
+    kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
 
     return kernels;
 }
@@ -340,20 +342,16 @@ void PathTraceIntegrator::SetCameraData(Camera const& camera)
 void PathTraceIntegrator::SetSceneData(Scene const& scene)
 {
     // Set scene buffers
-    cl_mem triangle_buffer = scene.GetTriangleBuffer();
-    cl_mem analytic_lights_buffer = scene.GetAnalyticLightBuffer();
-    cl_mem emissive_indices_buffer = scene.GetEmissiveIndicesBuffer();
-    cl_mem material_buffer = scene.GetMaterialBuffer();
-    cl_mem env_texture = scene.GetEnvTextureBuffer();
     SceneInfo scene_info = scene.GetSceneInfo();
 
-    kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, &triangle_buffer, sizeof(cl_mem));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kAnalyticLightsBuffer, &analytic_lights_buffer, sizeof(cl_mem));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kEmissiveIndicesBuffer,
-        &emissive_indices_buffer, sizeof(cl_mem));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, &material_buffer, sizeof(cl_mem));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kTrianglesBuffer, scene.GetTriangleBuffer());
+    kernels_.hit_surface->SetArgument(args::HitSurface::kAnalyticLightsBuffer, scene.GetAnalyticLightBuffer());
+    kernels_.hit_surface->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, scene.GetEmissiveIndicesBuffer());
+    kernels_.hit_surface->SetArgument(args::HitSurface::kMaterialsBuffer, scene.GetMaterialBuffer());
+    kernels_.hit_surface->SetArgument(args::HitSurface::kTexturesBuffer, scene.GetTextureBuffer());
+    kernels_.hit_surface->SetArgument(args::HitSurface::kTextureDataBuffer, scene.GetTextureDataBuffer());
     kernels_.hit_surface->SetArgument(args::HitSurface::kSceneInfo, &scene_info, sizeof(scene_info));
-    kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, &env_texture, sizeof(cl_mem));
+    kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, scene.GetEnvTextureBuffer());
 }
 
 void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
@@ -377,8 +375,7 @@ void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
 void PathTraceIntegrator::Reset()
 {
     // Reset frame index
-    kernels_.clear_counter->SetArgument(0, &sample_counter_buffer_,
-        sizeof(sample_counter_buffer_));
+    kernels_.clear_counter->SetArgument(0, sample_counter_buffer_);
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 
     // Reset radiance buffer
@@ -387,8 +384,7 @@ void PathTraceIntegrator::Reset()
 
 void PathTraceIntegrator::AdvanceSampleCount()
 {
-    kernels_.increment_counter->SetArgument(0, &sample_counter_buffer_,
-        sizeof(sample_counter_buffer_));
+    kernels_.increment_counter->SetArgument(0, sample_counter_buffer_);
     cl_context_.ExecuteKernel(*kernels_.increment_counter, 1);
 }
 
@@ -420,12 +416,9 @@ void PathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
 
-    kernels_.miss->SetArgument(args::Miss::kRayBuffer,
-        &rays_buffer_[incoming_idx], sizeof(rays_buffer_[incoming_idx]));
-    kernels_.miss->SetArgument(args::Miss::kPixelIndicesBuffer,
-        &pixel_indices_buffer_[incoming_idx], sizeof(pixel_indices_buffer_[incoming_idx]));
-    kernels_.miss->SetArgument(args::Miss::kRayCounterBuffer,
-        &ray_counter_buffer_[incoming_idx], sizeof(ray_counter_buffer_[incoming_idx]));
+    kernels_.miss->SetArgument(args::Miss::kRayBuffer, rays_buffer_[incoming_idx]);
+    kernels_.miss->SetArgument(args::Miss::kPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
+    kernels_.miss->SetArgument(args::Miss::kRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
     cl_context_.ExecuteKernel(*kernels_.miss, max_num_rays);
 }
 
@@ -437,56 +430,37 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
     // Incoming rays
-    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingRayBuffer,
-        &rays_buffer_[incoming_idx], sizeof(rays_buffer_[incoming_idx]));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingPixelIndicesBuffer,
-        &pixel_indices_buffer_[incoming_idx], sizeof(pixel_indices_buffer_[incoming_idx]));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingRayCounterBuffer,
-        &ray_counter_buffer_[incoming_idx], sizeof(ray_counter_buffer_[incoming_idx]));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingRayBuffer, rays_buffer_[incoming_idx]);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kIncomingRayCounterBuffer,ray_counter_buffer_[incoming_idx]);
 
-    kernels_.hit_surface->SetArgument(args::HitSurface::kHitsBuffer,
-        &hits_buffer_, sizeof(hits_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kHitsBuffer, hits_buffer_);
 
     kernels_.hit_surface->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kWidth,
-        &width_, sizeof(width_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kHeight,
-        &height_, sizeof(height_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kWidth, &width_, sizeof(width_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kHeight, &height_, sizeof(height_));
 
-    kernels_.hit_surface->SetArgument(args::HitSurface::kSampleCounterBuffer,
-        &sample_counter_buffer_, sizeof(sample_counter_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kSampleCounterBuffer, sample_counter_buffer_);
 
-    kernels_.hit_surface->SetArgument(args::HitSurface::kSobolBuffer,
-        &sampler_sobol_buffer_, sizeof(sampler_sobol_buffer_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kScramblingTileBuffer,
-        &sampler_scrambling_tile_buffer_, sizeof(sampler_scrambling_tile_buffer_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kRankingTileBuffer,
-        &sampler_ranking_tile_buffer_, sizeof(sampler_ranking_tile_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kSobolBuffer, sampler_sobol_buffer_);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kScramblingTileBuffer, sampler_scrambling_tile_buffer_);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kRankingTileBuffer, sampler_ranking_tile_buffer_);
 
-    kernels_.hit_surface->SetArgument(args::HitSurface::kThroughputsBuffer,
-        &throughputs_buffer_, sizeof(throughputs_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kThroughputsBuffer, throughputs_buffer_);
 
     // Outgoing rays
-    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayBuffer,
-        &rays_buffer_[outgoing_idx], sizeof(rays_buffer_[outgoing_idx]));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingPixelIndicesBuffer,
-        &pixel_indices_buffer_[outgoing_idx], sizeof(pixel_indices_buffer_[outgoing_idx]));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayCounterBuffer,
-        &ray_counter_buffer_[outgoing_idx], sizeof(ray_counter_buffer_[outgoing_idx]));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayBuffer, rays_buffer_[outgoing_idx]);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingPixelIndicesBuffer, pixel_indices_buffer_[outgoing_idx]);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kOutgoingRayCounterBuffer, ray_counter_buffer_[outgoing_idx]);
 
     // Shadow
-    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayBuffer,
-        &shadow_rays_buffer_, sizeof(shadow_rays_buffer_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayCounterBuffer,
-        &shadow_ray_counter_buffer_, sizeof(shadow_ray_counter_buffer_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowPixelIndicesBuffer,
-        &shadow_pixel_indices_buffer_, sizeof(shadow_pixel_indices_buffer_));
-    kernels_.hit_surface->SetArgument(args::HitSurface::kDirectLightSamplesBuffer,
-        &direct_light_samples_buffer_, sizeof(direct_light_samples_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayBuffer, shadow_rays_buffer_);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowRayCounterBuffer, shadow_ray_counter_buffer_);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kShadowPixelIndicesBuffer, shadow_pixel_indices_buffer_);
+    kernels_.hit_surface->SetArgument(args::HitSurface::kDirectLightSamplesBuffer, direct_light_samples_buffer_);
 
     // Output radiance
-    kernels_.hit_surface->SetArgument(args::HitSurface::kRadianceBuffer,
-        &radiance_buffer_, sizeof(radiance_buffer_));
+    kernels_.hit_surface->SetArgument(args::HitSurface::kRadianceBuffer, radiance_buffer_);
 
     cl_context_.ExecuteKernel(*kernels_.hit_surface, max_num_rays);
 }
@@ -501,15 +475,13 @@ void PathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
-    kernels_.clear_counter->SetArgument(0, &ray_counter_buffer_[outgoing_idx],
-        sizeof(ray_counter_buffer_[outgoing_idx]));
+    kernels_.clear_counter->SetArgument(0, ray_counter_buffer_[outgoing_idx]);
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 }
 
 void PathTraceIntegrator::ClearShadowRayCounter()
 {
-    kernels_.clear_counter->SetArgument(0, &shadow_ray_counter_buffer_,
-        sizeof(shadow_ray_counter_buffer_));
+    kernels_.clear_counter->SetArgument(0, shadow_ray_counter_buffer_);
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 }
 

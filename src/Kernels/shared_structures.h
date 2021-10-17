@@ -64,7 +64,8 @@ typedef struct
 {
     unsigned int analytic_light_count;
     unsigned int emissive_count;
-    unsigned int padding[2];
+    unsigned int environment_map_index;
+    unsigned int padding;
 } SceneInfo;
 
 typedef struct Material
@@ -72,13 +73,13 @@ typedef struct Material
 #ifdef __cplusplus
     Material() {}
 #endif
-    float3 diffuse_albedo;
-    float3 specular_albedo;
-    float3 emission;
+    float4 diffuse_albedo;
+    float4 specular_albedo;
+    float4 emission;
     float roughness;
     float metalness;
     float ior;
-    unsigned int padding;
+    int roughness_idx;
 } Material;
 
 typedef struct
@@ -88,6 +89,14 @@ typedef struct
     unsigned int type;
     unsigned int padding[3];
 } Light;
+
+typedef struct
+{
+    int data_start;
+    int width;
+    int height;
+    int padding;
+} Texture;
 
 typedef struct Vertex
 {

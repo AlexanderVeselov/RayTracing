@@ -8,6 +8,7 @@ set(GPU_WRAPPERS_SOURCES
 set(IO_SOURCES
     io/dds_loader.cpp
     io/hdr_loader.cpp
+    io/image_loader.cpp
     io/image_loader.hpp
 )
 

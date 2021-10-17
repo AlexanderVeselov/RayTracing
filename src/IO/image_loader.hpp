@@ -24,16 +24,16 @@
 
 #pragma once
 
+#include <numeric>
+#include <vector>
+
 class Image
 {
 public:
-    int width, height;
-    // each pixel takes 4 32-bit floats, each component can be of any value...
-    float* colors;
+    std::uint32_t width;
+    std::uint32_t height;
+    std::vector<std::uint32_t> data;
 };
 
-class HDRLoader
-{
-public:
-    static bool Load(const char *fileName, Image &res);
-};
+bool LoadHDR(const char *filename, Image& result);
+bool LoadSTB(const char* filename, Image& result);

@@ -26,7 +26,7 @@ static void WorkOnRGBE(RGBE *scan, int len, float *cols);
 static bool Decrunch(RGBE *scanline, int len, FILE *file);
 static bool OldDecrunch(RGBE *scanline, int len, FILE *file);
 
-bool HDRLoader::Load(const char *fileName, Image &res)
+bool LoadHDR(const char *fileName, Image &res)
 {
     int i;
     char str[200];
@@ -74,8 +74,8 @@ bool HDRLoader::Load(const char *fileName, Image &res)
     res.width = w;
     res.height = h;
 
-    float *cols = new float[w * h * 4];
-    res.colors = cols;
+    res.data.resize(w * h * 4);
+    float* cols = (float*)res.data.data();
 
     RGBE *scanline = new RGBE[w];
     if (!scanline)

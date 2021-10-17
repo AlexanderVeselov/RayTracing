@@ -71,11 +71,8 @@ public:
     
 public:
     float x, y, z;
-
-private:
     // Used for align to 4 bytes
-    float w;
-
+    std::uint32_t padding;
 };
 
 ///@TODO: fix it

@@ -38,6 +38,8 @@ __kernel void HitSurface
     __global Light*    analytic_lights,
     __global uint*     emissive_indices,
     __global Material* materials,
+    __global Texture*  textures,
+    __global uint*     texture_data,
     uint bounce,
     uint width,
     uint height,
@@ -95,13 +97,14 @@ __kernel void HitSurface
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
     Material material = materials[triangle.mtlIndex];
+    ApplyTextures(&material, texcoord, textures, texture_data);
 
     float3 hit_throughput = throughputs[pixel_idx];
 
 #ifndef ENABLE_WHITE_FURNACE
-    if (dot(material.emission, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
+    if (dot(material.emission.xyz, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
-        result_radiance[pixel_idx].xyz += hit_throughput * material.emission;
+        result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
     }
 #endif // ENABLE_WHITE_FURNACE
 
