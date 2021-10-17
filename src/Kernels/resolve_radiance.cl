@@ -38,7 +38,7 @@ __kernel void ResolveRadiance
     int x = global_id % width;
     int y = global_id / width;
 
-    float3 hdr = radiance[global_id].xyz / (float)sample_count;
+    float3 hdr = radiance[global_id].xyz / (float)sample_count * 2.0f;
     float3 ldr = hdr / (hdr + 1.0f);
 
     write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));

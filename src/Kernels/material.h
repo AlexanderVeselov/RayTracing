@@ -174,4 +174,50 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     return bxdf;
 }
 
+float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
+{
+    // Wrap coords
+    uv -= floor(uv);
+    uv.y = 1.f - uv.y;
+
+    int texel_x = clamp((int)(uv.x * texture.width), 0, texture.width - 1);
+    int texel_y = clamp((int)(uv.y * texture.height), 0, texture.height - 1);
+    int texel_addr = texture.data_start + texel_y * texture.width + texel_x;
+
+    float4 color = UnpackRGBA8(texture_data[texel_addr]);
+
+    return clamp(color.xyz, 0.0f, 1.0f);
+}
+
+void ApplyTextures(Material* material, float2 uv, __global Texture* textures, __global uint* texture_data)
+{
+    uint diffuse_albedo_idx = as_uint(material->diffuse_albedo.w);
+
+    if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        material->diffuse_albedo.xyz = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
+    }
+
+    uint specular_albedo_idx = as_uint(material->specular_albedo.w);
+
+    if (specular_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        material->specular_albedo.xyz = SampleTexture(textures[diffuse_albedo_idx], uv, texture_data);
+    }
+
+    uint emission_idx = as_uint(material->emission.w);
+
+    if (emission_idx != INVALID_TEXTURE_IDX)
+    {
+        material->emission.xyz = SampleTexture(textures[emission_idx], uv, texture_data);
+    }
+
+    if (material->roughness_idx != INVALID_TEXTURE_IDX)
+    {
+        material->roughness = SampleTexture(textures[material->roughness_idx], uv, texture_data).x;
+    }
+
+    material->roughness = 0.3;
+}
+
 #endif // MATERIAL_H

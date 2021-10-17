@@ -71,7 +71,7 @@ Render::Render(Window& window)
         return min + (float)rand() / RAND_MAX * (max - min);
     };
 
-    scene_->AddDirectionalLight({-1.0f, -1.0f, 2.0f }, { 15.0f, 15.0f, 12.0f });
+    scene_->AddDirectionalLight({ -0.6f, -1.5f, 1.5f }, { 15.0f, 10.0f, 5.0f });
 
     //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
 

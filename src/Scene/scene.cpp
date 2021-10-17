@@ -135,6 +135,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         if (do_flip)
         {
             std::swap(vec.y, vec.z);
+            vec.y = -vec.y;
         }
     };
 
@@ -200,11 +201,6 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             flip_vector(v2.normal, flip_yz);
             flip_vector(v3.position, flip_yz);
             flip_vector(v3.normal, flip_yz);
-
-            if (flip_yz)
-            {
-                std::swap(v1, v2);
-            }
 
             if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
             {
@@ -353,7 +349,7 @@ void Scene::Finalize()
     image_format.image_channel_data_type = CL_FLOAT;
 
     Image image;
-    LoadHDR("assets/ibl/Topanga_Forest_B_3k.hdr", image);
+    LoadHDR("assets/ibl/CGSkies_0036_free.hdr", image);
     env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         image_format, image.width, image.height, 0, image.data.data(), &status);
     ThrowIfFailed(status, "Failed to create environment image");
