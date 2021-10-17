@@ -210,7 +210,7 @@ void Render::RenderFrame()
     framebuffer_->Present();
 
     // Draw GUI
-    //DrawGUI();
+    DrawGUI();
 
     FrameEnd();
 }

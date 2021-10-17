@@ -216,8 +216,6 @@ void ApplyTextures(Material* material, float2 uv, __global Texture* textures, __
     {
         material->roughness = SampleTexture(textures[material->roughness_idx], uv, texture_data).x;
     }
-
-    material->roughness = 0.3;
 }
 
 #endif // MATERIAL_H
