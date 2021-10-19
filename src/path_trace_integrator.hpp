@@ -56,6 +56,7 @@ private:
     {
         std::unique_ptr<CLKernel> raygen;
         std::unique_ptr<CLKernel> miss;
+        std::unique_ptr<CLKernel> aov;
         std::unique_ptr<CLKernel> hit_surface;
         std::unique_ptr<CLKernel> accumulate_direct_samples;
         std::unique_ptr<CLKernel> reset;
@@ -69,6 +70,7 @@ private:
     void AdvanceSampleCount();
     void GenerateRays();
     void IntersectRays(std::uint32_t bounce);
+    void ComputeAOVs();
     void ShadeMissedRays(std::uint32_t bounce);
     void ShadeSurfaceHits(std::uint32_t bounce);
     void IntersectShadowRays();

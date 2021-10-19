@@ -67,6 +67,19 @@ namespace args
         };
     }
 
+    namespace Aov
+    {
+        enum
+        {
+            // Input
+            kHits,
+            kTrianglesBuffer,
+            // Output
+            kVelocity,
+            kDepth
+        };
+    }
+
     namespace HitSurface
     {
         enum
@@ -352,6 +365,7 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
     kernels_.hit_surface->SetArgument(args::HitSurface::kTextureDataBuffer, scene.GetTextureDataBuffer());
     kernels_.hit_surface->SetArgument(args::HitSurface::kSceneInfo, &scene_info, sizeof(scene_info));
     kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, scene.GetEnvTextureBuffer());
+    kernels_.aov->SetArgument(args::Aov::kTrianglesBuffer, scene.GetTriangleBuffer());
 }
 
 void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
@@ -401,6 +415,15 @@ void PathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 
     acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
         max_num_rays, hits_buffer_);
+}
+
+void PathTraceIntegrator::ComputeAOVs()
+{
+    std::uint32_t max_num_rays = width_ * height_;
+
+    kernels_.aov->SetArgument(args::Aov::kHits, hits_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kDepth, ray_counter_buffer_[incoming_idx]);
+    cl_context_.ExecuteKernel(*kernels_.aov, max_num_rays);
 }
 
 void PathTraceIntegrator::IntersectShadowRays()
@@ -507,6 +530,10 @@ void PathTraceIntegrator::Integrate()
     for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
+        if (bounce == 0)
+        {
+            ComputeAOVs();
+        }
         ShadeMissedRays(bounce);
         ClearOutgoingRayCounter(bounce);
         ClearShadowRayCounter();
