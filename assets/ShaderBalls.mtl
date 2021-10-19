@@ -135,7 +135,6 @@ newmtl floor
 	Kd 0.8880 0.8880 0.8880
 	Ks 0.0000 0.0000 0.0000
 	Ke 0.0000 0.0000 0.0000
-	map_Kd Sponza_Bricks_a_Albedo.tga
 
 newmtl light
 	Ns 10.0000
