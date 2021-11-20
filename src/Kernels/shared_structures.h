@@ -68,18 +68,18 @@ typedef struct
     unsigned int padding;
 } SceneInfo;
 
-typedef struct Material
+typedef struct
 {
-#ifdef __cplusplus
-    Material() {}
-#endif
     float4 diffuse_albedo;
     float4 specular_albedo;
     float4 emission;
     float roughness;
+    unsigned int roughness_idx;
     float metalness;
-    float ior;
-    int roughness_idx;
+    unsigned int metalness_idx;
+    float opacity;
+    unsigned int opacity_idx;
+    int padding[2];
 } Material;
 
 typedef struct

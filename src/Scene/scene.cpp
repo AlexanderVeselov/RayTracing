@@ -126,8 +126,6 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         }
 
         out_material.metalness = in_material.metallic;
-
-        out_material.ior = in_material.ior;
     }
 
     auto flip_vector = [](float3& vec, bool do_flip)

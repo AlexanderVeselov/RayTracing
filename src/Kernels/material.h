@@ -95,7 +95,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float alpha = roughness * roughness;
 
     // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0_dielectric = IorToF0(1.0f, DEFAULT_IOR);
     float3 f0_metal = material.specular_albedo.xyz;
 
     // Blend f0 values based on metalness
@@ -129,7 +129,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     float alpha = roughness * roughness;
 
     // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0_dielectric = IorToF0(1.0f, DEFAULT_IOR);
     float3 f0_metal = material.specular_albedo.xyz;
 
     // Blend f0 values based on metalness
