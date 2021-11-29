@@ -81,6 +81,13 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha,
     }
 }
 
+float3 SampleTransparency(float2 s, float3 normal, float3 incoming, float3* outgoing, float* pdf)
+{
+    *pdf = 1.0f;
+    *outgoing = -incoming;
+    return 1.0f;
+}
+
 float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
 {
     float D = GGX_D(alpha, n_dot_h);
@@ -96,6 +103,11 @@ float3 EvaluateDiffuse(float3 albedo)
 
 float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
 {
+    if (material.transparency < 0.5)
+    {
+        return (float3)(0.0f, 0.0f, 0.0f);
+    }
+
     float3 half_vec = normalize(incoming + outgoing);
     float n_dot_i = max(dot(normal, incoming), EPS);
     float n_dot_o = max(dot(normal, outgoing), EPS);
@@ -129,7 +141,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf)
+    float3 incoming, float3* outgoing, float* pdf, float* offset)
 {
 #ifdef ENABLE_WHITE_FURNACE
     material.diffuse_albedo.xyz = 1.0f;
@@ -169,17 +181,25 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     //@TODO: evaluate all layers at once?
 
     float3 bxdf = 0.0f;
+    *offset = 1.0f;
+
+    if (material.transparency < 0.5)
+    {
+        bxdf = SampleTransparency(s, normal, incoming, outgoing, pdf);
+        *offset = -1.0f;
+        return bxdf;
+    }
 
     if (s1 <= specular_sampling_pdf)
     {
         // Sample specular
-        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf);
+        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf) * max(dot(*outgoing, normal), 0.0f);
         *pdf *= specular_sampling_pdf;
     }
     else
     {
         // Sample diffuse
-        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf);
+        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf) * max(dot(*outgoing, normal), 0.0f);
         *pdf *= diffuse_sampling_pdf;
     }
 
@@ -249,7 +269,7 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
 
     if (transparency_idx != INVALID_TEXTURE_IDX)
     {
-        out_material->transparency = SampleTexture(textures[transparency_idx], uv, texture_data).x;
+        out_material->transparency *= SampleTexture(textures[transparency_idx], uv, texture_data).x;
     }
 }
 

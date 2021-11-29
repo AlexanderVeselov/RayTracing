@@ -90,6 +90,8 @@ __kernel void HitSurface
     float3 position = InterpolateAttributes(triangle.v1.position,
         triangle.v2.position, triangle.v3.position, hit.bc);
 
+    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position, triangle.v3.position - triangle.v1.position));
+
     float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
         triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
 
@@ -153,11 +155,12 @@ __kernel void HitSurface
         float pdf = 0.0f;
         float3 throughput = 0.0f;
         float3 outgoing;
-        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf);
+        float offset;
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf, &offset);
 
         if (pdf > 0.0)
         {
-            throughput = bxdf / pdf * max(dot(outgoing, normal), 0.0f);
+            throughput = bxdf / pdf;
         }
 
         throughputs[pixel_idx] *= throughput;
@@ -170,7 +173,7 @@ __kernel void HitSurface
             uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
 
             Ray outgoing_ray;
-            outgoing_ray.origin.xyz = position + normal * EPS;
+            outgoing_ray.origin.xyz = position + geometry_normal * EPS * offset;
             outgoing_ray.origin.w = 0.0f;
             outgoing_ray.direction.xyz = outgoing;
             outgoing_ray.direction.w = MAX_RENDER_DIST;

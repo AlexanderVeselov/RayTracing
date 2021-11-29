@@ -192,6 +192,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             LoadTexture((path_to_folder + in_material.emissive_texname).c_str()),
             in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + in_material.alpha_texname).c_str()));
+
     }
 
     auto flip_vector = [](float3& vec, bool do_flip)
