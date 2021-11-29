@@ -205,22 +205,22 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
     __global Texture* textures, __global uint* texture_data)
 {
     uint diffuse_albedo_idx;
-    out_material->diffuse_albedo = pow(UnpackRGBTex(in_material.diffuse_albedo, &diffuse_albedo_idx), 2.2f);
+    out_material->diffuse_albedo = UnpackRGBTex(in_material.diffuse_albedo, &diffuse_albedo_idx);
 
     if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
+        //out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
     }
 
     uint specular_albedo_idx;
-    out_material->specular_albedo = pow(UnpackRGBTex(in_material.specular_albedo, &specular_albedo_idx), 2.2f);
+    out_material->specular_albedo = UnpackRGBTex(in_material.specular_albedo, &specular_albedo_idx);
 
     if (specular_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        out_material->specular_albedo = pow(SampleTexture(textures[specular_albedo_idx], uv, texture_data), 2.2f);
+        //out_material->specular_albedo = pow(SampleTexture(textures[specular_albedo_idx], uv, texture_data), 2.2f);
     }
 
-    out_material->emission = UnpackRGBE(in_material.emission);
+    out_material->emission = (float3)(0.0f, 0.0f, 0.0f);//UnpackRGBE(in_material.emission);
 
     uint roughness_idx;
     uint metalness_idx;

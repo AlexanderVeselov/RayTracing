@@ -171,9 +171,9 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             LoadTexture((path_to_folder + in_material.diffuse_texname).c_str()));
 
         out_material.specular_albedo = PackAlbedo(
-            pow(in_material.specular[1], kGamma), // R
-            pow(in_material.specular[2], kGamma), // G
-            pow(in_material.specular[0], kGamma), // B
+            pow(in_material.specular[0], kGamma), // R
+            pow(in_material.specular[1], kGamma), // G
+            pow(in_material.specular[2], kGamma), // B
             in_material.specular_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + in_material.specular_texname).c_str()));
 
