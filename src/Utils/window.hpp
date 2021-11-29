@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <numeric>
+#include <cstdint>
 
 class Window
 {

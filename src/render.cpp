@@ -59,7 +59,7 @@ Render::Render(Window& window)
     bool flip_yz = false;
 #else
 
-    char const* scene_path = "assets/sponzaPBR.obj";
+    char const* scene_path = "../Scenes/SponzaPBR/sponzaPBR.obj";
     float scene_scale = 0.005f;
     bool flip_yz = true;
 #endif
@@ -71,7 +71,7 @@ Render::Render(Window& window)
         return min + (float)rand() / RAND_MAX * (max - min);
     };
 
-    scene_->AddDirectionalLight({ -0.6f, -1.5f, 1.5f }, { 15.0f, 10.0f, 5.0f });
+    scene_->AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
 
     //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
 
