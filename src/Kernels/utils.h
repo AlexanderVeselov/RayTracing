@@ -91,7 +91,7 @@ float3 UnpackRGBE(uint rgbe)
     int b = (int)(rgbe >> 16) & 0xFF;
     int e = (int)(rgbe >> 24);
 
-    float f = ldexp(1.0f, e - 128 + 8);
+    float f = ldexp(1.0f, e - (128 + 8));
     return (float3)(r, g, b) * f;
 }
 

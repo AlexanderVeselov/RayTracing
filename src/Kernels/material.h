@@ -209,7 +209,7 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
 
     if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        //out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
+        out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
     }
 
     uint specular_albedo_idx;
@@ -217,10 +217,10 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
 
     if (specular_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        //out_material->specular_albedo = pow(SampleTexture(textures[specular_albedo_idx], uv, texture_data), 2.2f);
+        out_material->specular_albedo = pow(SampleTexture(textures[specular_albedo_idx], uv, texture_data), 2.2f);
     }
 
-    out_material->emission = (float3)(0.0f, 0.0f, 0.0f);//UnpackRGBE(in_material.emission);
+    out_material->emission = UnpackRGBE(in_material.emission);
 
     uint roughness_idx;
     uint metalness_idx;
