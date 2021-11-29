@@ -58,6 +58,82 @@ std::vector<Triangle>& Scene::GetTriangles()
     return triangles_;
 }
 
+namespace
+{
+unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
+{
+    assert(texture_index < 256);
+    r = clamp(r, 0.0f, 1.0f);
+    g = clamp(g, 0.0f, 1.0f);
+    b = clamp(b, 0.0f, 1.0f);
+    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8)
+         | ((unsigned int)(b * 255.0f) << 16) | (texture_index << 24);
+}
+
+unsigned int PackRGBE(float r, float g, float b)
+{
+    // Make sure the values are not negative
+    r = std::max(r, 0.0f);
+    g = std::max(g, 0.0f);
+    b = std::max(b, 0.0f);
+
+    float v = r;
+    if (g > v) v = g;
+    if (b > v) v = b;
+
+    if (v < 1e-32f)
+    {
+        return 0;
+    }
+    else
+    {
+        int e;
+        v = frexp(v, &e) * 256.0f / v;
+        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8)
+            | ((unsigned int)(b * v) << 16) | ((e + 128) << 24);
+    }
+}
+
+float3 UnpackRGBE(unsigned int rgbe)
+{
+    float f;
+    int r = (rgbe >> 0) & 0xFF;
+    int g = (rgbe >> 8) & 0xFF;
+    int b = (rgbe >> 16) & 0xFF;
+    int exp = rgbe >> 24;
+
+    if (exp)
+    {   /*nonzero pixel*/
+        f = ldexp(1.0f, exp - (int)(128 + 8));
+        return float3((float)r, (float)g, (float)b) * f;
+    }
+    else
+    {
+        return 0.0;
+    }
+}
+
+unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx,
+    float metalness, std::uint32_t metalness_idx)
+{
+    assert(roughness_idx < 256 && metalness_idx < 256);
+    roughness = clamp(roughness, 0.0f, 1.0f);
+    metalness = clamp(metalness, 0.0f, 1.0f);
+    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8)
+        | ((unsigned int)(metalness * 255.0f) << 16) | (metalness_idx << 24);
+}
+
+unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_idx,
+    float transparency, std::uint32_t transparency_idx)
+{
+    assert(emission_idx < 256 && transparency_idx < 256);
+    ior = clamp(ior, 0.0f, 10.0f);
+    transparency = clamp(transparency, 0.0f, 1.0f);
+    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
+        | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
+}
+}
+
 void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
     std::cout << "Loading object file " << filename << std::endl;
@@ -79,7 +155,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     materials_.resize(materials.size());
 
     const float kGamma = 2.2f;
-    const std::uint32_t kInvalidTextureIndex = 0xFFFFFFFF;
+    const std::uint32_t kInvalidTextureIndex = 0xFF;
 
     for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
@@ -87,47 +163,35 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         auto const& in_material = materials[material_idx];
 
         // Convert from sRGB to linear
-        out_material.diffuse_albedo.x = pow(in_material.diffuse[0], kGamma);
-        out_material.diffuse_albedo.y = pow(in_material.diffuse[1], kGamma);
-        out_material.diffuse_albedo.z = pow(in_material.diffuse[2], kGamma);
-        out_material.diffuse_albedo.padding = kInvalidTextureIndex;
+        out_material.diffuse_albedo = PackAlbedo(
+            pow(in_material.diffuse[0], kGamma), // R
+            pow(in_material.diffuse[1], kGamma), // G
+            pow(in_material.diffuse[2], kGamma), // B
+            in_material.diffuse_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.diffuse_texname).c_str()));
 
-        if (!in_material.diffuse_texname.empty())
-        {
-            out_material.diffuse_albedo.padding = LoadTexture((path_to_folder + in_material.diffuse_texname).c_str());
-        }
+        out_material.specular_albedo = PackAlbedo(
+            pow(in_material.specular[1], kGamma), // R
+            pow(in_material.specular[2], kGamma), // G
+            pow(in_material.specular[0], kGamma), // B
+            in_material.specular_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.specular_texname).c_str()));
 
-        out_material.specular_albedo.x = pow(in_material.specular[0], kGamma);
-        out_material.specular_albedo.y = pow(in_material.specular[1], kGamma);
-        out_material.specular_albedo.z = pow(in_material.specular[2], kGamma);
-        out_material.specular_albedo.padding = kInvalidTextureIndex;
+        out_material.emission = PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
 
-        if (!in_material.specular_texname.empty())
-        {
-            out_material.specular_albedo.padding = LoadTexture((path_to_folder + in_material.specular_texname).c_str());
-        }
+        out_material.roughness_metalness = PackRoughnessMetalness(
+            in_material.roughness,
+            in_material.roughness_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.roughness_texname).c_str()),
+            in_material.metallic,
+            in_material.metallic_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.metallic_texname).c_str()));
 
-        out_material.emission.x = in_material.emission[0];
-        out_material.emission.y = in_material.emission[1];
-        out_material.emission.z = in_material.emission[2];
-        out_material.emission.padding = kInvalidTextureIndex;
-
-        if (!in_material.emissive_texname.empty())
-        {
-            out_material.emission.padding = LoadTexture((path_to_folder + in_material.emissive_texname).c_str());
-        }
-
-        out_material.roughness = in_material.roughness;
-        out_material.roughness_idx = kInvalidTextureIndex;
-
-        if (!in_material.roughness_texname.empty())
-        {
-            out_material.roughness_idx = LoadTexture((path_to_folder + in_material.roughness_texname).c_str());
-        }
-
-        out_material.metalness = in_material.metallic;
-
-        out_material.ior = in_material.ior;
+        out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(
+            in_material.ior, in_material.emissive_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.emissive_texname).c_str()),
+            in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
+            LoadTexture((path_to_folder + in_material.alpha_texname).c_str()));
     }
 
     auto flip_vector = [](float3& vec, bool do_flip)
@@ -271,7 +335,7 @@ void Scene::CollectEmissiveTriangles()
     for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
     {
         auto const& triangle = triangles_[triangle_idx];
-        auto const& emission = materials_[triangle.mtlIndex].emission;
+        float3 emission = UnpackRGBE(materials_[triangle.mtlIndex].emission);
 
         if (emission.x + emission.y + emission.z > 0.0f)
         {
@@ -311,7 +375,7 @@ void Scene::Finalize()
 
     assert(!materials_.empty());
     material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        materials_.size() * sizeof(Material), materials_.data(), &status);
+        materials_.size() * sizeof(PackedMaterial), materials_.data(), &status);
     ThrowIfFailed(status, "Failed to create material buffer");
 
     if (!emissive_indices_.empty())

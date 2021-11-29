@@ -58,7 +58,7 @@ private:
     CLContext& cl_context_;
     std::vector<Triangle> triangles_;
     std::vector<std::uint32_t> emissive_indices_;
-    std::vector<Material> materials_;
+    std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
     std::vector<Texture> textures_;
     std::vector<std::uint32_t> texture_data_;

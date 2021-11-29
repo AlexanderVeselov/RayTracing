@@ -68,19 +68,14 @@ typedef struct
     unsigned int padding;
 } SceneInfo;
 
-typedef struct Material
+typedef struct
 {
-#ifdef __cplusplus
-    Material() {}
-#endif
-    float4 diffuse_albedo;
-    float4 specular_albedo;
-    float4 emission;
-    float roughness;
-    float metalness;
-    float ior;
-    int roughness_idx;
-} Material;
+    unsigned int diffuse_albedo;                // 24 bit - RGB, 8 bit - texture index
+    unsigned int specular_albedo;               // 24 bit - RGB, 8 bit - texture index
+    unsigned int emission;                      // 32 bit - RGBE
+    unsigned int roughness_metalness;           // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
+    unsigned int ior_emission_idx_transparency; // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
+} PackedMaterial;
 
 typedef struct
 {

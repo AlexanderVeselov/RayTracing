@@ -27,6 +27,18 @@
 
 #include "bxdf.h"
 #include "utils.h"
+#include "shared_structures.h"
+
+typedef struct
+{
+    float3 diffuse_albedo;
+    float  roughness;
+    float3 specular_albedo;
+    float  metalness;
+    float3 emission;
+    float  ior;
+    float  transparency;
+} Material;
 
 float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
     float3 incoming, float3* outgoing, float* pdf)
@@ -189,32 +201,55 @@ float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
     return clamp(color.xyz, 0.0f, 1.0f);
 }
 
-void ApplyTextures(Material* material, float2 uv, __global Texture* textures, __global uint* texture_data)
+void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv,
+    __global Texture* textures, __global uint* texture_data)
 {
-    uint diffuse_albedo_idx = as_uint(material->diffuse_albedo.w);
+    uint diffuse_albedo_idx;
+    out_material->diffuse_albedo = pow(UnpackRGBTex(in_material.diffuse_albedo, &diffuse_albedo_idx), 2.2f);
 
     if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material->diffuse_albedo.xyz = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
+        out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
     }
 
-    uint specular_albedo_idx = as_uint(material->specular_albedo.w);
+    uint specular_albedo_idx;
+    out_material->specular_albedo = pow(UnpackRGBTex(in_material.specular_albedo, &specular_albedo_idx), 2.2f);
 
     if (specular_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material->specular_albedo.xyz = SampleTexture(textures[diffuse_albedo_idx], uv, texture_data);
+        out_material->specular_albedo = pow(SampleTexture(textures[specular_albedo_idx], uv, texture_data), 2.2f);
     }
 
-    uint emission_idx = as_uint(material->emission.w);
+    out_material->emission = UnpackRGBE(in_material.emission);
+
+    uint roughness_idx;
+    uint metalness_idx;
+    UnpackRoughnessMetalness(in_material.roughness_metalness, &out_material->roughness, &roughness_idx,
+        &out_material->metalness, &metalness_idx);
+
+    if (roughness_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material->roughness = SampleTexture(textures[roughness_idx], uv, texture_data).x;
+    }
+
+    if (metalness_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material->metalness = SampleTexture(textures[metalness_idx], uv, texture_data).x;
+    }
+
+    uint emission_idx;
+    uint transparency_idx;
+    UnpackIorEmissionIdxTransparency(in_material.ior_emission_idx_transparency,
+        &out_material->ior, &emission_idx, &out_material->transparency, &transparency_idx);
 
     if (emission_idx != INVALID_TEXTURE_IDX)
     {
-        material->emission.xyz = SampleTexture(textures[emission_idx], uv, texture_data);
+        out_material->emission *= pow(SampleTexture(textures[emission_idx], uv, texture_data), 2.2f);
     }
 
-    if (material->roughness_idx != INVALID_TEXTURE_IDX)
+    if (transparency_idx != INVALID_TEXTURE_IDX)
     {
-        material->roughness = SampleTexture(textures[material->roughness_idx], uv, texture_data).x;
+        out_material->transparency = SampleTexture(textures[transparency_idx], uv, texture_data).x;
     }
 }
 

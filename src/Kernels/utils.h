@@ -66,12 +66,51 @@ unsigned int WangHash(unsigned int x)
 
 float4 UnpackRGBA8(uint data)
 {
-    float r = (float)((data & 0x000000FF));
-    float g = (float)((data & 0x0000FF00) >> 8);
-    float b = (float)((data & 0x00FF0000) >> 16);
-    float a = (float)((data & 0xFF000000) >> 24);
+    float r = (float)( data        & 0xFF);
+    float g = (float)((data >>  8) & 0xFF);
+    float b = (float)((data >> 16) & 0xFF);
+    float a = (float)((data >> 24) & 0xFF);
 
     return (float4)(r, g, b, a) / 255.0f;
+}
+
+float3 UnpackRGBTex(uint data, uint* texture_idx)
+{
+    float r = (float)(data & 0xFF);
+    float g = (float)((data >> 8) & 0xFF);
+    float b = (float)((data >> 16) & 0xFF);
+    *texture_idx =   ((data >> 24) & 0xFF);
+
+    return (float3)(r, g, b) / 255.0f;
+}
+
+float3 UnpackRGBE(uint rgbe)
+{
+    int r = (int)(rgbe >> 0 ) & 0xFF;
+    int g = (int)(rgbe >> 8 ) & 0xFF;
+    int b = (int)(rgbe >> 16) & 0xFF;
+    int e = (int)(rgbe >> 24);
+
+    float f = ldexp(1.0f, e - 128 + 8);
+    return (float3)(r, g, b) * f;
+}
+
+void UnpackRoughnessMetalness(uint data, float* roughness, uint* roughness_idx,
+    float* metalness, uint* metalness_idx)
+{
+    *roughness = (float)((data >> 0 ) & 0xFF) / 255.0f;
+    *roughness_idx =    ((data >> 8 ) & 0xFF);
+    *metalness = (float)((data >> 16) & 0xFF) / 255.0f;
+    *metalness_idx =    ((data >> 24) & 0xFF);
+}
+
+void UnpackIorEmissionIdxTransparency(uint data, float* ior, uint* emission_idx,
+    float* transparency, uint* transparency_idx)
+{
+    *ior = (float)((data >> 0) & 0xFF) / 25.5f;
+    *emission_idx = ((data >> 8) & 0xFF);
+    *transparency = (float)((data >> 16) & 0xFF) / 255.0f;
+    *transparency_idx = ((data >> 24) & 0xFF);
 }
 
 #endif // UTILS_H

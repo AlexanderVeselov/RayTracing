@@ -30,16 +30,16 @@
 __kernel void HitSurface
 (
     // Input
-    __global Ray*      incoming_rays,
-    __global uint*     incoming_ray_counter,
-    __global uint*     incoming_pixel_indices,
-    __global Hit*      hits,
-    __global Triangle* triangles,
-    __global Light*    analytic_lights,
-    __global uint*     emissive_indices,
-    __global Material* materials,
-    __global Texture*  textures,
-    __global uint*     texture_data,
+    __global Ray*            incoming_rays,
+    __global uint*           incoming_ray_counter,
+    __global uint*           incoming_pixel_indices,
+    __global Hit*            hits,
+    __global Triangle*       triangles,
+    __global Light*          analytic_lights,
+    __global uint*           emissive_indices,
+    __global PackedMaterial* materials,
+    __global Texture*        textures,
+    __global uint*           texture_data,
     uint bounce,
     uint width,
     uint height,
@@ -96,8 +96,9 @@ __kernel void HitSurface
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
-    Material material = materials[triangle.mtlIndex];
-    ApplyTextures(&material, texcoord, textures, texture_data);
+    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    Material material;
+    ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     float3 hit_throughput = throughputs[pixel_idx];
 
