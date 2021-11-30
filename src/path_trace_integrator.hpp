@@ -92,6 +92,7 @@ private:
     // Render size
     std::uint32_t width_;
     std::uint32_t height_;
+    Camera prev_camera_ = {};
 
     std::uint32_t max_bounces_ = 5u;
     SamplerType sampler_type_ = SamplerType::kRandom;

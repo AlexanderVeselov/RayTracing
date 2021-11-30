@@ -27,6 +27,25 @@
 #include "sampling.h"
 #include "light.h"
 
+float frac1(float x)
+{
+    return x - (int)x;
+}
+
+float2 ProjectScreen(float3 position, Camera camera)
+{
+    float3 d = normalize(position - camera.position);
+
+    float3 ipd = d / dot(camera.front, d);
+    float angle = tan(0.5f * camera.fov);
+
+    float3 right = cross(camera.front, camera.up);
+    float u = dot(right, ipd) / (angle * camera.aspect_ratio);
+    float v = dot(camera.up, ipd) / (angle);
+
+    return (float2)(u, v) * 0.5f + 0.5f;
+}
+
 __kernel void GenerateAOV
 (
     // Input
@@ -40,6 +59,8 @@ __kernel void GenerateAOV
     __global uint*           texture_data,
     uint width,
     uint height,
+    Camera camera,
+    Camera prev_camera,
     // Output
     __global float3* diffuse_albedo,
     __global float*  depth_buffer,
@@ -90,4 +111,5 @@ __kernel void GenerateAOV
     diffuse_albedo[pixel_idx] = material.diffuse_albedo;
     depth_buffer[pixel_idx] = length(ray.origin.xyz - position);
     normal_buffer[pixel_idx] = normal;
+    velocity_buffer[pixel_idx] = ProjectScreen(position, camera) - ProjectScreen(position, prev_camera);
 }

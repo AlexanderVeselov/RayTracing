@@ -80,6 +80,8 @@ namespace args
             kTextureDataBuffer,
             kWidth,
             kHeight,
+            kCamera,
+            kPrevCamera,
             // Output
             kDiffuseAlbedo,
             kDepth,
@@ -343,8 +345,8 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
-    std::uint32_t default_aov = AOV::kShadedColor;
-    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &default_aov, sizeof(default_aov));
+    std::uint32_t aov_index = aov_;
+    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &aov_index, sizeof(aov_index));
 
     return kernels;
 }
@@ -378,6 +380,9 @@ void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
 void PathTraceIntegrator::SetCameraData(Camera const& camera)
 {
     kernels_.raygen->SetArgument(args::Raygen::kCamera, &camera, sizeof(camera));
+    kernels_.aov->SetArgument(args::Aov::kCamera, &camera, sizeof(camera));
+    kernels_.aov->SetArgument(args::Aov::kPrevCamera, &prev_camera_, sizeof(prev_camera_));
+    prev_camera_ = camera;
 }
 
 void PathTraceIntegrator::SetSceneData(Scene const& scene)

@@ -93,18 +93,21 @@ __kernel void RayGeneration
 
     float inv_width = 1.0f / (float)(width);
     float inv_height = 1.0f / (float)(height);
-    float aspect_ratio = (float)(width) / (float)(height);
-    float fov = 75.0f * 3.1415f / 180.0f;
-    float angle = tan(0.5f * fov);
 
     uint sample_idx = sample_counter[0];
     unsigned int seed = pixel_idx + HashUInt32(sample_idx);
 
-    float x = (float)(pixel_x) + GetRandomFloat(&seed) - 0.5f;
-    float y = (float)(pixel_y) + GetRandomFloat(&seed) - 0.5f;
+#if 1
+    float x = (pixel_x + GetRandomFloat(&seed)) * inv_width;
+    float y = (pixel_y + GetRandomFloat(&seed)) * inv_height;
+#else
+    float x = (pixel_x + 0.5f) * inv_width;
+    float y = (pixel_y + 0.5f) * inv_height;
+#endif
 
-    x = (2.0f * ((x + 0.5f) * inv_width) - 1) * angle * aspect_ratio;
-    y = -(1.0f - 2.0f * ((y + 0.5f) * inv_height)) * angle;
+    float angle = tan(0.5f * camera.fov);
+    x = (x * 2.0f - 1.0f) * angle * camera.aspect_ratio;
+    y = (y * 2.0f - 1.0f) * angle;
 
     float3 dir = normalize(x * cross(camera.front, camera.up) + y * camera.up + camera.front);
 
@@ -123,7 +126,7 @@ __kernel void RayGeneration
     rays[ray_idx] = ray;
     pixel_indices[ray_idx] = pixel_idx;
     throughputs[pixel_idx] = (float3)(1.0f, 1.0f, 1.0f);
-    diffuse_albedo[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
+    diffuse_albedo[pixel_idx] = (float3)(pixel_x * inv_width, pixel_y * inv_height, 0.0f);
     depth_buffer[pixel_idx] = MAX_RENDER_DIST;
     normal_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
     velocity_buffer[pixel_idx] = (float2)(0.0f, 0.0f);

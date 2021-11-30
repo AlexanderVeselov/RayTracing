@@ -69,7 +69,7 @@ __kernel void ResolveRadiance
     else if (aov_index == MOTION_VECTORS_INDEX)
     {
         // Motion vectors
-        write_imagef(result, (int2)(x, y), (float4)(1.0f, 0.5f, 0.5f, 1.0f));
+        write_imagef(result, (int2)(x, y), (float4)(motion_vectors[global_id], 0.0f, 1.0f));
     }
     else
     {

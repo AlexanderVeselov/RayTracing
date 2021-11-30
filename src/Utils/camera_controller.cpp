@@ -36,6 +36,8 @@ CameraController::CameraController(Window& window)
 {
     camera_data_.focus_distance = 10.0f;
     camera_data_.position = float3(0.0f, -1.0f, 1.0f);
+    camera_data_.fov = 75.0f * 3.1415f / 180.0f;
+    camera_data_.aspect_ratio = (float)window_.GetWidth() / (float)window_.GetHeight();
 }
 
 void CameraController::Update(float dt)

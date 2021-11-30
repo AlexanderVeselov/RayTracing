@@ -172,9 +172,10 @@ typedef struct
     float3 position;
     float3 front;
     float3 up;
+    float  fov;
+    float  aspect_ratio;
     float  aperture;
     float  focus_distance;
-    unsigned int padding[2];
 } Camera;
 
 #endif // SHARED_STRUCTURES_HPP
