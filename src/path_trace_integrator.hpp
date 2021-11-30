@@ -45,6 +45,7 @@ public:
         kShadedColor,
         kDiffuseAlbedo,
         kDepth,
+        kNormal,
         kMotionVectors
     };
 
@@ -123,6 +124,7 @@ private:
     cl::Buffer radiance_buffer_;
     cl::Buffer diffuse_albedo_buffer_;
     cl::Buffer depth_buffer_;
+    cl::Buffer normal_buffer_;
     cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;
 

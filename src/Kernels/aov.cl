@@ -42,8 +42,9 @@ __kernel void GenerateAOV
     uint height,
     // Output
     __global float3* diffuse_albedo,
-    __global float*  depth,
-    __global float2* velocity
+    __global float*  depth_buffer,
+    __global float3* normal_buffer,
+    __global float2* velocity_buffer
 )
 {
     uint ray_idx = get_global_id(0);
@@ -87,5 +88,6 @@ __kernel void GenerateAOV
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     diffuse_albedo[pixel_idx] = material.diffuse_albedo;
-    depth[pixel_idx] = length(ray.origin.xyz - position);
+    depth_buffer[pixel_idx] = length(ray.origin.xyz - position);
+    normal_buffer[pixel_idx] = normal;
 }

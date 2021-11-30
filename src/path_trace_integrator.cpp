@@ -52,6 +52,7 @@ namespace args
             kThroughputsBuffer,
             kDiffuseAlbedo,
             kDepth,
+            kNormal,
             kVelocity,
         };
     }
@@ -88,6 +89,7 @@ namespace args
             // Output
             kDiffuseAlbedo,
             kDepth,
+            kNormal,
             kVelocity,
         };
     }
@@ -153,6 +155,7 @@ namespace args
             kRadianceBuffer,
             kDiffuseAlbedo,
             kDepth,
+            kNormal,
             kMotionVectors,
             kSampleCounterBuffer,
             // Output
@@ -250,6 +253,10 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create depth buffer");
 
+        normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float3), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create normal buffer");
+
         velocity_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float2), nullptr, &status);
         ThrowIfFailed(status, "Failed to create velocity buffer");
@@ -290,23 +297,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
-
-    std::vector<std::string> resolve_definitions;
-
-    if (aov_ == AOV::kDiffuseAlbedo)
-    {
-        resolve_definitions.push_back("RESOLVE_DIFFUSE_ALBEDO");
-    }
-    else if (aov_ == AOV::kDepth)
-    {
-        resolve_definitions.push_back("RESOLVE_DEPTH");
-    }
-    else if (aov_ == AOV::kMotionVectors)
-    {
-        resolve_definitions.push_back("RESOLVE_MOTION_VECTORS");
-    }
-
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance", resolve_definitions);
+    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -325,6 +316,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.raygen->SetArgument(args::Raygen::kThroughputsBuffer, throughputs_buffer_);
     kernels.raygen->SetArgument(args::Raygen::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels.raygen->SetArgument(args::Raygen::kDepth, depth_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kNormal, normal_buffer_);
     kernels.raygen->SetArgument(args::Raygen::kVelocity, velocity_buffer_);
 
     // Setup miss kernel
@@ -353,6 +345,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
     std::uint32_t default_aov = AOV::kShadedColor;
@@ -506,6 +499,7 @@ void PathTraceIntegrator::ComputeAOVs()
     kernels_.aov->SetArgument(args::Aov::kHeight, &height_, sizeof(height_));
     kernels_.aov->SetArgument(args::Aov::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels_.aov->SetArgument(args::Aov::kDepth, depth_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kNormal, normal_buffer_);
     kernels_.aov->SetArgument(args::Aov::kVelocity, velocity_buffer_);
 
     cl_context_.ExecuteKernel(*kernels_.aov, max_num_rays);
