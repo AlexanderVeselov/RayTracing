@@ -25,46 +25,30 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
+#include "Kernels/shared_structures.h"
 #include <memory>
 
-class Render;
-class Framebuffer;
+class Window;
 
-class Camera
+class CameraController
 {
 public:
-    Camera(Framebuffer& framebuffer, Render& render);
-    void Update();
+    CameraController(Window& window);
+    void Update(float dt);
+    bool IsChanged() const { return is_changed_; }
+    void OnEndFrame() { is_changed_ = false; }
+    Camera const& GetData() const { return camera_data_; }
 
-    float3 GetOrigin()       const { return m_Origin; }
-    float3 GetFrontVector()  const { return m_Front; }
-    float3 GetUpVector()     const { return m_Up; }
-
-    void SetAperture(float aperture) { aperture_ = aperture; }
-    void SetFocusDistance(float focus_distance) { focus_distance_ = focus_distance; }
-    float GetAperture() const { return aperture_; }
-    float GetFocusDistance() const { return focus_distance_; }
-
-    bool IsChanged()        const { return m_Changed; }
-    unsigned int GetFrameCount() const { return m_FrameCount; }
+    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
+    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
 
 private:
-    Render& m_Render;
-    Framebuffer& framebuffer_;
+    Window& window_;
 
-    float3 m_Origin;
-    float3 m_Velocity;
-    float3 m_Front;
-    float3 m_Up;
-
-    float m_Pitch;
-    float m_Yaw;
-    float m_Speed;
-    float aperture_ = 0.0f;
-    float focus_distance_ = 10.0f;
-
-    unsigned int m_FrameCount;
-
-    bool m_Changed;
-
+    bool is_changed_ = true;
+    Camera camera_data_ = {};
+    float3 up_;
+    float pitch_;
+    float yaw_;
+    float speed_;
 };

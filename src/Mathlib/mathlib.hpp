@@ -71,6 +71,7 @@ public:
     
 public:
     float x, y, z;
+private:
     // Used for align to 4 bytes
     std::uint32_t padding;
 };

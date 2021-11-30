@@ -38,14 +38,14 @@ set(MATHLIB_SOURCES
 )
 
 set(SCENE_SOURCES
-    scene/camera.cpp
-    scene/camera.hpp
     scene/scene.cpp
     scene/scene.hpp
 )
 
 set(UTILS_SOURCES
     utils/blue_noise_sampler.hpp
+    utils/camera_controller.cpp
+    utils/camera_controller.hpp
     utils/cl_exception.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp

@@ -26,9 +26,9 @@
 
 #include "path_trace_integrator.hpp"
 #include "acceleration_structure.hpp"
-#include "scene/camera.hpp"
 #include "scene/scene.hpp"
 #include "GpuWrappers/cl_context.hpp"
+#include "utils/camera_controller.hpp"
 #include "utils/framebuffer.hpp"
 #include <memory>
 #include <ctime>
@@ -69,9 +69,9 @@ private:
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
     // Scene
-    std::shared_ptr<Camera>      camera_;
-    std::unique_ptr<Scene>       scene_;
-    std::unique_ptr<Framebuffer> framebuffer_;
+    std::unique_ptr<CameraController> camera_controller_;
+    std::unique_ptr<Scene>            scene_;
+    std::unique_ptr<Framebuffer>      framebuffer_;
 
     struct GuiParams
     {

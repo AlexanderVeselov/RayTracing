@@ -28,7 +28,7 @@
 #include <memory>
 
 class Scene;
-class Camera;
+class CameraController;
 class AccelerationStructure;
 
 class PathTraceIntegrator

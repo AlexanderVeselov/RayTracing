@@ -25,7 +25,6 @@
 #include "path_trace_integrator.hpp"
 #include "utils/cl_exception.hpp"
 #include "Scene/scene.hpp"
-#include "Scene/camera.hpp"
 #include "acceleration_structure.hpp"
 #include "Utils/blue_noise_sampler.hpp"
 #include <GL/glew.h>
@@ -38,13 +37,8 @@ namespace args
         {
             kWidth,
             kHeight,
-            kCameraPos,
-            kCameraFront,
-            kCameraUp,
-            kFrameCount,
-            kFrameSeed,
-            kAperture,
-            kFocusDistance,
+            kCamera,
+            kSampleCounterBuffer,
             // Output
             kRayBuffer,
             kRayCounterBuffer,
@@ -310,6 +304,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     // Setup raygen kernel
     kernels.raygen->SetArgument(args::Raygen::kWidth, &width_, sizeof(width_));
     kernels.raygen->SetArgument(args::Raygen::kHeight, &height_, sizeof(height_));
+    kernels.raygen->SetArgument(args::Raygen::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.raygen->SetArgument(args::Raygen::kRayBuffer, rays_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, ray_counter_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
@@ -382,25 +377,7 @@ void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
 
 void PathTraceIntegrator::SetCameraData(Camera const& camera)
 {
-    float3 origin = camera.GetOrigin();
-    float3 front = camera.GetFrontVector();
-
-    float3 right = Cross(front, camera.GetUpVector()).Normalize();
-    float3 up = Cross(right, front);
-    kernels_.raygen->SetArgument(args::Raygen::kCameraPos, &origin, sizeof(origin));
-    kernels_.raygen->SetArgument(args::Raygen::kCameraFront, &front, sizeof(front));
-    kernels_.raygen->SetArgument(args::Raygen::kCameraUp, &up, sizeof(up));
-
-    ///@TODO: move frame count to here
-    std::uint32_t frame_count = camera.GetFrameCount();
-    kernels_.raygen->SetArgument(args::Raygen::kFrameCount, &frame_count, sizeof(frame_count));
-    unsigned int seed = rand();
-    kernels_.raygen->SetArgument(args::Raygen::kFrameSeed, &seed, sizeof(seed));
-
-    float aperture = camera.GetAperture();
-    float focus_distance = camera.GetFocusDistance();
-    kernels_.raygen->SetArgument(args::Raygen::kAperture, &aperture, sizeof(aperture));
-    kernels_.raygen->SetArgument(args::Raygen::kFocusDistance, &focus_distance, sizeof(focus_distance));
+    kernels_.raygen->SetArgument(args::Raygen::kCamera, &camera, sizeof(camera));
 }
 
 void PathTraceIntegrator::SetSceneData(Scene const& scene)
