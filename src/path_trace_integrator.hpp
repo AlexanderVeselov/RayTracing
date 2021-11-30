@@ -88,6 +88,7 @@ private:
     void ClearOutgoingRayCounter(std::uint32_t bounce);
     void ClearShadowRayCounter();
     void ResolveRadiance();
+    void CopyHistoryBuffers();
 
     // Render size
     std::uint32_t width_;
@@ -101,6 +102,7 @@ private:
     bool request_reset_ = false;
     // For debugging
     bool enable_white_furnace_ = false;
+    bool enable_denoiser_ = true;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
@@ -123,6 +125,7 @@ private:
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
+    cl::Buffer prev_radiance_buffer_;
     cl::Buffer diffuse_albedo_buffer_;
     cl::Buffer depth_buffer_;
     cl::Buffer normal_buffer_;

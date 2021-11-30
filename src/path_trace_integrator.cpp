@@ -149,6 +149,7 @@ namespace args
             kHeight,
             kAovIndex,
             kRadianceBuffer,
+            kPrevRadianceBuffer,
             kDiffuseAlbedo,
             kDepth,
             kNormal,
@@ -176,6 +177,13 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
     ThrowIfFailed(status, "Failed to create radiance buffer");
+
+    if (enable_denoiser_)
+    {
+        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float4), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create prev radiance buffer");
+    }
 
     for (int i = 0; i < 2; ++i)
     {
@@ -340,6 +348,10 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
     kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
+    if (enable_denoiser_)
+    {
+        kernels.resolve->SetArgument(args::Resolve::kPrevRadianceBuffer, prev_radiance_buffer_);
+    }
     kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
@@ -439,9 +451,12 @@ void PathTraceIntegrator::SetAOV(AOV aov)
 
 void PathTraceIntegrator::Reset()
 {
-    // Reset frame index
-    kernels_.clear_counter->SetArgument(0, sample_counter_buffer_);
-    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    if (!enable_denoiser_)
+    {
+        // Reset frame index
+        kernels_.clear_counter->SetArgument(0, sample_counter_buffer_);
+        cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    }
 
     // Reset radiance buffer
     cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
@@ -578,9 +593,15 @@ void PathTraceIntegrator::ResolveRadiance()
     cl_context_.ReleaseGLObject((*output_image_)());
 }
 
+void PathTraceIntegrator::CopyHistoryBuffers()
+{
+    // Copy to the history
+    cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
+}
+
 void PathTraceIntegrator::Integrate()
 {
-    if (request_reset_)
+    if (request_reset_ || enable_denoiser_)
     {
         Reset();
         request_reset_ = false;
@@ -605,4 +626,9 @@ void PathTraceIntegrator::Integrate()
 
     AdvanceSampleCount();
     ResolveRadiance();
+
+    if (enable_denoiser_)
+    {
+        CopyHistoryBuffers();
+    }
 }

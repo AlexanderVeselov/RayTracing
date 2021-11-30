@@ -34,6 +34,7 @@ __kernel void ResolveRadiance
     uint height,
     uint aov_index,
     __global float4* radiance,
+    __global float4* prev_radiance,
     __global float3* diffuse_albedo,
     __global float*  depth,
     __global float3* normal,
@@ -73,10 +74,25 @@ __kernel void ResolveRadiance
     }
     else
     {
-        // Shaded color
-        float3 hdr = radiance[global_id].xyz / (float)sample_count;
-        float3 ldr = hdr / (hdr + 1.0f);
+        float2 motion = motion_vectors[global_id] * (float2)(width, height);
+        int prev_x = x - motion.x;
+        int prev_y = y - motion.y;
 
+        float3 hdr = radiance[global_id].xyz;
+
+        if (prev_x >= 0 && prev_x < width && prev_y >= 0 && prev_y < height)
+        {
+            int prev_radiance_idx = prev_y * width + prev_x;
+            // The history is valid, accumulate
+            hdr = mix(hdr, prev_radiance[prev_radiance_idx].xyz, 0.9f);
+            // Store accumulated value
+            radiance[global_id].xyz = hdr;
+        }
+
+        // Shaded color
+        //float3 hdr = radiance[global_id].xyz / (float)sample_count;
+
+        float3 ldr = hdr / (hdr + 1.0f);
         write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
     }
 }

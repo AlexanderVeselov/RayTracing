@@ -39,6 +39,8 @@ public:
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
+    void CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer,
+        std::size_t src_offset, std::size_t dst_offset, std::size_t size) const;
     void ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const;
     void Finish() const { queue_.finish(); }
     void AcquireGLObject(cl_mem mem);
