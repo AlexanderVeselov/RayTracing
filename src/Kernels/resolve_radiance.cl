@@ -37,6 +37,7 @@ __kernel void ResolveRadiance
     __global float4* prev_radiance,
     __global float3* diffuse_albedo,
     __global float*  depth,
+    __global float*  prev_depth,
     __global float3* normal,
     __global float2* motion_vectors,
     __global uint*   sample_counter,
@@ -74,19 +75,27 @@ __kernel void ResolveRadiance
     }
     else
     {
-        float2 motion = motion_vectors[global_id] * (float2)(width, height);
-        int prev_x = x - motion.x;
-        int prev_y = y - motion.y;
+        float2 prev_uv = (float2)(x + 0.5f, y + 0.5f) / (float2)(width, height) - motion_vectors[global_id];
+        int prev_x = prev_uv.x * width;
+        int prev_y = prev_uv.y * height;
 
         float3 hdr = radiance[global_id].xyz;
 
         if (prev_x >= 0 && prev_x < width && prev_y >= 0 && prev_y < height)
         {
-            int prev_radiance_idx = prev_y * width + prev_x;
-            // The history is valid, accumulate
-            hdr = mix(hdr, prev_radiance[prev_radiance_idx].xyz, 0.9f);
-            // Store accumulated value
-            radiance[global_id].xyz = hdr;
+            int prev_idx = prev_y * width + prev_x;
+
+            float depth_value = depth[global_id];
+            float prev_depth_value = prev_depth[prev_idx];
+
+            // Depth similarity test
+            if (fabs(depth_value - prev_depth_value) / depth_value < 0.1f)
+            {
+                // The history is valid, accumulate
+                hdr = mix(hdr, prev_radiance[prev_idx].xyz, 0.9f);
+                // Store accumulated value
+                radiance[global_id].xyz = hdr;
+            }
         }
 
         // Shaded color

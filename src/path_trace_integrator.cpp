@@ -152,6 +152,7 @@ namespace args
             kPrevRadianceBuffer,
             kDiffuseAlbedo,
             kDepth,
+            kPrevDepth,
             kNormal,
             kMotionVectors,
             kSampleCounterBuffer,
@@ -257,6 +258,13 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create depth buffer");
 
+        if (enable_denoiser_)
+        {
+            prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+                width_ * height_ * sizeof(cl_float), nullptr, &status);
+            ThrowIfFailed(status, "Failed to create prev depth buffer");
+        }
+
         normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float3), nullptr, &status);
         ThrowIfFailed(status, "Failed to create normal buffer");
@@ -354,6 +362,10 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     }
     kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
+    if (enable_denoiser_)
+    {
+        kernels.resolve->SetArgument(args::Resolve::kPrevDepth, prev_depth_buffer_);
+    }
     kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
@@ -597,6 +609,7 @@ void PathTraceIntegrator::CopyHistoryBuffers()
 {
     // Copy to the history
     cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
+    cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
 }
 
 void PathTraceIntegrator::Integrate()
