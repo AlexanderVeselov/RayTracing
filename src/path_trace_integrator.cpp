@@ -149,6 +149,7 @@ namespace args
             // Input
             kWidth,
             kHeight,
+            kAovIndex,
             kRadianceBuffer,
             kDiffuseAlbedo,
             kDepth,
@@ -354,6 +355,8 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
+    std::uint32_t default_aov = AOV::kShadedColor;
+    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &default_aov, sizeof(default_aov));
 
     return kernels;
 }
@@ -453,7 +456,9 @@ void PathTraceIntegrator::SetAOV(AOV aov)
 
     aov_ = aov;
 
-    ReloadKernels();
+    std::uint32_t aov_idx = aov;
+    kernels_.resolve->SetArgument(args::Resolve::kAovIndex, &aov_idx, sizeof(aov_idx));
+
     RequestReset();
 }
 
