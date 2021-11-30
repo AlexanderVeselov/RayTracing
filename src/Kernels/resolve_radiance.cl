@@ -22,12 +22,23 @@
  SOFTWARE.
  *****************************************************************************/
 
+#define SHADED_COLOR_INDEX   0
+#define DIFFUSE_INDEX        1
+#define DEPTH_INDEX          2
+#define NORMAL_INDEX         3
+#define MOTION_VECTORS_INDEX 4
+
 __kernel void ResolveRadiance
 (
     uint width,
     uint height,
+    uint aov_index,
     __global float4* radiance,
-    __global uint* sample_counter,
+    __global float3* diffuse_albedo,
+    __global float*  depth,
+    __global float3* normal,
+    __global float2* motion_vectors,
+    __global uint*   sample_counter,
     __write_only image2d_t result
 )
 {
@@ -38,8 +49,34 @@ __kernel void ResolveRadiance
     int x = global_id % width;
     int y = global_id / width;
 
-    float3 hdr = radiance[global_id].xyz / (float)sample_count;
-    float3 ldr = hdr / (hdr + 1.0f);
+    if (aov_index == DIFFUSE_INDEX)
+    {
+        // Diffuse albedo
+        write_imagef(result, (int2)(x, y), (float4)(diffuse_albedo[global_id].xyz, 1.0f));
+    }
+    else if (aov_index == DEPTH_INDEX)
+    {
+        // Depth
+        float depth_value = depth[global_id] * 0.1f;
+        write_imagef(result, (int2)(x, y), (float4)(depth_value, depth_value, depth_value, 1.0f));
+    }
+    else if (aov_index == NORMAL_INDEX)
+    {
+        // Normal
+        float3 normal_value = normal[global_id] * 0.5f + 0.5f;
+        write_imagef(result, (int2)(x, y), (float4)(normal_value, 1.0f));
+    }
+    else if (aov_index == MOTION_VECTORS_INDEX)
+    {
+        // Motion vectors
+        write_imagef(result, (int2)(x, y), (float4)(1.0f, 0.5f, 0.5f, 1.0f));
+    }
+    else
+    {
+        // Shaded color
+        float3 hdr = radiance[global_id].xyz / (float)sample_count;
+        float3 ldr = hdr / (hdr + 1.0f);
 
-    write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
+        write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
+    }
 }

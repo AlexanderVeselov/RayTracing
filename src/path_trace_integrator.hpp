@@ -40,6 +40,15 @@ public:
         kBlueNoise
     };
 
+    enum AOV
+    {
+        kShadedColor,
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kMotionVectors
+    };
+
     PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
     void Integrate();
@@ -50,15 +59,17 @@ public:
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
     void SetSamplerType(SamplerType sampler_type);
+    void SetAOV(AOV aov);
 
 private:
     struct Kernels
     {
+        std::unique_ptr<CLKernel> reset;
         std::unique_ptr<CLKernel> raygen;
         std::unique_ptr<CLKernel> miss;
+        std::unique_ptr<CLKernel> aov;
         std::unique_ptr<CLKernel> hit_surface;
         std::unique_ptr<CLKernel> accumulate_direct_samples;
-        std::unique_ptr<CLKernel> reset;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
         std::unique_ptr<CLKernel> resolve;
@@ -69,6 +80,7 @@ private:
     void AdvanceSampleCount();
     void GenerateRays();
     void IntersectRays(std::uint32_t bounce);
+    void ComputeAOVs();
     void ShadeMissedRays(std::uint32_t bounce);
     void ShadeSurfaceHits(std::uint32_t bounce);
     void IntersectShadowRays();
@@ -83,6 +95,7 @@ private:
 
     std::uint32_t max_bounces_ = 5u;
     SamplerType sampler_type_ = SamplerType::kRandom;
+    AOV aov_ = AOV::kShadedColor;
 
     bool request_reset_ = false;
     // For debugging
@@ -109,6 +122,10 @@ private:
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
+    cl::Buffer diffuse_albedo_buffer_;
+    cl::Buffer depth_buffer_;
+    cl::Buffer normal_buffer_;
+    cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;
 
     // Sampler buffers

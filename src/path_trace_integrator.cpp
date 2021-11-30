@@ -50,6 +50,10 @@ namespace args
             kRayCounterBuffer,
             kPixelIndicesBuffer,
             kThroughputsBuffer,
+            kDiffuseAlbedo,
+            kDepth,
+            kNormal,
+            kVelocity,
         };
     }
 
@@ -64,6 +68,29 @@ namespace args
             kThroughputsBuffer,
             kIblTextureBuffer,
             kRadianceBuffer,
+        };
+    }
+
+    namespace Aov
+    {
+        enum
+        {
+            // Input
+            kRayBuffer,
+            kRayCounterBuffer,
+            kPixelIndicesBuffer,
+            kHitsBuffer,
+            kTrianglesBuffer,
+            kMaterialsBuffer,
+            kTexturesBuffer,
+            kTextureDataBuffer,
+            kWidth,
+            kHeight,
+            // Output
+            kDiffuseAlbedo,
+            kDepth,
+            kNormal,
+            kVelocity,
         };
     }
 
@@ -124,7 +151,12 @@ namespace args
             // Input
             kWidth,
             kHeight,
+            kAovIndex,
             kRadianceBuffer,
+            kDiffuseAlbedo,
+            kDepth,
+            kNormal,
+            kMotionVectors,
             kSampleCounterBuffer,
             // Output
             kResolvedTexture,
@@ -197,17 +229,38 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     ThrowIfFailed(status, "Failed to create direct light samples buffer");
 
     // Sampler buffers
-    sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(sobol_256spp_256d), (void*)sobol_256spp_256d, &status);
-    ThrowIfFailed(status, "Failed to create sobol buffer");
+    {
+        sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(sobol_256spp_256d), (void*)sobol_256spp_256d, &status);
+        ThrowIfFailed(status, "Failed to create sobol buffer");
 
-    sampler_scrambling_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(scramblingTile), (void*)scramblingTile, &status);
-    ThrowIfFailed(status, "Failed to create scrambling tile buffer");
+        sampler_scrambling_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(scramblingTile), (void*)scramblingTile, &status);
+        ThrowIfFailed(status, "Failed to create scrambling tile buffer");
 
-    sampler_ranking_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(rankingTile), (void*)rankingTile, &status);
-    ThrowIfFailed(status, "Failed to create ranking tile tile buffer");
+        sampler_ranking_tile_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(rankingTile), (void*)rankingTile, &status);
+        ThrowIfFailed(status, "Failed to create ranking tile tile buffer");
+    }
+
+    // AOV buffers
+    {
+        diffuse_albedo_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float3), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create diffuse albedo buffer");
+
+        depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create depth buffer");
+
+        normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float3), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create normal buffer");
+
+        velocity_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float2), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create velocity buffer");
+    }
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
         GL_TEXTURE_2D, 0, gl_interop_image_, &status);
@@ -239,6 +292,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     }
 
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
+    kernels.aov = std::make_unique<CLKernel>("src/Kernels/aov.cl", cl_context_, "GenerateAOV");
     kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
     kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
@@ -260,6 +314,10 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, ray_counter_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kThroughputsBuffer, throughputs_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kDiffuseAlbedo, diffuse_albedo_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kDepth, depth_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kNormal, normal_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kVelocity, velocity_buffer_);
 
     // Setup miss kernel
     kernels.miss->SetArgument(args::Miss::kHitsBuffer, hits_buffer_);
@@ -285,7 +343,13 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
     kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
+    std::uint32_t default_aov = AOV::kShadedColor;
+    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &default_aov, sizeof(default_aov));
 
     return kernels;
 }
@@ -352,6 +416,10 @@ void PathTraceIntegrator::SetSceneData(Scene const& scene)
     kernels_.hit_surface->SetArgument(args::HitSurface::kTextureDataBuffer, scene.GetTextureDataBuffer());
     kernels_.hit_surface->SetArgument(args::HitSurface::kSceneInfo, &scene_info, sizeof(scene_info));
     kernels_.miss->SetArgument(args::Miss::kIblTextureBuffer, scene.GetEnvTextureBuffer());
+    kernels_.aov->SetArgument(args::Aov::kTrianglesBuffer, scene.GetTriangleBuffer());
+    kernels_.aov->SetArgument(args::Aov::kMaterialsBuffer, scene.GetMaterialBuffer());
+    kernels_.aov->SetArgument(args::Aov::kTexturesBuffer, scene.GetTextureBuffer());
+    kernels_.aov->SetArgument(args::Aov::kTextureDataBuffer, scene.GetTextureDataBuffer());
 }
 
 void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
@@ -369,6 +437,21 @@ void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
 
     sampler_type_ = sampler_type;
     ReloadKernels();
+    RequestReset();
+}
+
+void PathTraceIntegrator::SetAOV(AOV aov)
+{
+    if (aov == aov_)
+    {
+        return;
+    }
+
+    aov_ = aov;
+
+    std::uint32_t aov_idx = aov;
+    kernels_.resolve->SetArgument(args::Resolve::kAovIndex, &aov_idx, sizeof(aov_idx));
+
     RequestReset();
 }
 
@@ -401,6 +484,25 @@ void PathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 
     acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
         max_num_rays, hits_buffer_);
+}
+
+void PathTraceIntegrator::ComputeAOVs()
+{
+    std::uint32_t max_num_rays = width_ * height_;
+
+    // Setup AOV kernel
+    kernels_.aov->SetArgument(args::Aov::kRayBuffer, rays_buffer_[0]);
+    kernels_.aov->SetArgument(args::Aov::kRayCounterBuffer, ray_counter_buffer_[0]);
+    kernels_.aov->SetArgument(args::Aov::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
+    kernels_.aov->SetArgument(args::Aov::kHitsBuffer, hits_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kWidth, &width_, sizeof(width_));
+    kernels_.aov->SetArgument(args::Aov::kHeight, &height_, sizeof(height_));
+    kernels_.aov->SetArgument(args::Aov::kDiffuseAlbedo, diffuse_albedo_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kDepth, depth_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kNormal, normal_buffer_);
+    kernels_.aov->SetArgument(args::Aov::kVelocity, velocity_buffer_);
+
+    cl_context_.ExecuteKernel(*kernels_.aov, max_num_rays);
 }
 
 void PathTraceIntegrator::IntersectShadowRays()
@@ -507,6 +609,10 @@ void PathTraceIntegrator::Integrate()
     for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
+        if (bounce == 0)
+        {
+            ComputeAOVs();
+        }
         ShadeMissedRays(bounce);
         ClearOutgoingRayCounter(bounce);
         ClearShadowRayCounter();
