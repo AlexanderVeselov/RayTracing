@@ -40,6 +40,14 @@ public:
         kBlueNoise
     };
 
+    enum AOV
+    {
+        kShadedColor,
+        kDiffuseAlbedo,
+        kDepth,
+        kMotionVectors
+    };
+
     PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
     void Integrate();
@@ -50,6 +58,7 @@ public:
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
     void SetSamplerType(SamplerType sampler_type);
+    void SetAOV(AOV aov);
 
 private:
     struct Kernels
@@ -85,6 +94,7 @@ private:
 
     std::uint32_t max_bounces_ = 5u;
     SamplerType sampler_type_ = SamplerType::kRandom;
+    AOV aov_ = AOV::kShadedColor;
 
     bool request_reset_ = false;
     // For debugging

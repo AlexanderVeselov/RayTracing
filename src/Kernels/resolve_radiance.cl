@@ -27,7 +27,10 @@ __kernel void ResolveRadiance
     uint width,
     uint height,
     __global float4* radiance,
-    __global uint* sample_counter,
+    __global float3* diffuse_albedo,
+    __global float*  depth,
+    __global float2* motion_vectors,
+    __global uint*   sample_counter,
     __write_only image2d_t result
 )
 {
@@ -38,8 +41,17 @@ __kernel void ResolveRadiance
     int x = global_id % width;
     int y = global_id / width;
 
+#ifdef RESOLVE_DIFFUSE_ALBEDO
+    write_imagef(result, (int2)(x, y), (float4)(diffuse_albedo[global_id].xyz, 1.0f));
+#elif RESOLVE_DEPTH
+    float depth_value = depth[global_id] * 0.1f;
+    write_imagef(result, (int2)(x, y), (float4)(depth_value, depth_value, depth_value, 1.0f));
+#elif RESOLVE_MOTION_VECTORS
+    write_imagef(result, (int2)(x, y), (float4)(1.0f, 0.5f, 0.5f, 1.0f));
+#else // Shaded output
     float3 hdr = radiance[global_id].xyz / (float)sample_count;
     float3 ldr = hdr / (hdr + 1.0f);
 
     write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
+#endif
 }

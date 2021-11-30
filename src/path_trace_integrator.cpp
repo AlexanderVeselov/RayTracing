@@ -150,6 +150,9 @@ namespace args
             kWidth,
             kHeight,
             kRadianceBuffer,
+            kDiffuseAlbedo,
+            kDepth,
+            kMotionVectors,
             kSampleCounterBuffer,
             // Output
             kResolvedTexture,
@@ -286,7 +289,23 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
+
+    std::vector<std::string> resolve_definitions;
+
+    if (aov_ == AOV::kDiffuseAlbedo)
+    {
+        resolve_definitions.push_back("RESOLVE_DIFFUSE_ALBEDO");
+    }
+    else if (aov_ == AOV::kDepth)
+    {
+        resolve_definitions.push_back("RESOLVE_DEPTH");
+    }
+    else if (aov_ == AOV::kMotionVectors)
+    {
+        resolve_definitions.push_back("RESOLVE_MOTION_VECTORS");
+    }
+
+    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance", resolve_definitions);
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -331,6 +350,9 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
     kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
+    kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
 
     return kernels;
@@ -418,6 +440,19 @@ void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
     }
 
     sampler_type_ = sampler_type;
+    ReloadKernels();
+    RequestReset();
+}
+
+void PathTraceIntegrator::SetAOV(AOV aov)
+{
+    if (aov == aov_)
+    {
+        return;
+    }
+
+    aov_ = aov;
+
     ReloadKernels();
     RequestReset();
 }

@@ -172,6 +172,13 @@ void Render::DrawGUI()
         {
             integrator_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
         }
+
+        static int aov_index = 0;
+        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Motion Vectors" };
+        if (ImGui::Combo("AOV", &aov_index, aov_names, 4))
+        {
+            integrator_->SetAOV((PathTraceIntegrator::AOV)aov_index);
+        }
     }
     ImGui::End();
 
