@@ -54,12 +54,12 @@ public:
 private:
     struct Kernels
     {
+        std::unique_ptr<CLKernel> reset;
         std::unique_ptr<CLKernel> raygen;
         std::unique_ptr<CLKernel> miss;
         std::unique_ptr<CLKernel> aov;
         std::unique_ptr<CLKernel> hit_surface;
         std::unique_ptr<CLKernel> accumulate_direct_samples;
-        std::unique_ptr<CLKernel> reset;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
         std::unique_ptr<CLKernel> resolve;
@@ -111,6 +111,9 @@ private:
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
+    cl::Buffer diffuse_albedo_buffer_;
+    cl::Buffer depth_buffer_;
+    cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;
 
     // Sampler buffers

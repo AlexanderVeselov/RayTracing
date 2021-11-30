@@ -75,10 +75,13 @@ __kernel void RayGeneration
     float aperture,
     float focus_distance,
     // Output
-    __global Ray* rays,
-    __global uint* ray_counter,
-    __global uint* pixel_indices,
-    __global float3* throughputs
+    __global Ray*    rays,
+    __global uint*   ray_counter,
+    __global uint*   pixel_indices,
+    __global float3* throughputs,
+    __global float3* diffuse_albedo,
+    __global float*  depth,
+    __global float2* velocity
 )
 {
     uint ray_idx = get_global_id(0);
@@ -123,6 +126,9 @@ __kernel void RayGeneration
     rays[ray_idx] = ray;
     pixel_indices[ray_idx] = pixel_idx;
     throughputs[pixel_idx] = (float3)(1.0f, 1.0f, 1.0f);
+    diffuse_albedo[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
+    depth[pixel_idx] = MAX_RENDER_DIST;
+    velocity[pixel_idx] = (float2)(0.0f, 0.0f);
 
     // Write to global ray counter
     if (ray_idx == 0)
