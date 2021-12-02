@@ -9,6 +9,7 @@
 * Explicit point, directional light sampling
 * Simple temporal reprojection filter
 * Depth, normals, albedo, motion vectors AOV generation
+* Hot kernel reloading
 * OpenCL/OpenGL interop for presenting the image
 
 ## Pre-Requisites:
