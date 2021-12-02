@@ -27,11 +27,6 @@
 #include "sampling.h"
 #include "light.h"
 
-float frac1(float x)
-{
-    return x - (int)x;
-}
-
 float2 ProjectScreen(float3 position, Camera camera)
 {
     float3 d = normalize(position - camera.position);

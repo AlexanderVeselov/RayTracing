@@ -126,7 +126,7 @@ __kernel void RayGeneration
     rays[ray_idx] = ray;
     pixel_indices[ray_idx] = pixel_idx;
     throughputs[pixel_idx] = (float3)(1.0f, 1.0f, 1.0f);
-    diffuse_albedo[pixel_idx] = (float3)(pixel_x * inv_width, pixel_y * inv_height, 0.0f);
+    diffuse_albedo[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
     depth_buffer[pixel_idx] = MAX_RENDER_DIST;
     normal_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
     velocity_buffer[pixel_idx] = (float2)(0.0f, 0.0f);

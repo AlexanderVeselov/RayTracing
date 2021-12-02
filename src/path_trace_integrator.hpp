@@ -105,7 +105,7 @@ private:
     bool request_reset_ = false;
     // For debugging
     bool enable_white_furnace_ = false;
-    bool enable_denoiser_ = true;
+    bool enable_denoiser_ = false;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
