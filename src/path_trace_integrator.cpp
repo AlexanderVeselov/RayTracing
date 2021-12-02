@@ -487,6 +487,18 @@ void PathTraceIntegrator::SetAOV(AOV aov)
     RequestReset();
 }
 
+void PathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
+{
+    if (enable_denoiser == enable_denoiser_)
+    {
+        return;
+    }
+
+    enable_denoiser_ = enable_denoiser;
+    ReloadKernels();
+    RequestReset();
+}
+
 void PathTraceIntegrator::Reset()
 {
     if (!enable_denoiser_)

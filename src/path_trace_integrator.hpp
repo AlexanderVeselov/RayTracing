@@ -60,6 +60,7 @@ public:
     void SetMaxBounces(std::uint32_t max_bounces);
     void SetSamplerType(SamplerType sampler_type);
     void SetAOV(AOV aov);
+    void EnableDenoiser(bool enable);
 
 private:
     struct Kernels

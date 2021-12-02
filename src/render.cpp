@@ -163,6 +163,11 @@ void Render::DrawGUI()
             integrator_->SetMaxBounces((std::uint32_t)gui_params_.max_bounces);
         }
 
+        if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))
+        {
+            integrator_->EnableDenoiser(gui_params_.enable_denoiser);
+        }
+
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
