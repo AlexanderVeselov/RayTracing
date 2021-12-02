@@ -82,7 +82,7 @@ Render::Render(Window& window)
     //}
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
-    camera_ = std::make_shared<Camera>(*framebuffer_, *this);
+    camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>(*cl_context_);
@@ -127,6 +127,7 @@ void Render::FrameBegin()
 
 void Render::FrameEnd()
 {
+    camera_controller_->OnEndFrame();
     glFinish();
     window_.SwapBuffers();
     prev_frame_time_ = start_frame_time_;
@@ -149,17 +150,22 @@ void Render::DrawGUI()
     {
         if (ImGui::SliderFloat("Camera aperture", &gui_params_.camera_aperture, 0.0, 1.0))
         {
-            camera_->SetAperture(gui_params_.camera_aperture);
+            camera_controller_->SetAperture(gui_params_.camera_aperture);
         }
 
         if (ImGui::SliderFloat("Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
         {
-            camera_->SetFocusDistance(gui_params_.camera_focus_distance);
+            camera_controller_->SetFocusDistance(gui_params_.camera_focus_distance);
         }
 
         if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
         {
             integrator_->SetMaxBounces((std::uint32_t)gui_params_.max_bounces);
+        }
+
+        if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))
+        {
+            integrator_->EnableDenoiser(gui_params_.enable_denoiser);
         }
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
@@ -201,12 +207,11 @@ void Render::RenderFrame()
         need_to_reset = true;
     }
 
-    camera_->Update();
+    camera_controller_->Update((float)GetDeltaTime());
     integrator_->SetSceneData(*scene_);
-    integrator_->SetCameraData(*camera_);
+    integrator_->SetCameraData(camera_controller_->GetData());
 
-    ///@TODO: need to fix this hack
-    need_to_reset = need_to_reset || (camera_->GetFrameCount() == 1);
+    need_to_reset = need_to_reset || camera_controller_->IsChanged();
 
     if (need_to_reset)
     {

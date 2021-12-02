@@ -90,6 +90,13 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     ThrowIfFailed(status, "Failed to read buffer");
 }
 
+void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer,
+    std::size_t src_offset, std::size_t dst_offset, std::size_t size) const
+{
+    cl_int status = queue_.enqueueCopyBuffer(src_buffer, dst_buffer, src_offset, dst_offset, size);
+    ThrowIfFailed(status, "Failed to copy buffer");
+}
+
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
     cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);

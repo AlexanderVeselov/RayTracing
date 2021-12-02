@@ -28,7 +28,7 @@
 #include <memory>
 
 class Scene;
-class Camera;
+class CameraController;
 class AccelerationStructure;
 
 class PathTraceIntegrator
@@ -54,12 +54,13 @@ public:
     void Integrate();
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
-    void RequestReset() { request_reset_ = true; };
+    void RequestReset() { request_reset_ = true; }
     void ReloadKernels();
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
     void SetSamplerType(SamplerType sampler_type);
     void SetAOV(AOV aov);
+    void EnableDenoiser(bool enable);
 
 private:
     struct Kernels
@@ -72,6 +73,7 @@ private:
         std::unique_ptr<CLKernel> accumulate_direct_samples;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
+        std::unique_ptr<CLKernel> temporal_accumulation;
         std::unique_ptr<CLKernel> resolve;
     };
 
@@ -87,11 +89,14 @@ private:
     void AccumulateDirectSamples();
     void ClearOutgoingRayCounter(std::uint32_t bounce);
     void ClearShadowRayCounter();
+    void Denoise();
+    void CopyHistoryBuffers();
     void ResolveRadiance();
 
     // Render size
     std::uint32_t width_;
     std::uint32_t height_;
+    Camera prev_camera_ = {};
 
     std::uint32_t max_bounces_ = 5u;
     SamplerType sampler_type_ = SamplerType::kRandom;
@@ -100,6 +105,7 @@ private:
     bool request_reset_ = false;
     // For debugging
     bool enable_white_furnace_ = false;
+    bool enable_denoiser_ = false;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
@@ -122,8 +128,10 @@ private:
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
+    cl::Buffer prev_radiance_buffer_;
     cl::Buffer diffuse_albedo_buffer_;
     cl::Buffer depth_buffer_;
+    cl::Buffer prev_depth_buffer_;
     cl::Buffer normal_buffer_;
     cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;

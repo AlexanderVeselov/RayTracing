@@ -67,13 +67,8 @@ __kernel void RayGeneration
     // Input
     uint width,
     uint height,
-    float3 cameraPos,
-    float3 cameraFront,
-    float3 cameraUp,
-    unsigned int frameCount,
-    unsigned int frameSeed,
-    float aperture,
-    float focus_distance,
+    Camera camera,
+    __global uint* sample_counter,
     // Output
     __global Ray*    rays,
     __global uint*   ray_counter,
@@ -96,32 +91,36 @@ __kernel void RayGeneration
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
 
-    float invWidth = 1.0f / (float)(width);
-    float invHeight = 1.0f / (float)(height);
-    float aspectratio = (float)(width) / (float)(height);
-    float fov = 75.0f * 3.1415f / 180.0f;
-    float angle = tan(0.5f * fov);
+    float inv_width = 1.0f / (float)(width);
+    float inv_height = 1.0f / (float)(height);
 
-    unsigned int seed = pixel_idx + HashUInt32(frameCount);
+    uint sample_idx = sample_counter[0];
+    unsigned int seed = pixel_idx + HashUInt32(sample_idx);
 
-    float x = (float)(get_global_id(0) % width) + GetRandomFloat(&seed) - 0.5f;
-    float y = (float)(get_global_id(0) / width) + GetRandomFloat(&seed) - 0.5f;
+#if 1
+    float x = (pixel_x + GetRandomFloat(&seed)) * inv_width;
+    float y = (pixel_y + GetRandomFloat(&seed)) * inv_height;
+#else
+    float x = (pixel_x + 0.5f) * inv_width;
+    float y = (pixel_y + 0.5f) * inv_height;
+#endif
 
-    x = (2.0f * ((x + 0.5f) * invWidth) - 1) * angle * aspectratio;
-    y = -(1.0f - 2.0f * ((y + 0.5f) * invHeight)) * angle;
+    float angle = tan(0.5f * camera.fov);
+    x = (x * 2.0f - 1.0f) * angle * camera.aspect_ratio;
+    y = (y * 2.0f - 1.0f) * angle;
 
-    float3 dir = normalize(x * cross(cameraFront, cameraUp) + y * cameraUp + cameraFront);
+    float3 dir = normalize(x * cross(camera.front, camera.up) + y * camera.up + camera.front);
 
     // Simple Depth of Field
-    float3 pointAimed = cameraPos + focus_distance * dir;
-    float2 dofDir = PointInHexagon(&seed);
-    float r = aperture;
-    float3 newPos = cameraPos + dofDir.x * r * cross(cameraFront, cameraUp) + dofDir.y * r * cameraUp;
+    float3 point_aimed = camera.position + camera.focus_distance * dir;
+    float2 dof_dir = PointInHexagon(&seed);
+    float r = camera.aperture;
+    float3 new_pos = camera.position + dof_dir.x * r * cross(camera.front, camera.up) + dof_dir.y * r * camera.up;
 
     Ray ray;
-    ray.origin.xyz = newPos;
+    ray.origin.xyz = new_pos;
     ray.origin.w = 0.0;
-    ray.direction.xyz = normalize(pointAimed - newPos);
+    ray.direction.xyz = normalize(point_aimed - new_pos);
     ray.direction.w = MAX_RENDER_DIST;
 
     rays[ray_idx] = ray;

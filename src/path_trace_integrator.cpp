@@ -25,7 +25,6 @@
 #include "path_trace_integrator.hpp"
 #include "utils/cl_exception.hpp"
 #include "Scene/scene.hpp"
-#include "Scene/camera.hpp"
 #include "acceleration_structure.hpp"
 #include "Utils/blue_noise_sampler.hpp"
 #include <GL/glew.h>
@@ -38,13 +37,8 @@ namespace args
         {
             kWidth,
             kHeight,
-            kCameraPos,
-            kCameraFront,
-            kCameraUp,
-            kFrameCount,
-            kFrameSeed,
-            kAperture,
-            kFocusDistance,
+            kCamera,
+            kSampleCounterBuffer,
             // Output
             kRayBuffer,
             kRayCounterBuffer,
@@ -86,6 +80,8 @@ namespace args
             kTextureDataBuffer,
             kWidth,
             kHeight,
+            kCamera,
+            kPrevCamera,
             // Output
             kDiffuseAlbedo,
             kDepth,
@@ -144,6 +140,20 @@ namespace args
         };
     }
 
+    namespace TemporalAccumulation
+    {
+        enum
+        {
+            kWidth,
+            kHeight,
+            kRadiance,
+            kPrevRadiance,
+            kDepth,
+            kPrevDepth,
+            kMotionVectors
+        };
+    }
+
     namespace Resolve
     {
         enum
@@ -180,6 +190,13 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
     ThrowIfFailed(status, "Failed to create radiance buffer");
+
+    // if (enable_denoiser_)
+    {
+        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float4), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create prev radiance buffer");
+    }
 
     for (int i = 0; i < 2; ++i)
     {
@@ -253,6 +270,13 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create depth buffer");
 
+        // if (enable_denoiser_)
+        {
+            prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+                width_ * height_ * sizeof(cl_float), nullptr, &status);
+            ThrowIfFailed(status, "Failed to create prev depth buffer");
+        }
+
         normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float3), nullptr, &status);
         ThrowIfFailed(status, "Failed to create normal buffer");
@@ -291,13 +315,23 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
         definitions.push_back("BLUE_NOISE_SAMPLER");
     }
 
+    if (enable_denoiser_)
+    {
+        definitions.push_back("ENABLE_DENOISER");
+    }
+
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
     kernels.aov = std::make_unique<CLKernel>("src/Kernels/aov.cl", cl_context_, "GenerateAOV");
     kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
     kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
+    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance", definitions);
+
+    if (enable_denoiser_)
+    {
+        kernels.temporal_accumulation = std::make_unique<CLKernel>("src/Kernels/denoiser.cl", cl_context_, "TemporalAccumulation");
+    }
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -310,6 +344,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     // Setup raygen kernel
     kernels.raygen->SetArgument(args::Raygen::kWidth, &width_, sizeof(width_));
     kernels.raygen->SetArgument(args::Raygen::kHeight, &height_, sizeof(height_));
+    kernels.raygen->SetArgument(args::Raygen::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.raygen->SetArgument(args::Raygen::kRayBuffer, rays_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, ray_counter_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
@@ -348,8 +383,20 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
-    std::uint32_t default_aov = AOV::kShadedColor;
-    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &default_aov, sizeof(default_aov));
+    std::uint32_t aov_index = aov_;
+    kernels.resolve->SetArgument(args::Resolve::kAovIndex, &aov_index, sizeof(aov_index));
+
+    if (enable_denoiser_)
+    {
+        // Setup temporal accumulation kernel
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kWidth, &width_, sizeof(width_));
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kHeight, &height_, sizeof(height_));
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kRadiance, radiance_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevRadiance, prev_radiance_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kDepth, depth_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
+    }
 
     return kernels;
 }
@@ -382,25 +429,10 @@ void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
 
 void PathTraceIntegrator::SetCameraData(Camera const& camera)
 {
-    float3 origin = camera.GetOrigin();
-    float3 front = camera.GetFrontVector();
-
-    float3 right = Cross(front, camera.GetUpVector()).Normalize();
-    float3 up = Cross(right, front);
-    kernels_.raygen->SetArgument(args::Raygen::kCameraPos, &origin, sizeof(origin));
-    kernels_.raygen->SetArgument(args::Raygen::kCameraFront, &front, sizeof(front));
-    kernels_.raygen->SetArgument(args::Raygen::kCameraUp, &up, sizeof(up));
-
-    ///@TODO: move frame count to here
-    std::uint32_t frame_count = camera.GetFrameCount();
-    kernels_.raygen->SetArgument(args::Raygen::kFrameCount, &frame_count, sizeof(frame_count));
-    unsigned int seed = rand();
-    kernels_.raygen->SetArgument(args::Raygen::kFrameSeed, &seed, sizeof(seed));
-
-    float aperture = camera.GetAperture();
-    float focus_distance = camera.GetFocusDistance();
-    kernels_.raygen->SetArgument(args::Raygen::kAperture, &aperture, sizeof(aperture));
-    kernels_.raygen->SetArgument(args::Raygen::kFocusDistance, &focus_distance, sizeof(focus_distance));
+    kernels_.raygen->SetArgument(args::Raygen::kCamera, &camera, sizeof(camera));
+    kernels_.aov->SetArgument(args::Aov::kCamera, &camera, sizeof(camera));
+    kernels_.aov->SetArgument(args::Aov::kPrevCamera, &prev_camera_, sizeof(prev_camera_));
+    prev_camera_ = camera;
 }
 
 void PathTraceIntegrator::SetSceneData(Scene const& scene)
@@ -455,11 +487,26 @@ void PathTraceIntegrator::SetAOV(AOV aov)
     RequestReset();
 }
 
+void PathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
+{
+    if (enable_denoiser == enable_denoiser_)
+    {
+        return;
+    }
+
+    enable_denoiser_ = enable_denoiser;
+    ReloadKernels();
+    RequestReset();
+}
+
 void PathTraceIntegrator::Reset()
 {
-    // Reset frame index
-    kernels_.clear_counter->SetArgument(0, sample_counter_buffer_);
-    cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    if (!enable_denoiser_)
+    {
+        // Reset frame index
+        kernels_.clear_counter->SetArgument(0, sample_counter_buffer_);
+        cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
+    }
 
     // Reset radiance buffer
     cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
@@ -587,6 +634,18 @@ void PathTraceIntegrator::ClearShadowRayCounter()
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 }
 
+void PathTraceIntegrator::Denoise()
+{
+    cl_context_.ExecuteKernel(*kernels_.temporal_accumulation, width_ * height_);
+}
+
+void PathTraceIntegrator::CopyHistoryBuffers()
+{
+    // Copy to the history
+    cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
+    cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
+}
+
 void PathTraceIntegrator::ResolveRadiance()
 {
     // Copy radiance to the interop image
@@ -598,7 +657,7 @@ void PathTraceIntegrator::ResolveRadiance()
 
 void PathTraceIntegrator::Integrate()
 {
-    if (request_reset_)
+    if (request_reset_ || enable_denoiser_)
     {
         Reset();
         request_reset_ = false;
@@ -622,5 +681,10 @@ void PathTraceIntegrator::Integrate()
     }
 
     AdvanceSampleCount();
+    if (enable_denoiser_)
+    {
+        Denoise();
+        CopyHistoryBuffers();
+    }
     ResolveRadiance();
 }

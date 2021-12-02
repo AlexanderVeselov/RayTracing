@@ -167,11 +167,15 @@ typedef struct LinearBVHNode
 
 } LinearBVHNode;
 
-typedef struct DeviceCamera
+typedef struct
 {
     float3 position;
     float3 front;
     float3 up;
-} DeviceCamera;
+    float  fov;
+    float  aspect_ratio;
+    float  aperture;
+    float  focus_distance;
+} Camera;
 
 #endif // SHARED_STRUCTURES_HPP

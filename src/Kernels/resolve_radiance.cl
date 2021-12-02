@@ -69,14 +69,18 @@ __kernel void ResolveRadiance
     else if (aov_index == MOTION_VECTORS_INDEX)
     {
         // Motion vectors
-        write_imagef(result, (int2)(x, y), (float4)(1.0f, 0.5f, 0.5f, 1.0f));
+        write_imagef(result, (int2)(x, y), (float4)(motion_vectors[global_id], 0.0f, 1.0f));
     }
     else
     {
         // Shaded color
+#ifdef ENABLE_DENOISER
+        float3 hdr = radiance[global_id].xyz;
+#else
         float3 hdr = radiance[global_id].xyz / (float)sample_count;
-        float3 ldr = hdr / (hdr + 1.0f);
+#endif // ENABLE_DENOISER
 
+        float3 ldr = hdr / (hdr + 1.0f);
         write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
     }
 }

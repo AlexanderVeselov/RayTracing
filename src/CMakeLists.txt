@@ -16,9 +16,9 @@ set(KERNELS_SOURCES
     kernels/accumulate_direct_samples.cl
     kernels/aov.cl
     kernels/bxdf.h
-    kernels/constants.h
-    kernels/shared_structures.h
     kernels/clear_counter.cl
+    kernels/constants.h
+    kernels/denoiser.cl
     kernels/hit_surface.cl
     kernels/increment_counter.cl
     kernels/light.h
@@ -28,6 +28,7 @@ set(KERNELS_SOURCES
     kernels/reset_radiance.cl
     kernels/resolve_radiance.cl
     kernels/sampling.h
+    kernels/shared_structures.h
     kernels/trace_bvh.cl
     kernels/utils.h
 )
@@ -38,14 +39,14 @@ set(MATHLIB_SOURCES
 )
 
 set(SCENE_SOURCES
-    scene/camera.cpp
-    scene/camera.hpp
     scene/scene.cpp
     scene/scene.hpp
 )
 
 set(UTILS_SOURCES
     utils/blue_noise_sampler.hpp
+    utils/camera_controller.cpp
+    utils/camera_controller.hpp
     utils/cl_exception.hpp
     utils/framebuffer.cpp
     utils/framebuffer.hpp
