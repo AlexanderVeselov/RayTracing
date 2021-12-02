@@ -191,7 +191,7 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
     ThrowIfFailed(status, "Failed to create radiance buffer");
 
-    if (enable_denoiser_)
+    // if (enable_denoiser_)
     {
         prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float4), nullptr, &status);
@@ -270,7 +270,7 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create depth buffer");
 
-        if (enable_denoiser_)
+        // if (enable_denoiser_)
         {
             prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
                 width_ * height_ * sizeof(cl_float), nullptr, &status);

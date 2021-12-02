@@ -22,6 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include "constants.h"
+
 __kernel void TemporalAccumulation
 (
     uint width,
@@ -43,6 +45,14 @@ __kernel void TemporalAccumulation
         return;
     }
 
+    float depth_value = depth[pixel_idx];
+
+    if (depth_value == MAX_RENDER_DIST)
+    {
+        // Background
+        return;
+    }
+
     float2 motion = motion_vectors[pixel_idx];
     float2 prev_uv = (float2)(x + 0.5f, y + 0.5f) / (float2)(width, height) - motion;
     int prev_x = prev_uv.x * width;
@@ -54,7 +64,6 @@ __kernel void TemporalAccumulation
     }
 
     int prev_idx = prev_y * width + prev_x;
-    float depth_value = depth[pixel_idx];
     float prev_depth_value = prev_depth[prev_idx];
 
     // Depth similarity test
