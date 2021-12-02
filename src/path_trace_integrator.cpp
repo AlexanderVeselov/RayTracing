@@ -140,6 +140,20 @@ namespace args
         };
     }
 
+    namespace TemporalAccumulation
+    {
+        enum
+        {
+            kWidth,
+            kHeight,
+            kRadiance,
+            kPrevRadiance,
+            kDepth,
+            kPrevDepth,
+            kMotionVectors
+        };
+    }
+
     namespace Resolve
     {
         enum
@@ -149,10 +163,8 @@ namespace args
             kHeight,
             kAovIndex,
             kRadianceBuffer,
-            kPrevRadianceBuffer,
             kDiffuseAlbedo,
             kDepth,
-            kPrevDepth,
             kNormal,
             kMotionVectors,
             kSampleCounterBuffer,
@@ -303,13 +315,23 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
         definitions.push_back("BLUE_NOISE_SAMPLER");
     }
 
+    if (enable_denoiser_)
+    {
+        definitions.push_back("ENABLE_DENOISER");
+    }
+
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
     kernels.aov = std::make_unique<CLKernel>("src/Kernels/aov.cl", cl_context_, "GenerateAOV");
     kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
     kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
     kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
     kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance");
+    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance", definitions);
+
+    if (enable_denoiser_)
+    {
+        kernels.temporal_accumulation = std::make_unique<CLKernel>("src/Kernels/denoiser.cl", cl_context_, "TemporalAccumulation");
+    }
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -356,21 +378,25 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
     kernels.resolve->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
-    if (enable_denoiser_)
-    {
-        kernels.resolve->SetArgument(args::Resolve::kPrevRadianceBuffer, prev_radiance_buffer_);
-    }
     kernels.resolve->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kDepth, depth_buffer_);
-    if (enable_denoiser_)
-    {
-        kernels.resolve->SetArgument(args::Resolve::kPrevDepth, prev_depth_buffer_);
-    }
     kernels.resolve->SetArgument(args::Resolve::kNormal, normal_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
     std::uint32_t aov_index = aov_;
     kernels.resolve->SetArgument(args::Resolve::kAovIndex, &aov_index, sizeof(aov_index));
+
+    if (enable_denoiser_)
+    {
+        // Setup temporal accumulation kernel
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kWidth, &width_, sizeof(width_));
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kHeight, &height_, sizeof(height_));
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kRadiance, radiance_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevRadiance, prev_radiance_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kDepth, depth_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
+        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
+    }
 
     return kernels;
 }
@@ -596,13 +622,9 @@ void PathTraceIntegrator::ClearShadowRayCounter()
     cl_context_.ExecuteKernel(*kernels_.clear_counter, 1);
 }
 
-void PathTraceIntegrator::ResolveRadiance()
+void PathTraceIntegrator::Denoise()
 {
-    // Copy radiance to the interop image
-    cl_context_.AcquireGLObject((*output_image_)());
-    cl_context_.ExecuteKernel(*kernels_.resolve, width_ * height_);
-    cl_context_.Finish();
-    cl_context_.ReleaseGLObject((*output_image_)());
+    cl_context_.ExecuteKernel(*kernels_.temporal_accumulation, width_ * height_);
 }
 
 void PathTraceIntegrator::CopyHistoryBuffers()
@@ -610,6 +632,15 @@ void PathTraceIntegrator::CopyHistoryBuffers()
     // Copy to the history
     cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
     cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
+}
+
+void PathTraceIntegrator::ResolveRadiance()
+{
+    // Copy radiance to the interop image
+    cl_context_.AcquireGLObject((*output_image_)());
+    cl_context_.ExecuteKernel(*kernels_.resolve, width_ * height_);
+    cl_context_.Finish();
+    cl_context_.ReleaseGLObject((*output_image_)());
 }
 
 void PathTraceIntegrator::Integrate()
@@ -638,10 +669,10 @@ void PathTraceIntegrator::Integrate()
     }
 
     AdvanceSampleCount();
-    ResolveRadiance();
-
     if (enable_denoiser_)
     {
+        Denoise();
         CopyHistoryBuffers();
     }
+    ResolveRadiance();
 }

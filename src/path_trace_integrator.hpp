@@ -54,7 +54,7 @@ public:
     void Integrate();
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
-    void RequestReset() { request_reset_ = true; };
+    void RequestReset() { request_reset_ = true; }
     void ReloadKernels();
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
@@ -72,6 +72,7 @@ private:
         std::unique_ptr<CLKernel> accumulate_direct_samples;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
+        std::unique_ptr<CLKernel> temporal_accumulation;
         std::unique_ptr<CLKernel> resolve;
     };
 
@@ -87,8 +88,9 @@ private:
     void AccumulateDirectSamples();
     void ClearOutgoingRayCounter(std::uint32_t bounce);
     void ClearShadowRayCounter();
-    void ResolveRadiance();
+    void Denoise();
     void CopyHistoryBuffers();
+    void ResolveRadiance();
 
     // Render size
     std::uint32_t width_;
