@@ -3,6 +3,14 @@
 [![Bistro scene](screenshots/Bistro.png)](https://youtu.be/UIjra1T7ilI)
 ![](screenshots/SanMiguel.png)
 
+## Features
+* Unidirectional wavefront path tracer, OpenCL implementation
+* Lambert diffuse, GGX reflection BRDF
+* Explicit point, directional light sampling
+* Simple temporal reprojection filter
+* Depth, normals, albedo, motion vectors AOV generation
+* OpenCL/OpenGL interop for presenting the image
+
 ## Pre-Requisites:
 #### OpenCL SDKs
 * [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) — for NVIDIA GPU
