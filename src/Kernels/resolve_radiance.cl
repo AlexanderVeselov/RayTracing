@@ -80,6 +80,12 @@ __kernel void ResolveRadiance
         float3 hdr = radiance[global_id].xyz / (float)sample_count;
 #endif // ENABLE_DENOISER
 
+#ifdef DEMODULATE_ALBEDO
+        // Modulate albedo
+        float3 albedo = diffuse_albedo[global_id].xyz;
+        //hdr *= albedo;
+#endif // DEMODULATE_ALBEDO
+
         float3 ldr = hdr / (hdr + 1.0f);
         write_imagef(result, (int2)(x, y), (float4)(ldr, 1.0f));
     }

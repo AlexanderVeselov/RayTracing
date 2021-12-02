@@ -107,11 +107,12 @@ __kernel void HitSurface
 #ifndef ENABLE_WHITE_FURNACE
     if (dot(material.emission.xyz, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
-        result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
+        //result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
     }
 #endif // ENABLE_WHITE_FURNACE
 
     // Direct lighting
+    if (0)
     {
         float s_light = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
         float3 outgoing;

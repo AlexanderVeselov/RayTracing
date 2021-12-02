@@ -318,6 +318,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     if (enable_denoiser_)
     {
         definitions.push_back("ENABLE_DENOISER");
+        definitions.push_back("DEMODULATE_ALBEDO");
     }
 
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
