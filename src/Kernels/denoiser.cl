@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #include "constants.h"
+#include "utils.h"
 
 __kernel void TemporalAccumulation
 (
@@ -53,8 +54,10 @@ __kernel void TemporalAccumulation
         return;
     }
 
+    float2 screen_uv = (float2)(x + 0.5f, y + 0.5f) / (float2)(width, height);
+
     float2 motion = motion_vectors[pixel_idx];
-    float2 prev_uv = (float2)(x + 0.5f, y + 0.5f) / (float2)(width, height) - motion;
+    float2 prev_uv = screen_uv - motion;
     int prev_x = prev_uv.x * width;
     int prev_y = prev_uv.y * height;
 
@@ -73,7 +76,7 @@ __kernel void TemporalAccumulation
     }
 
     float3 current_radiance = radiance_buffer[pixel_idx].xyz;
-    float3 prev_radiance = prev_radiance_buffer[prev_idx].xyz;
-
+    float3 prev_radiance = SampleBicubic(prev_uv, prev_radiance_buffer, width, height).xyz;
+    
     radiance_buffer[pixel_idx].xyz = mix(current_radiance, prev_radiance, 0.9f);
 }

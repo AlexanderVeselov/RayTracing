@@ -54,6 +54,92 @@ float Luma(float3 rgb)
     return dot(rgb, (float3)(0.299f, 0.587f, 0.114f));
 }
 
+int To1D(int2 pos, int width)
+{
+    return pos.y * width + pos.x;
+}
+
+float frac(float x)
+{
+    return x - floor(x);
+}
+
+float4 SampleBilinear(float2 uv, __global float4* buffer, uint width, uint height)
+{
+    uv.x -= 0.5f / (float)width;
+    uv.y -= 0.5f / (float)height;
+
+    int2 texel_pos = (int2)(uv.x * width, uv.y * height);
+
+    // Compute sample offsets
+    int2 xy00 = clamp(texel_pos + (int2)(0, 0), (int2)(0, 0), (int2)(width - 1, height - 1));
+    int2 xy01 = clamp(texel_pos + (int2)(0, 1), (int2)(0, 0), (int2)(width - 1, height - 1));
+    int2 xy10 = clamp(texel_pos + (int2)(1, 0), (int2)(0, 0), (int2)(width - 1, height - 1));
+    int2 xy11 = clamp(texel_pos + (int2)(1, 1), (int2)(0, 0), (int2)(width - 1, height - 1));
+
+    // Fetch samples
+    float4 val00 = buffer[To1D(xy00, width)];
+    float4 val01 = buffer[To1D(xy01, width)];
+    float4 val10 = buffer[To1D(xy10, width)];
+    float4 val11 = buffer[To1D(xy11, width)];
+
+    // Bilinear weights
+    float wx = frac(uv.x * width);
+    float wy = frac(uv.y * height);
+
+    // Bilinear interpolation
+    return mix(mix(val00, val01, wx), mix(val10, val11, wx), wy);
+}
+
+// From "Reconstruction filters in Computer Graphics", Don P. Mitchell, Arun N. Netravali
+// https://www.cs.utexas.edu/~fussell/courses/cs384g-fall2013/lectures/mitchell/Mitchell.pdf
+float FilterCubic(float x, float b, float c)
+{
+    float y = 0.0f;
+    float x2 = x * x;
+    float x3 = x * x * x;
+
+    if (x < 1.0f)
+    {
+        y = (12.0f - 9.0f * b - 6.0f * c) * x3 + (-18.0f + 12.0f * b + 6.0f * c) * x2 + (6.0f - 2.0f * b);
+    }
+    else if (x <= 2.0f)
+    {
+        y = (-b - 6.0f * c) * x3 + (6.0f * b + 30.0f * c) * x2 + (-12.0f * b - 48.0f * c) * x + (8.0f * b + 24.0f * c);
+    }
+
+    return y / 6.0f;
+}
+
+float4 SampleBicubic(float2 uv, __global float4* buffer, uint width, uint height)
+{
+    float2 texel_pos = (float2)(uv.x * width, uv.y * height);
+    float total_weight = 0.0f;
+    float4 sum = 0.0f;
+
+    for (int i = -1; i <= 1; ++i)
+    {
+        for (int j = -1; j <= 1; ++j)
+        {
+            float2 current_sample_pos = floor(texel_pos + (float2)(i, j)) + 0.5f;
+
+            int2 current_pos = clamp((int2)(current_sample_pos.x, current_sample_pos.y), (int2)(0, 0), (int2)(width - 1, height - 1));
+
+            float4 current_sample = buffer[To1D(current_pos, width)];
+            float2 sample_dist = fabs(current_sample_pos - texel_pos);
+            float filter_weight = FilterCubic(sample_dist.x, 0, 0.5f) * FilterCubic(sample_dist.y, 0, 0.5f);
+
+            float sample_lum = Luma(current_sample.xyz);
+            filter_weight *= 1.0f / (1.0f + sample_lum);
+
+            sum += current_sample * filter_weight;
+            total_weight += filter_weight;
+        }
+    }
+
+    return (total_weight > 0.0f) ? (sum / total_weight) : 0.0f;
+}
+
 unsigned int WangHash(unsigned int x)
 {
     x = (x ^ 61) ^ (x >> 16);
