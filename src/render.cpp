@@ -168,6 +168,11 @@ void Render::DrawGUI()
             integrator_->EnableDenoiser(gui_params_.enable_denoiser);
         }
 
+        if (ImGui::Checkbox("Demodulate radiance", &gui_params_.demodulate_radiance))
+        {
+            integrator_->EnableDemodulation(gui_params_.demodulate_radiance);
+        }
+
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise ?

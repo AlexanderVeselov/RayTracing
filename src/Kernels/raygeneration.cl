@@ -78,6 +78,11 @@ __kernel void RayGeneration
     __global float*  depth_buffer,
     __global float3* normal_buffer,
     __global float2* velocity_buffer
+#ifdef ENABLE_DEMODULATION
+  , __global float3* direct_lighting_buffer,
+    __global float3* indirect_diffuse_buffer,
+    __global float3* indirect_specular_buffer
+#endif // ENABLE_DEMODULATION
 )
 {
     uint ray_idx = get_global_id(0);
@@ -130,6 +135,13 @@ __kernel void RayGeneration
     depth_buffer[pixel_idx] = MAX_RENDER_DIST;
     normal_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
     velocity_buffer[pixel_idx] = (float2)(0.0f, 0.0f);
+
+#ifdef ENABLE_DEMODULATION
+    // TODO: is clearing these buffers actually needed?
+    direct_lighting_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
+    indirect_diffuse_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
+    indirect_specular_buffer[pixel_idx] = (float3)(0.0f, 0.0f, 0.0f);
+#endif // ENABLE_DEMODULATION
 
     // Write to global ray counter
     if (ray_idx == 0)

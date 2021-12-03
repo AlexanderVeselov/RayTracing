@@ -61,6 +61,7 @@ public:
     void SetSamplerType(SamplerType sampler_type);
     void SetAOV(AOV aov);
     void EnableDenoiser(bool enable);
+    void EnableDemodulation(bool enable);
 
 private:
     struct Kernels
@@ -79,6 +80,7 @@ private:
 
     Kernels CreateKernels();
     void Reset();
+    void ClearBuffers();
     void AdvanceSampleCount();
     void GenerateRays();
     void IntersectRays(std::uint32_t bounce);
@@ -106,6 +108,7 @@ private:
     // For debugging
     bool enable_white_furnace_ = false;
     bool enable_denoiser_ = false;
+    bool enable_demodulation_ = true;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
@@ -129,6 +132,11 @@ private:
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
     cl::Buffer prev_radiance_buffer_;
+
+    cl::Buffer direct_lighting_buffer_;
+    cl::Buffer indirect_diffuse_buffer_;
+    cl::Buffer indirect_specular_buffer_;
+
     cl::Buffer diffuse_albedo_buffer_;
     cl::Buffer depth_buffer_;
     cl::Buffer prev_depth_buffer_;

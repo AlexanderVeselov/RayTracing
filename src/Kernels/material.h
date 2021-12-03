@@ -141,7 +141,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf, float* offset)
+    float3 incoming, float3* outgoing, float* pdf, float* offset, bool* is_specular)
 {
 #ifdef ENABLE_WHITE_FURNACE
     material.diffuse_albedo.xyz = 1.0f;
@@ -182,7 +182,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 
     float3 bxdf = 0.0f;
     *offset = 1.0f;
-
+    *is_specular = false;
     if (material.transparency < 0.5)
     {
         bxdf = SampleTransparency(s, normal, incoming, outgoing, pdf);
@@ -195,6 +195,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
         // Sample specular
         bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf) * max(dot(*outgoing, normal), 0.0f);
         *pdf *= specular_sampling_pdf;
+        *is_specular = true;
     }
     else
     {
@@ -224,7 +225,7 @@ float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
 void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv,
     __global Texture* textures, __global uint* texture_data)
 {
-#ifdef DEMODULATE_ALBEDO
+#ifdef ENABLE_DEMODULATION
     out_material->diffuse_albedo = (float3)(1.0f, 1.0f, 1.0f);
 #else
     uint diffuse_albedo_idx;
@@ -234,7 +235,7 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
     {
         out_material->diffuse_albedo = pow(SampleTexture(textures[diffuse_albedo_idx], uv, texture_data), 2.2f);
     }
-#endif // DEMODULATE_ALBEDO
+#endif // ENABLE_DEMODULATION
 
     uint specular_albedo_idx;
     out_material->specular_albedo = UnpackRGBTex(in_material.specular_albedo, &specular_albedo_idx);

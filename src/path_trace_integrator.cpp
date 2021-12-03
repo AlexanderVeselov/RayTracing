@@ -44,10 +44,15 @@ namespace args
             kRayCounterBuffer,
             kPixelIndicesBuffer,
             kThroughputsBuffer,
-            kDiffuseAlbedo,
-            kDepth,
-            kNormal,
-            kVelocity,
+            // AOVs
+            kDiffuseAlbedoBuffer,
+            kDepthBuffer,
+            kNormalBuffer,
+            kVelocityBuffer,
+            // Demodulation
+            kDirectLightingBuffer,
+            kIndirectDiffuseBuffer,
+            kIndirectSpecularBuffer,
         };
     }
 
@@ -123,6 +128,8 @@ namespace args
             kShadowPixelIndicesBuffer,
             kDirectLightSamplesBuffer,
             kRadianceBuffer,
+            kDiffuseThroughputTerm,
+            kSpecularThroughputTerm,
         };
     }
 
@@ -170,6 +177,8 @@ namespace args
             kSampleCounterBuffer,
             // Output
             kResolvedTexture,
+            // Modulation
+            kDirectLightingBuffer,
         };
     }
 }
@@ -262,6 +271,21 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
 
     // AOV buffers
     {
+        // if (enable_demodulation_)
+        {
+            direct_lighting_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+                width_ * height_ * sizeof(cl_float3), nullptr, &status);
+            ThrowIfFailed(status, "Failed to create direct lighting buffer");
+
+            indirect_diffuse_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+                width_ * height_ * sizeof(cl_float3), nullptr, &status);
+            ThrowIfFailed(status, "Failed to create indirect diffuse buffer");
+
+            indirect_specular_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+                width_ * height_ * sizeof(cl_float3), nullptr, &status);
+            ThrowIfFailed(status, "Failed to create indirect specular buffer");
+        }
+
         diffuse_albedo_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float3), nullptr, &status);
         ThrowIfFailed(status, "Failed to create diffuse albedo buffer");
@@ -298,12 +322,7 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
 
 PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
 {
-    Kernels kernels;
-
-    // Create kernels
-    kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_, "ResetRadiance");
-    kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_, "RayGeneration");
-
+    // Fill definitions
     std::vector<std::string> definitions;
     if (enable_white_furnace_)
     {
@@ -318,9 +337,17 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     if (enable_denoiser_)
     {
         definitions.push_back("ENABLE_DENOISER");
-        definitions.push_back("DEMODULATE_ALBEDO");
     }
 
+    if (enable_demodulation_)
+    {
+        definitions.push_back("ENABLE_DEMODULATION");
+    }
+
+    // Create kernels
+    Kernels kernels;
+    kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_, "ResetRadiance");
+    kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_, "RayGeneration", definitions);
     kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
     kernels.aov = std::make_unique<CLKernel>("src/Kernels/aov.cl", cl_context_, "GenerateAOV");
     kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
@@ -350,10 +377,17 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.raygen->SetArgument(args::Raygen::kRayCounterBuffer, ray_counter_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
     kernels.raygen->SetArgument(args::Raygen::kThroughputsBuffer, throughputs_buffer_);
-    kernels.raygen->SetArgument(args::Raygen::kDiffuseAlbedo, diffuse_albedo_buffer_);
-    kernels.raygen->SetArgument(args::Raygen::kDepth, depth_buffer_);
-    kernels.raygen->SetArgument(args::Raygen::kNormal, normal_buffer_);
-    kernels.raygen->SetArgument(args::Raygen::kVelocity, velocity_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kDiffuseAlbedoBuffer, diffuse_albedo_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kDepthBuffer, depth_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kNormalBuffer, normal_buffer_);
+    kernels.raygen->SetArgument(args::Raygen::kVelocityBuffer, velocity_buffer_);
+
+    if (enable_demodulation_)
+    {
+        kernels.raygen->SetArgument(args::Raygen::kDirectLightingBuffer, direct_lighting_buffer_);
+        kernels.raygen->SetArgument(args::Raygen::kIndirectDiffuseBuffer, indirect_diffuse_buffer_);
+        kernels.raygen->SetArgument(args::Raygen::kIndirectSpecularBuffer, indirect_specular_buffer_);
+    }
 
     // Setup miss kernel
     kernels.miss->SetArgument(args::Miss::kHitsBuffer, hits_buffer_);
@@ -372,7 +406,7 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kDirectLightSamplesBuffer,
         direct_light_samples_buffer_);
     kernels.accumulate_direct_samples->SetArgument(args::AccumulateDirectSamples::kRadianceBuffer,
-        radiance_buffer_);
+        enable_demodulation_ ? direct_lighting_buffer_ : radiance_buffer_);
 
     // Setup resolve kernel
     kernels.resolve->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
@@ -386,6 +420,10 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     kernels.resolve->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
     std::uint32_t aov_index = aov_;
     kernels.resolve->SetArgument(args::Resolve::kAovIndex, &aov_index, sizeof(aov_index));
+    if (enable_demodulation_)
+    {
+        kernels.resolve->SetArgument(args::Resolve::kDirectLightingBuffer, direct_lighting_buffer_);
+    }
 
     if (enable_denoiser_)
     {
@@ -500,6 +538,18 @@ void PathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
     RequestReset();
 }
 
+void PathTraceIntegrator::EnableDemodulation(bool enable_demodulation)
+{
+    if (enable_demodulation == enable_demodulation_)
+    {
+        return;
+    }
+
+    enable_demodulation_ = enable_demodulation;
+    ReloadKernels();
+    RequestReset();
+}
+
 void PathTraceIntegrator::Reset()
 {
     if (!enable_denoiser_)
@@ -511,6 +561,10 @@ void PathTraceIntegrator::Reset()
 
     // Reset radiance buffer
     cl_context_.ExecuteKernel(*kernels_.reset, width_ * height_);
+}
+
+void PathTraceIntegrator::ClearBuffers()
+{
 }
 
 void PathTraceIntegrator::AdvanceSampleCount()

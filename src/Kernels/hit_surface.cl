@@ -112,7 +112,6 @@ __kernel void HitSurface
 #endif // ENABLE_WHITE_FURNACE
 
     // Direct lighting
-    if (0)
     {
         float s_light = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
         float3 outgoing;
@@ -157,11 +156,20 @@ __kernel void HitSurface
         float3 throughput = 0.0f;
         float3 outgoing;
         float offset;
-        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf, &offset);
+        bool is_specular;
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf, &offset, &is_specular);
 
         if (pdf > 0.0)
         {
             throughput = bxdf / pdf;
+        }
+
+        if (bounce == 0)
+        {
+            if (is_specular)
+            {
+                throughput *= 0.0f;
+            }
         }
 
         throughputs[pixel_idx] *= throughput;

@@ -97,6 +97,12 @@ void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_b
     ThrowIfFailed(status, "Failed to copy buffer");
 }
 
+void CLContext::ClearBuffer(const cl::Buffer& buffer, std::size_t offset, std::size_t size) const
+{
+    cl_int status = queue_.enqueueFillBuffer(buffer, 0u, offset, size);
+    ThrowIfFailed(status, "Failed to clear buffer");
+}
+
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
     cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
