@@ -22,6 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include "constants.h"
+
 #define SHADED_COLOR_INDEX   0
 #define DIFFUSE_INDEX        1
 #define DEPTH_INDEX          2
@@ -33,11 +35,11 @@ __kernel void ResolveRadiance
     uint width,
     uint height,
     uint aov_index,
-    __global float4* radiance,
-    __global float3* diffuse_albedo,
-    __global float*  depth,
-    __global float3* normal,
-    __global float2* motion_vectors,
+    __global float4* radiance_buffer,
+    __global float3* diffuse_albedo_buffer,
+    __global float*  depth_buffer,
+    __global float3* normal_buffer,
+    __global float2* motion_vectors_buffer,
     __global uint*   sample_counter,
     __write_only image2d_t result
 #ifdef ENABLE_DEMODULATION
@@ -55,24 +57,24 @@ __kernel void ResolveRadiance
     if (aov_index == DIFFUSE_INDEX)
     {
         // Diffuse albedo
-        write_imagef(result, (int2)(x, y), (float4)(diffuse_albedo[pixel_idx].xyz, 1.0f));
+        write_imagef(result, (int2)(x, y), (float4)(diffuse_albedo_buffer[pixel_idx].xyz, 1.0f));
     }
     else if (aov_index == DEPTH_INDEX)
     {
         // Depth
-        float depth_value = depth[pixel_idx] * 0.1f;
+        float depth_value = depth_buffer[pixel_idx] * 0.1f;
         write_imagef(result, (int2)(x, y), (float4)(depth_value, depth_value, depth_value, 1.0f));
     }
     else if (aov_index == NORMAL_INDEX)
     {
         // Normal
-        float3 normal_value = normal[pixel_idx] * 0.5f + 0.5f;
+        float3 normal_value = normal_buffer[pixel_idx] * 0.5f + 0.5f;
         write_imagef(result, (int2)(x, y), (float4)(normal_value, 1.0f));
     }
     else if (aov_index == MOTION_VECTORS_INDEX)
     {
         // Motion vectors
-        write_imagef(result, (int2)(x, y), (float4)(motion_vectors[pixel_idx], 0.0f, 1.0f));
+        write_imagef(result, (int2)(x, y), (float4)(motion_vectors_buffer[pixel_idx], 0.0f, 1.0f));
     }
     else
     {
@@ -83,15 +85,23 @@ __kernel void ResolveRadiance
         float denominator = 1.0f / (float)sample_count;
 #endif // ENABLE_DENOISER
 
-        float3 hdr = radiance[pixel_idx].xyz * denominator;
+        float3 hdr = radiance_buffer[pixel_idx].xyz * denominator;
 
 #ifdef ENABLE_DEMODULATION
 
         // Modulate albedo
-        //float3 albedo = diffuse_albedo[pixel_idx].xyz;
-        // hdr *= albedo;
 
-        //hdr = direct_lighting_buffer[pixel_idx];// *denominator;
+        float3 direct = direct_lighting_buffer[pixel_idx];
+        float3 indirect_diffuse = max(hdr, 0.0f);
+        float3 indirect_specular = max(-hdr, 0.0f);
+
+        float depth = depth_buffer[pixel_idx];
+
+        float3 diffuse_albedo = depth == MAX_RENDER_DIST ? 1.0f : diffuse_albedo_buffer[pixel_idx].xyz;
+
+        hdr = indirect_diffuse * diffuse_albedo + indirect_specular;
+        hdr = (indirect_diffuse) * diffuse_albedo;
+
 #endif // ENABLE_DEMODULATION
 
         float3 ldr = hdr / (hdr + 1.0f);

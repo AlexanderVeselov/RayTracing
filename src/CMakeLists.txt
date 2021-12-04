@@ -18,7 +18,6 @@ set(KERNELS_SOURCES
     kernels/bxdf.h
     kernels/clear_counter.cl
     kernels/constants.h
-    kernels/denoiser.cl
     kernels/hit_surface.cl
     kernels/increment_counter.cl
     kernels/light.h
@@ -29,6 +28,8 @@ set(KERNELS_SOURCES
     kernels/resolve_radiance.cl
     kernels/sampling.h
     kernels/shared_structures.h
+    kernels/spatial_filter.cl
+    kernels/temporal_filter.cl
     kernels/trace_bvh.cl
     kernels/utils.h
 )

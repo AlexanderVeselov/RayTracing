@@ -25,15 +25,14 @@
 #include "constants.h"
 #include "utils.h"
 
-__kernel void TemporalAccumulation
+__kernel void SpatialFilter
 (
     uint width,
     uint height,
-    __global float4* radiance_buffer,
-    __global float4* prev_radiance_buffer,
-    __global float* depth,
-    __global float* prev_depth,
-    __global float2* motion_vectors
+    __global float4* input_radiance_buffer,
+    __global float4* output_radiance_buffer,
+    __global float*  depth_buffer,
+    __global float3* normal_buffer
 )
 {
     uint pixel_idx = get_global_id(0);
@@ -46,9 +45,9 @@ __kernel void TemporalAccumulation
         return;
     }
 
-    float depth_value = depth[pixel_idx];
+    float depth = depth_buffer[pixel_idx];
 
-    if (depth_value == MAX_RENDER_DIST)
+    if (depth == MAX_RENDER_DIST)
     {
         // Background
         return;
@@ -56,27 +55,33 @@ __kernel void TemporalAccumulation
 
     float2 screen_uv = (float2)(x + 0.5f, y + 0.5f) / (float2)(width, height);
 
-    float2 motion = motion_vectors[pixel_idx];
-    float2 prev_uv = screen_uv - motion;
-    int prev_x = prev_uv.x * width;
-    int prev_y = prev_uv.y * height;
+    float3 avg_radiance = 0.0f;
+    float weight_sum = 0.0f;
+    int kRadius = 3;
 
-    if (prev_x < 0 || prev_x >= width || prev_y < 0 || prev_y >= height)
+    float3 center_normal = normal_buffer[pixel_idx];
+
+    for (int dx = -kRadius; dx <= kRadius; ++dx)
     {
-        return;
+        for (int dy = -kRadius; dy <= kRadius; ++dy)
+        {
+            int xx = x + dx;
+            int yy = y + dy;
+
+            if (xx < 0 || xx >= width || yy < 0 || yy >= height)
+            {
+                continue;
+            }
+
+            int current_pixel_idx = To1D((int2)(xx, yy), width);
+            float3 current_radiance = input_radiance_buffer[current_pixel_idx].xyz;
+            float3 current_normal = normal_buffer[current_pixel_idx];
+
+            float weight = pow(max(dot(current_normal, center_normal), 0.0f), 5.0f);
+            avg_radiance += current_radiance * weight;
+            weight_sum += weight;
+        }
     }
 
-    int prev_idx = prev_y * width + prev_x;
-    float prev_depth_value = prev_depth[prev_idx];
-
-    // Depth similarity test
-    if (fabs(depth_value - prev_depth_value) / depth_value > 0.1f)
-    {
-        return;
-    }
-
-    float3 current_radiance = radiance_buffer[pixel_idx].xyz;
-    float3 prev_radiance = SampleBicubic(prev_uv, prev_radiance_buffer, width, height).xyz;
-    
-    radiance_buffer[pixel_idx].xyz = mix(current_radiance, prev_radiance, 0.9f);
+    output_radiance_buffer[pixel_idx].xyz = weight_sum > 0.0f ? avg_radiance / weight_sum : 0.0f;
 }

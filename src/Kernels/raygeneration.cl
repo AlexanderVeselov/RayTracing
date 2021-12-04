@@ -102,7 +102,7 @@ __kernel void RayGeneration
     uint sample_idx = sample_counter[0];
     unsigned int seed = pixel_idx + HashUInt32(sample_idx);
 
-#if 1
+#if 0
     float x = (pixel_x + GetRandomFloat(&seed)) * inv_width;
     float y = (pixel_y + GetRandomFloat(&seed)) * inv_height;
 #else

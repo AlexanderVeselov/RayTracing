@@ -74,7 +74,8 @@ private:
         std::unique_ptr<CLKernel> accumulate_direct_samples;
         std::unique_ptr<CLKernel> clear_counter;
         std::unique_ptr<CLKernel> increment_counter;
-        std::unique_ptr<CLKernel> temporal_accumulation;
+        std::unique_ptr<CLKernel> temporal_filter;
+        std::unique_ptr<CLKernel> spatial_filter;
         std::unique_ptr<CLKernel> resolve;
     };
 
@@ -131,15 +132,20 @@ private:
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
-    cl::Buffer prev_radiance_buffer_;
 
+    // Denoiser buffers
+    cl::Buffer prev_radiance_buffer_;
+    cl::Buffer prev_depth_buffer_;
+    cl::Buffer accumulated_radiance_buffer_;
+
+    // Demodulated radiance buffers
     cl::Buffer direct_lighting_buffer_;
     cl::Buffer indirect_diffuse_buffer_;
     cl::Buffer indirect_specular_buffer_;
 
+    // AOV buffers
     cl::Buffer diffuse_albedo_buffer_;
     cl::Buffer depth_buffer_;
-    cl::Buffer prev_depth_buffer_;
     cl::Buffer normal_buffer_;
     cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;

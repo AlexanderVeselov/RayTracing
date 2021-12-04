@@ -107,7 +107,7 @@ __kernel void HitSurface
 #ifndef ENABLE_WHITE_FURNACE
     if (dot(material.emission.xyz, (float3)(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
-        //result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
+        result_radiance[pixel_idx].xyz += hit_throughput * material.emission.xyz;
     }
 #endif // ENABLE_WHITE_FURNACE
 
@@ -164,13 +164,16 @@ __kernel void HitSurface
             throughput = bxdf / pdf;
         }
 
+#ifdef ENABLE_DEMODULATION
         if (bounce == 0)
         {
             if (is_specular)
             {
+                // Mark specular samples as negative, diffuse as positive
                 throughput *= 0.0f;
             }
         }
+#endif // ENABLE_DEMODULATION
 
         throughputs[pixel_idx] *= throughput;
 

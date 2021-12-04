@@ -147,7 +147,7 @@ namespace args
         };
     }
 
-    namespace TemporalAccumulation
+    namespace TemporalFilter
     {
         enum
         {
@@ -155,9 +155,23 @@ namespace args
             kHeight,
             kRadiance,
             kPrevRadiance,
+            kAccumulatedRadiance,
             kDepth,
             kPrevDepth,
             kMotionVectors
+        };
+    }
+
+    namespace SpatialFilter
+    {
+        enum
+        {
+            kWidth,
+            kHeight,
+            kInputRadiance,
+            kOutputRadiance,
+            kDepth,
+            kNormals,
         };
     }
 
@@ -199,13 +213,6 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
     ThrowIfFailed(status, "Failed to create radiance buffer");
-
-    // if (enable_denoiser_)
-    {
-        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float4), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create prev radiance buffer");
-    }
 
     for (int i = 0; i < 2; ++i)
     {
@@ -294,13 +301,6 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create depth buffer");
 
-        // if (enable_denoiser_)
-        {
-            prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-                width_ * height_ * sizeof(cl_float), nullptr, &status);
-            ThrowIfFailed(status, "Failed to create prev depth buffer");
-        }
-
         normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float3), nullptr, &status);
         ThrowIfFailed(status, "Failed to create normal buffer");
@@ -308,6 +308,21 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
         velocity_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float2), nullptr, &status);
         ThrowIfFailed(status, "Failed to create velocity buffer");
+    }
+
+    // if (enable_denoiser_)
+    {
+        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float4), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create prev radiance buffer");
+
+        prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create prev depth buffer");
+
+        accumulated_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+            width_ * height_ * sizeof(cl_float4), nullptr, &status);
+        ThrowIfFailed(status, "Failed to create accumulated radiance buffer");
     }
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
@@ -358,7 +373,8 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
 
     if (enable_denoiser_)
     {
-        kernels.temporal_accumulation = std::make_unique<CLKernel>("src/Kernels/denoiser.cl", cl_context_, "TemporalAccumulation");
+        kernels.temporal_filter = std::make_unique<CLKernel>("src/Kernels/temporal_filter.cl", cl_context_, "TemporalFilter");
+        kernels.spatial_filter = std::make_unique<CLKernel>("src/Kernels/spatial_filter.cl", cl_context_, "SpatialFilter");
     }
 
     // Setup kernels
@@ -427,14 +443,23 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
 
     if (enable_denoiser_)
     {
-        // Setup temporal accumulation kernel
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kWidth, &width_, sizeof(width_));
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kHeight, &height_, sizeof(height_));
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kRadiance, radiance_buffer_);
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevRadiance, prev_radiance_buffer_);
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kDepth, depth_buffer_);
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
-        kernels.temporal_accumulation->SetArgument(args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
+        // Setup temporal filter kernel
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kWidth, &width_, sizeof(width_));
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kHeight, &height_, sizeof(height_));
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kRadiance, radiance_buffer_);
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kPrevRadiance, prev_radiance_buffer_);
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kAccumulatedRadiance, accumulated_radiance_buffer_);
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kDepth, depth_buffer_);
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kPrevDepth, prev_depth_buffer_);
+        kernels.temporal_filter->SetArgument(args::TemporalFilter::kMotionVectors, velocity_buffer_);
+
+        // Setup spatial filter kernel
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kWidth, &width_, sizeof(width_));
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kHeight, &height_, sizeof(height_));
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kInputRadiance, accumulated_radiance_buffer_);
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kOutputRadiance, radiance_buffer_);
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kDepth, depth_buffer_);
+        kernels.spatial_filter->SetArgument(args::SpatialFilter::kNormals, normal_buffer_);
     }
 
     return kernels;
@@ -691,7 +716,8 @@ void PathTraceIntegrator::ClearShadowRayCounter()
 
 void PathTraceIntegrator::Denoise()
 {
-    cl_context_.ExecuteKernel(*kernels_.temporal_accumulation, width_ * height_);
+    cl_context_.ExecuteKernel(*kernels_.temporal_filter, width_ * height_);
+    cl_context_.ExecuteKernel(*kernels_.spatial_filter, width_ * height_);
 }
 
 void PathTraceIntegrator::CopyHistoryBuffers()
