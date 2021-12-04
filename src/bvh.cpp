@@ -272,11 +272,11 @@ void Bvh::IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_cou
     std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit)
 {
     CLKernel& kernel = closest_hit ? *intersect_kernel_ : *intersect_shadow_kernel_;
-    kernel.SetArgument(0, &rays_buffer, sizeof(rays_buffer));
-    kernel.SetArgument(1, &ray_counter_buffer, sizeof(ray_counter_buffer));
-    kernel.SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
-    kernel.SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
-    kernel.SetArgument(4, &hits_buffer, sizeof(hits_buffer));
+    kernel.SetArgument(0, rays_buffer);
+    kernel.SetArgument(1, ray_counter_buffer);
+    kernel.SetArgument(2, triangles_buffer_);
+    kernel.SetArgument(3, nodes_buffer_);
+    kernel.SetArgument(4, hits_buffer);
 
     ///@TODO: use indirect dispatch
     cl_context_.ExecuteKernel(kernel, max_num_rays);

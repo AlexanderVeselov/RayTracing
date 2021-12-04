@@ -118,14 +118,21 @@ void CLContext::ReleaseGLObject(cl_mem mem)
 std::shared_ptr<CLKernel> CLContext::CreateKernel(const char* filename, char const* kernel_name,
     std::vector<std::string> const& definitions)
 {
-    return std::make_shared<CLKernel>(*this, filename, kernel_name, definitions);
+    std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(*this, filename, kernel_name, definitions);
+    kernels_.push_back(kernel);
+    return kernel;
 }
 
 void CLContext::ReloadKernels()
 {
     try
     {
-        
+        for (auto kernel : kernels_)
+        {
+            kernel->Reload();
+        }
+
+        std::cout << "Kernels have been reloaded" << std::endl;
     }
     catch (std::exception const& ex)
     {
@@ -171,22 +178,38 @@ void CLKernel::Reload()
 
     kernel_ = cl::Kernel(program, kernel_name_.c_str(), &status);
     ThrowIfFailed(status, ("Failed to create kernel " + std::string(kernel_name_)).c_str());
+
+    // Bind previously bound data
+    for (auto const& arg : kernel_args_)
+    {
+        if (arg.second.arg_type == KernelArg::ArgType::kBuffer)
+        {
+            cl_int status = kernel_.setArg(arg.first, arg.second.size, &arg.second.data);
+            ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg.first)).c_str());
+        }
+        else
+        {
+            cl_int status = kernel_.setArg(arg.first, arg.second.size, arg.second.data);
+            ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg.first)).c_str());
+        }
+    }
 }
 
-void CLKernel::SetArgument(std::uint32_t argIndex, void const* data, size_t size)
+void CLKernel::SetArgument(std::uint32_t arg_index, void const* data, std::size_t size)
 {
-    cl_int status = kernel_.setArg(argIndex, size, data);
-    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
+    kernel_args_[arg_index] = KernelArg{ data, size, KernelArg::ArgType::kConstant };
+    cl_int status = kernel_.setArg(arg_index, size, data);
+    ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
-void CLKernel::SetArgument(std::uint32_t argIndex, cl_mem buffer)
+void CLKernel::SetArgument(std::uint32_t arg_index, cl_mem buffer)
 {
-    cl_int status = kernel_.setArg(argIndex, sizeof(cl_mem), &buffer);
-    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
+    kernel_args_[arg_index] = KernelArg{ buffer, sizeof(cl_mem), KernelArg::ArgType::kBuffer };
+    cl_int status = kernel_.setArg(arg_index, sizeof(cl_mem), &buffer);
+    ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
-void CLKernel::SetArgument(std::uint32_t argIndex, cl::Buffer buffer)
+void CLKernel::SetArgument(std::uint32_t arg_index, cl::Buffer buffer)
 {
-    cl_int status = kernel_.setArg(argIndex, sizeof(cl_mem), &buffer);
-    ThrowIfFailed(status, ("Failed to set kernel argument #" + std::to_string(argIndex)).c_str());
+    SetArgument(arg_index, buffer());
 }

@@ -29,6 +29,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 class CLKernel;
 
@@ -58,6 +59,7 @@ private:
     std::vector<cl::Device> devices_;
     cl::Context context_;
     cl::CommandQueue queue_;
+    std::vector<std::shared_ptr<CLKernel>> kernels_;
 
 };
 
@@ -68,15 +70,28 @@ public:
         std::vector<std::string> const& definitions = std::vector<std::string>());
     void Reload();
 
-    void SetArgument(std::uint32_t argIndex, cl_mem buffer);
-    void SetArgument(std::uint32_t argIndex, cl::Buffer buffer);
-    void SetArgument(std::uint32_t argIndex, void const* data, size_t size);
+    void SetArgument(std::uint32_t arg_index, cl_mem buffer);
+    void SetArgument(std::uint32_t arg_index, cl::Buffer buffer);
+    void SetArgument(std::uint32_t arg_index, void const* data, std::size_t size);
     const cl::Kernel& GetKernel() const { return kernel_; }
 
 private:
+    struct KernelArg
+    {
+        void const* data;
+        std::size_t size;
+
+        enum class ArgType
+        {
+            kBuffer,
+            kConstant
+        } arg_type;
+    };
+
     CLContext const& context_;
     std::string filename_;
     std::string kernel_name_;
     std::vector<std::string> definitions_;
     cl::Kernel kernel_;
+    std::unordered_map<std::uint32_t, KernelArg> kernel_args_;
 };
