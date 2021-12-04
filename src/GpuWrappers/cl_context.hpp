@@ -36,6 +36,8 @@ class CLContext
 {
 public:
     CLContext(const cl::Platform& platform, void* display_context, void* gl_context);
+    std::shared_ptr<CLKernel> CreateKernel(const char* filename, char const* kernel_name,
+        std::vector<std::string> const& definitions = std::vector<std::string>());
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
@@ -48,6 +50,7 @@ public:
 
     const cl::Context& GetContext() const { return context_; }
     std::vector<cl::Device> const& GetDevices() const { return devices_; }
+    void ReloadKernels();
 
 
 private:
@@ -61,15 +64,19 @@ private:
 class CLKernel
 {
 public:
-    CLKernel(const char* filename, const CLContext& cl_context, char const* kernel_name,
+    CLKernel(CLContext const& cl_context, const char* filename, char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
+    void Reload();
+
     void SetArgument(std::uint32_t argIndex, cl_mem buffer);
     void SetArgument(std::uint32_t argIndex, cl::Buffer buffer);
     void SetArgument(std::uint32_t argIndex, void const* data, size_t size);
-    const cl::Kernel& GetKernel() const { return m_Kernel; }
+    const cl::Kernel& GetKernel() const { return kernel_; }
 
 private:
-    cl::Kernel  m_Kernel;
-    cl::Program m_Program;
-
+    CLContext const& context_;
+    std::string filename_;
+    std::string kernel_name_;
+    std::vector<std::string> definitions_;
+    cl::Kernel kernel_;
 };

@@ -301,8 +301,8 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
     Kernels kernels;
 
     // Create kernels
-    kernels.reset = std::make_unique<CLKernel>("src/Kernels/reset_radiance.cl", cl_context_, "ResetRadiance");
-    kernels.raygen = std::make_unique<CLKernel>("src/Kernels/raygeneration.cl", cl_context_, "RayGeneration");
+    kernels.reset = cl_context_.CreateKernel("src/Kernels/reset_radiance.cl", "ResetRadiance");
+    kernels.raygen = cl_context_.CreateKernel("src/Kernels/raygeneration.cl", "RayGeneration");
 
     std::vector<std::string> definitions;
     if (enable_white_furnace_)
@@ -320,17 +320,17 @@ PathTraceIntegrator::Kernels PathTraceIntegrator::CreateKernels()
         definitions.push_back("ENABLE_DENOISER");
     }
 
-    kernels.miss = std::make_unique<CLKernel>("src/Kernels/miss.cl", cl_context_, "Miss", definitions);
-    kernels.aov = std::make_unique<CLKernel>("src/Kernels/aov.cl", cl_context_, "GenerateAOV");
-    kernels.hit_surface = std::make_unique<CLKernel>("src/Kernels/hit_surface.cl", cl_context_, "HitSurface", definitions);
-    kernels.accumulate_direct_samples = std::make_unique<CLKernel>("src/Kernels/accumulate_direct_samples.cl", cl_context_, "AccumulateDirectSamples", definitions);
-    kernels.clear_counter = std::make_unique<CLKernel>("src/Kernels/clear_counter.cl", cl_context_, "ClearCounter");
-    kernels.increment_counter = std::make_unique<CLKernel>("src/Kernels/increment_counter.cl", cl_context_, "IncrementCounter");
-    kernels.resolve = std::make_unique<CLKernel>("src/Kernels/resolve_radiance.cl", cl_context_, "ResolveRadiance", definitions);
+    kernels.miss = cl_context_.CreateKernel("src/Kernels/miss.cl", "Miss", definitions);
+    kernels.aov = cl_context_.CreateKernel("src/Kernels/aov.cl", "GenerateAOV");
+    kernels.hit_surface = cl_context_.CreateKernel("src/Kernels/hit_surface.cl", "HitSurface", definitions);
+    kernels.accumulate_direct_samples = cl_context_.CreateKernel("src/Kernels/accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
+    kernels.clear_counter = cl_context_.CreateKernel("src/Kernels/clear_counter.cl", "ClearCounter");
+    kernels.increment_counter = cl_context_.CreateKernel("src/Kernels/increment_counter.cl", "IncrementCounter");
+    kernels.resolve = cl_context_.CreateKernel("src/Kernels/resolve_radiance.cl", "ResolveRadiance", definitions);
 
     if (enable_denoiser_)
     {
-        kernels.temporal_accumulation = std::make_unique<CLKernel>("src/Kernels/denoiser.cl", cl_context_, "TemporalAccumulation");
+        kernels.temporal_accumulation = cl_context_.CreateKernel("src/Kernels/denoiser.cl", "TemporalAccumulation");
     }
 
     // Setup kernels

@@ -65,16 +65,16 @@ public:
 private:
     struct Kernels
     {
-        std::unique_ptr<CLKernel> reset;
-        std::unique_ptr<CLKernel> raygen;
-        std::unique_ptr<CLKernel> miss;
-        std::unique_ptr<CLKernel> aov;
-        std::unique_ptr<CLKernel> hit_surface;
-        std::unique_ptr<CLKernel> accumulate_direct_samples;
-        std::unique_ptr<CLKernel> clear_counter;
-        std::unique_ptr<CLKernel> increment_counter;
-        std::unique_ptr<CLKernel> temporal_accumulation;
-        std::unique_ptr<CLKernel> resolve;
+        std::shared_ptr<CLKernel> reset;
+        std::shared_ptr<CLKernel> raygen;
+        std::shared_ptr<CLKernel> miss;
+        std::shared_ptr<CLKernel> aov;
+        std::shared_ptr<CLKernel> hit_surface;
+        std::shared_ptr<CLKernel> accumulate_direct_samples;
+        std::shared_ptr<CLKernel> clear_counter;
+        std::shared_ptr<CLKernel> increment_counter;
+        std::shared_ptr<CLKernel> temporal_accumulation;
+        std::shared_ptr<CLKernel> resolve;
     };
 
     Kernels CreateKernels();

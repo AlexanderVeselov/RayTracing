@@ -34,10 +34,10 @@ namespace
 Bvh::Bvh(CLContext& cl_context)
     : AccelerationStructure(cl_context)
 {
-    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh");
+    intersect_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh");
 
     std::vector<std::string> definitions = { "SHADOW_RAYS" };
-    intersect_shadow_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh", definitions);
+    intersect_shadow_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh", definitions);
 }
 
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)
