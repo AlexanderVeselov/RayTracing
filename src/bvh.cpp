@@ -34,10 +34,10 @@ namespace
 Bvh::Bvh(CLContext& cl_context)
     : AccelerationStructure(cl_context)
 {
-    intersect_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh");
+    intersect_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh");
 
     std::vector<std::string> definitions = { "SHADOW_RAYS" };
-    intersect_shadow_kernel_ = std::make_unique<CLKernel>("src/Kernels/trace_bvh.cl", cl_context, "TraceBvh", definitions);
+    intersect_shadow_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh", definitions);
 }
 
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)
@@ -272,11 +272,11 @@ void Bvh::IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_cou
     std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit)
 {
     CLKernel& kernel = closest_hit ? *intersect_kernel_ : *intersect_shadow_kernel_;
-    kernel.SetArgument(0, &rays_buffer, sizeof(rays_buffer));
-    kernel.SetArgument(1, &ray_counter_buffer, sizeof(ray_counter_buffer));
-    kernel.SetArgument(2, &triangles_buffer_, sizeof(triangles_buffer_));
-    kernel.SetArgument(3, &nodes_buffer_, sizeof(nodes_buffer_));
-    kernel.SetArgument(4, &hits_buffer, sizeof(hits_buffer));
+    kernel.SetArgument(0, rays_buffer);
+    kernel.SetArgument(1, ray_counter_buffer);
+    kernel.SetArgument(2, triangles_buffer_);
+    kernel.SetArgument(3, nodes_buffer_);
+    kernel.SetArgument(4, hits_buffer);
 
     ///@TODO: use indirect dispatch
     cl_context_.ExecuteKernel(kernel, max_num_rays);

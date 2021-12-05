@@ -55,7 +55,6 @@ public:
     void SetSceneData(Scene const& scene);
     void SetCameraData(Camera const& camera);
     void RequestReset() { request_reset_ = true; }
-    void ReloadKernels();
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
     void SetSamplerType(SamplerType sampler_type);
@@ -63,21 +62,7 @@ public:
     void EnableDenoiser(bool enable);
 
 private:
-    struct Kernels
-    {
-        std::unique_ptr<CLKernel> reset;
-        std::unique_ptr<CLKernel> raygen;
-        std::unique_ptr<CLKernel> miss;
-        std::unique_ptr<CLKernel> aov;
-        std::unique_ptr<CLKernel> hit_surface;
-        std::unique_ptr<CLKernel> accumulate_direct_samples;
-        std::unique_ptr<CLKernel> clear_counter;
-        std::unique_ptr<CLKernel> increment_counter;
-        std::unique_ptr<CLKernel> temporal_accumulation;
-        std::unique_ptr<CLKernel> resolve;
-    };
-
-    Kernels CreateKernels();
+    void CreateKernels();
     void Reset();
     void AdvanceSampleCount();
     void GenerateRays();
@@ -114,7 +99,16 @@ private:
     AccelerationStructure& acc_structure_;
 
     // Kernels
-    Kernels kernels_;
+    std::shared_ptr<CLKernel> reset_kernel_;
+    std::shared_ptr<CLKernel> raygen_kernel_;
+    std::shared_ptr<CLKernel> miss_kernel_;
+    std::shared_ptr<CLKernel> aov_kernel_;
+    std::shared_ptr<CLKernel> hit_surface_kernel_;
+    std::shared_ptr<CLKernel> accumulate_direct_samples_kernel_;
+    std::shared_ptr<CLKernel> clear_counter_kernel_;
+    std::shared_ptr<CLKernel> increment_counter_kernel_;
+    std::shared_ptr<CLKernel> temporal_accumulation_kernel_;
+    std::shared_ptr<CLKernel> resolve_kernel_;
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays

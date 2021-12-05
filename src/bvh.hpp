@@ -100,6 +100,6 @@ private:
     std::uint32_t max_prims_in_node_;
     cl::Buffer triangles_buffer_;
     cl::Buffer nodes_buffer_;
-    std::unique_ptr<CLKernel> intersect_kernel_;
-    std::unique_ptr<CLKernel> intersect_shadow_kernel_;
+    std::shared_ptr<CLKernel> intersect_kernel_;
+    std::shared_ptr<CLKernel> intersect_shadow_kernel_;
 };

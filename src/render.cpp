@@ -203,7 +203,7 @@ void Render::RenderFrame()
 
     if (window_.IsKeyPressed('R'))
     {
-        integrator_->ReloadKernels();
+        cl_context_->ReloadKernels();
         need_to_reset = true;
     }
 
