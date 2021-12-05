@@ -59,7 +59,7 @@ private:
     std::vector<cl::Device> devices_;
     cl::Context context_;
     cl::CommandQueue queue_;
-    std::vector<std::shared_ptr<CLKernel>> kernels_;
+    std::vector<std::weak_ptr<CLKernel>> kernels_;
 
 };
 

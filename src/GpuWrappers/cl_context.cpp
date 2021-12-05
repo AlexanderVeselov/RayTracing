@@ -127,9 +127,14 @@ void CLContext::ReloadKernels()
 {
     try
     {
+        // Erase expired kernels
+        kernels_.erase(std::remove_if(kernels_.begin(), kernels_.end(),
+            [](std::weak_ptr<CLKernel> ptr) { return ptr.expired(); }), kernels_.end());
+
+        // Reload remaining
         for (auto kernel : kernels_)
         {
-            kernel->Reload();
+            kernel.lock()->Reload();
         }
 
         std::cout << "Kernels have been reloaded" << std::endl;
