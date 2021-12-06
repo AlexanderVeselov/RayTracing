@@ -110,8 +110,9 @@ private:
     std::shared_ptr<CLKernel> accumulate_direct_samples_kernel_;
     std::shared_ptr<CLKernel> clear_counter_kernel_;
     std::shared_ptr<CLKernel> increment_counter_kernel_;
-    std::shared_ptr<CLKernel> temporal_accumulation_kernel_;
     std::shared_ptr<CLKernel> resolve_kernel_;
+    std::shared_ptr<CLKernel> temporal_filter_kernel_;
+    std::shared_ptr<CLKernel> spatial_filter_kernel_;
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
