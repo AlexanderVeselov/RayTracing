@@ -29,6 +29,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 class CLKernel;
 
@@ -36,6 +37,8 @@ class CLContext
 {
 public:
     CLContext(const cl::Platform& platform, void* display_context, void* gl_context);
+    std::shared_ptr<CLKernel> CreateKernel(const char* filename, char const* kernel_name,
+        std::vector<std::string> const& definitions = std::vector<std::string>());
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, std::size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, std::size_t size) const;
@@ -49,6 +52,7 @@ public:
 
     const cl::Context& GetContext() const { return context_; }
     std::vector<cl::Device> const& GetDevices() const { return devices_; }
+    void ReloadKernels();
 
 
 private:
@@ -56,21 +60,39 @@ private:
     std::vector<cl::Device> devices_;
     cl::Context context_;
     cl::CommandQueue queue_;
+    std::vector<std::weak_ptr<CLKernel>> kernels_;
 
 };
 
 class CLKernel
 {
 public:
-    CLKernel(const char* filename, const CLContext& cl_context, char const* kernel_name,
+    CLKernel(CLContext const& cl_context, const char* filename, char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
-    void SetArgument(std::uint32_t argIndex, cl_mem buffer);
-    void SetArgument(std::uint32_t argIndex, cl::Buffer buffer);
-    void SetArgument(std::uint32_t argIndex, void const* data, size_t size);
-    const cl::Kernel& GetKernel() const { return m_Kernel; }
+    void Reload();
+
+    void SetArgument(std::uint32_t arg_index, cl_mem buffer);
+    void SetArgument(std::uint32_t arg_index, cl::Buffer buffer);
+    void SetArgument(std::uint32_t arg_index, void const* data, std::size_t size);
+    const cl::Kernel& GetKernel() const { return kernel_; }
 
 private:
-    cl::Kernel  m_Kernel;
-    cl::Program m_Program;
+    struct KernelArg
+    {
+        void const* data;
+        std::size_t size;
 
+        enum class ArgType
+        {
+            kBuffer,
+            kConstant
+        } arg_type;
+    };
+
+    CLContext const& context_;
+    std::string filename_;
+    std::string kernel_name_;
+    std::vector<std::string> definitions_;
+    cl::Kernel kernel_;
+    std::unordered_map<std::uint32_t, KernelArg> kernel_args_;
 };
