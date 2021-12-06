@@ -25,6 +25,7 @@
 #pragma once
 
 #include "GpuWrappers/cl_context.hpp"
+#include "denoiser.hpp"
 #include <memory>
 
 class Scene;
@@ -101,6 +102,9 @@ private:
     // Acceleration structure
     AccelerationStructure& acc_structure_;
 
+    // Denoiser
+    Denoiser denoiser_;
+
     // Kernels
     std::shared_ptr<CLKernel> reset_kernel_;
     std::shared_ptr<CLKernel> raygen_kernel_;
@@ -111,8 +115,6 @@ private:
     std::shared_ptr<CLKernel> clear_counter_kernel_;
     std::shared_ptr<CLKernel> increment_counter_kernel_;
     std::shared_ptr<CLKernel> resolve_kernel_;
-    std::shared_ptr<CLKernel> temporal_filter_kernel_;
-    std::shared_ptr<CLKernel> spatial_filter_kernel_;
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
@@ -127,10 +129,8 @@ private:
     cl::Buffer sample_counter_buffer_;
     cl::Buffer radiance_buffer_;
 
-    // Denoiser buffers
-    cl::Buffer prev_radiance_buffer_;
+    // Buffers required for denoising
     cl::Buffer prev_depth_buffer_;
-    cl::Buffer accumulated_radiance_buffer_;
 
     // Demodulated radiance buffers
     cl::Buffer direct_lighting_buffer_;

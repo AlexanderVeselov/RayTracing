@@ -59,6 +59,8 @@ set(MAIN_SOURCES
     acceleration_structure.hpp
     bvh.cpp
     bvh.hpp
+    denoiser.cpp
+    denoiser.hpp
     path_trace_integrator.cpp
     path_trace_integrator.hpp
     render.cpp

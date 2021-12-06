@@ -147,34 +147,6 @@ namespace args
         };
     }
 
-    namespace TemporalFilter
-    {
-        enum
-        {
-            kWidth,
-            kHeight,
-            kRadiance,
-            kPrevRadiance,
-            kAccumulatedRadiance,
-            kDepth,
-            kPrevDepth,
-            kMotionVectors
-        };
-    }
-
-    namespace SpatialFilter
-    {
-        enum
-        {
-            kWidth,
-            kHeight,
-            kInputRadiance,
-            kOutputRadiance,
-            kDepth,
-            kNormals,
-        };
-    }
-
     namespace Resolve
     {
         enum
@@ -204,6 +176,7 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     , cl_context_(cl_context)
     , acc_structure_(acc_structure)
     , gl_interop_image_(gl_interop_image)
+    , denoiser_(cl_context, width, height)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -312,17 +285,11 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
 
     // if (enable_denoiser_)
     {
-        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float4), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create prev radiance buffer");
 
         prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
             width_ * height_ * sizeof(cl_float), nullptr, &status);
         ThrowIfFailed(status, "Failed to create prev depth buffer");
 
-        accumulated_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float4), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create accumulated radiance buffer");
     }
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,
@@ -369,12 +336,6 @@ void PathTraceIntegrator::CreateKernels()
     clear_counter_kernel_ = cl_context_.CreateKernel("src/Kernels/clear_counter.cl", "ClearCounter");
     increment_counter_kernel_ = cl_context_.CreateKernel("src/Kernels/increment_counter.cl", "IncrementCounter");
     resolve_kernel_ = cl_context_.CreateKernel("src/Kernels/resolve_radiance.cl", "ResolveRadiance", definitions);
-
-    if (enable_denoiser_)
-    {
-        temporal_filter_kernel_ = cl_context_.CreateKernel("src/Kernels/temporal_filter.cl", "TemporalFilter");
-        spatial_filter_kernel_ = cl_context_.CreateKernel("src/Kernels/spatial_filter.cl", "SpatialFilter");
-    }
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -439,27 +400,6 @@ void PathTraceIntegrator::CreateKernels()
     if (enable_demodulation_)
     {
         resolve_kernel_->SetArgument(args::Resolve::kDirectLightingBuffer, direct_lighting_buffer_);
-    }
-
-    if (enable_denoiser_)
-    {
-        // Setup temporal filter kernel
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kWidth, &width_, sizeof(width_));
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kHeight, &height_, sizeof(height_));
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kRadiance, radiance_buffer_);
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kPrevRadiance, prev_radiance_buffer_);
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kAccumulatedRadiance, accumulated_radiance_buffer_);
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kDepth, depth_buffer_);
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kPrevDepth, prev_depth_buffer_);
-        temporal_filter_kernel_->SetArgument(args::TemporalFilter::kMotionVectors, velocity_buffer_);
-
-        // Setup spatial filter kernel
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kWidth, &width_, sizeof(width_));
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kHeight, &height_, sizeof(height_));
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kInputRadiance, accumulated_radiance_buffer_);
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kOutputRadiance, radiance_buffer_);
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kDepth, depth_buffer_);
-        spatial_filter_kernel_->SetArgument(args::SpatialFilter::kNormals, normal_buffer_);
     }
 
 }
@@ -701,14 +641,12 @@ void PathTraceIntegrator::ClearShadowRayCounter()
 
 void PathTraceIntegrator::Denoise()
 {
-    cl_context_.ExecuteKernel(*temporal_filter_kernel_, width_ * height_);
-    cl_context_.ExecuteKernel(*spatial_filter_kernel_, width_ * height_);
+    denoiser_.Denoise(radiance_buffer_, depth_buffer_, normal_buffer_, prev_depth_buffer_, velocity_buffer_);
 }
 
 void PathTraceIntegrator::CopyHistoryBuffers()
 {
     // Copy to the history
-    cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
     cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
 }
 
