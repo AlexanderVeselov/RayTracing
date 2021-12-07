@@ -47,7 +47,10 @@ public:
         kDiffuseAlbedo,
         kDepth,
         kNormal,
-        kMotionVectors
+        kMotionVectors,
+        kDirectLighting,
+        kIndirectDiffuse,
+        kIndirectSpecular
     };
 
     PathTraceIntegrator(std::uint32_t width, std::uint32_t height,

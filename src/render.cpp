@@ -185,8 +185,8 @@ void Render::DrawGUI()
         }
 
         static int aov_index = 0;
-        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
-        if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
+        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors", "Direct Lighting", "Indirect Diffuse", "Indirect Specular" };
+        if (ImGui::Combo("AOV", &aov_index, aov_names, sizeof(aov_names) / sizeof(aov_names[0])))
         {
             integrator_->SetAOV((PathTraceIntegrator::AOV)aov_index);
         }

@@ -316,14 +316,14 @@ void PathTraceIntegrator::CreateKernels()
         definitions.push_back("BLUE_NOISE_SAMPLER");
     }
 
-    if (enable_denoiser_)
-    {
-        definitions.push_back("ENABLE_DENOISER");
-    }
-
     if (enable_demodulation_)
     {
         definitions.push_back("ENABLE_DEMODULATION");
+    }
+
+    if (enable_denoiser_)
+    {
+        definitions.push_back("ENABLE_DENOISER");
     }
 
     // Create kernels
