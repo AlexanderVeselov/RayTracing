@@ -165,6 +165,7 @@ namespace args
             kResolvedTexture,
             // Modulation
             kDirectLightingBuffer,
+            kIndirectSpecularBuffer,
         };
     }
 }
@@ -183,9 +184,9 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     // Create buffers and images
     cl_int status;
 
-    radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
+    accumulated_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
         width_ * height_ * sizeof(cl_float4), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create radiance buffer");
+    ThrowIfFailed(status, "Failed to create accumulated radiance buffer");
 
     for (int i = 0; i < 2; ++i)
     {
@@ -343,7 +344,7 @@ void PathTraceIntegrator::CreateKernels()
     // Setup reset kernel
     reset_kernel_->SetArgument(0, &width_, sizeof(width_));
     reset_kernel_->SetArgument(1, &height_, sizeof(height_));
-    reset_kernel_->SetArgument(2, radiance_buffer_);
+    reset_kernel_->SetArgument(2, accumulated_radiance_buffer_);
 
     // Setup raygen kernel
     raygen_kernel_->SetArgument(args::Raygen::kWidth, &width_, sizeof(width_));
@@ -368,9 +369,12 @@ void PathTraceIntegrator::CreateKernels()
     // Setup miss kernel
     miss_kernel_->SetArgument(args::Miss::kHitsBuffer, hits_buffer_);
     miss_kernel_->SetArgument(args::Miss::kThroughputsBuffer, throughputs_buffer_);
-    miss_kernel_->SetArgument(args::Miss::kRadianceBuffer, radiance_buffer_);
 
-    // Setup hit surface kernel
+    if (!enable_demodulation_)
+    {
+        // If we don't demodulate the radiance, write directly to the accumulated radiance buffer
+        miss_kernel_->SetArgument(args::Miss::kRadianceBuffer, accumulated_radiance_buffer_);
+    }
 
     // Setup accumulate direct samples kernel
     accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kShadowHitsBuffer,
@@ -382,13 +386,13 @@ void PathTraceIntegrator::CreateKernels()
     accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kDirectLightSamplesBuffer,
         direct_light_samples_buffer_);
     accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kRadianceBuffer,
-        enable_demodulation_ ? direct_lighting_buffer_ : radiance_buffer_);
+        enable_demodulation_ ? direct_lighting_buffer_ : accumulated_radiance_buffer_);
 
     // Setup resolve kernel
     resolve_kernel_->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
     resolve_kernel_->SetArgument(args::Resolve::kHeight, &height_, sizeof(height_));
     resolve_kernel_->SetArgument(args::Resolve::kSampleCounterBuffer, sample_counter_buffer_);
-    resolve_kernel_->SetArgument(args::Resolve::kRadianceBuffer, radiance_buffer_);
+    resolve_kernel_->SetArgument(args::Resolve::kRadianceBuffer, accumulated_radiance_buffer_);
     resolve_kernel_->SetArgument(args::Resolve::kDiffuseAlbedo, diffuse_albedo_buffer_);
     resolve_kernel_->SetArgument(args::Resolve::kDepth, depth_buffer_);
     resolve_kernel_->SetArgument(args::Resolve::kNormal, normal_buffer_);
@@ -400,8 +404,8 @@ void PathTraceIntegrator::CreateKernels()
     if (enable_demodulation_)
     {
         resolve_kernel_->SetArgument(args::Resolve::kDirectLightingBuffer, direct_lighting_buffer_);
+        raygen_kernel_->SetArgument(args::Resolve::kIndirectSpecularBuffer, indirect_specular_buffer_);
     }
-
 }
 
 void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
@@ -472,6 +476,12 @@ void PathTraceIntegrator::SetAOV(AOV aov)
 
     std::uint32_t aov_idx = aov;
     resolve_kernel_->SetArgument(args::Resolve::kAovIndex, &aov_idx, sizeof(aov_idx));
+
+    //if (aov_ == kIndirectDiffuse || aov_ == kIndirectSpecular)
+    {
+        // Needs recreation of kernels
+        CreateKernels();
+    }
 
     RequestReset();
 }
@@ -573,6 +583,12 @@ void PathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     miss_kernel_->SetArgument(args::Miss::kRayBuffer, rays_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
+
+    if (enable_demodulation_)
+    {
+        // In the case of demodulation, write the primary miss to the direct lighting, 
+        miss_kernel_->SetArgument(args::Miss::kRadianceBuffer, accumulated_radiance_buffer_);
+    }
     cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
 }
 
@@ -614,7 +630,7 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     hit_surface_kernel_->SetArgument(args::HitSurface::kDirectLightSamplesBuffer, direct_light_samples_buffer_);
 
     // Output radiance
-    hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer, radiance_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer, accumulated_radiance_buffer_);
 
     cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
 }
@@ -641,7 +657,7 @@ void PathTraceIntegrator::ClearShadowRayCounter()
 
 void PathTraceIntegrator::Denoise()
 {
-    denoiser_.Denoise(radiance_buffer_, depth_buffer_, normal_buffer_, prev_depth_buffer_, velocity_buffer_);
+    denoiser_.Denoise(accumulated_radiance_buffer_, depth_buffer_, normal_buffer_, prev_depth_buffer_, velocity_buffer_);
 }
 
 void PathTraceIntegrator::CopyHistoryBuffers()

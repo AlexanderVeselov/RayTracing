@@ -50,6 +50,9 @@ __kernel void Miss
     __read_only image2d_t tex,
     // Output
     __global float3* result_radiance
+#ifdef ENABLE_DEMODULATION
+  , __global float3* reflection_radiance
+#endif // ENABLE_DEMODULATION
 )
 {
     uint ray_idx = get_global_id(0);
@@ -73,6 +76,19 @@ __kernel void Miss
 #else
         float3 sky_radiance = SampleSky(ray.direction.xyz, tex) * 5.0f;
 #endif
+
+#ifdef ENABLE_DEMODULATION
+        if (throughput > 0.0f)
+        {
+            result_radiance[pixel_idx] += sky_radiance * throughput;
+        }
+        else
+        {
+            // Throughput is negative as it's a reflection sample marker
+            reflection_radiance[pixel_idx] -= sky_radiance * throughput;
+        }
+#else
         result_radiance[pixel_idx] += sky_radiance * throughput;
+#endif // ENABLE_DEMODULATION
     }
 }

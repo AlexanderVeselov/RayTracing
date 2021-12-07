@@ -167,11 +167,8 @@ __kernel void HitSurface
 #ifdef ENABLE_DEMODULATION
         if (bounce == 0)
         {
-            if (is_specular)
-            {
-                // Mark specular samples as negative, diffuse as positive
-                throughput *= 0.0f;
-            }
+            // Mark specular samples as negative, diffuse as positive
+            throughput *= is_specular ? -1.0f : 1.0f;
         }
 #endif // ENABLE_DEMODULATION
 

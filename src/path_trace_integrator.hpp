@@ -130,7 +130,7 @@ private:
     cl::Buffer shadow_hits_buffer_;
     cl::Buffer throughputs_buffer_;
     cl::Buffer sample_counter_buffer_;
-    cl::Buffer radiance_buffer_;
+    cl::Buffer accumulated_radiance_buffer_;
 
     // Buffers required for denoising
     cl::Buffer prev_depth_buffer_;
