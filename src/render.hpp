@@ -37,7 +37,13 @@ class Window;
 class Render
 {
 public:
-    Render(Window& window);
+    enum class RenderBackend
+    {
+        kOpenCL,
+        kOpenGL
+    };
+
+    Render(Window& window, RenderBackend backend);
     ~Render();
 
     void    RenderFrame();
@@ -51,10 +57,12 @@ private:
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
+    void ReloadKernels();
     
 private:
     // Window
     Window& window_;
+    RenderBackend render_backend_;
 
     // Render size
     std::uint32_t width_;

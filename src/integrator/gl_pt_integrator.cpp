@@ -22,27 +22,50 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+#include "gl_pt_integrator.hpp"
 
-#include "gpu_wrappers/cl_context.hpp"
-#include "integrator.hpp"
-#include <memory>
-
-class Scene;
-class CameraController;
-class AccelerationStructure;
-
-class GLPathTracingIntegrator : public Integrator
+GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
+    AccelerationStructure& acc_structure, std::uint32_t out_image)
+    : Integrator(width, height, acc_structure)
 {
-public:
-    GLPathTracingIntegrator(std::uint32_t width, std::uint32_t height);
-    virtual void Integrate() = 0;
-    virtual void SetSceneData(Scene const& scene) = 0;
-    virtual void SetCameraData(Camera const& camera) = 0;
-    void RequestReset() { request_reset_ = true; }
-    virtual void EnableWhiteFurnace(bool enable) = 0;
-    virtual void SetMaxBounces(std::uint32_t max_bounces) = 0;
-    virtual void SetSamplerType(SamplerType sampler_type) = 0;
-    virtual void SetAOV(AOV aov) = 0;
-    virtual void EnableDenoiser(bool enable) = 0;
-};
+}
+
+void GLPathTraceIntegrator::UploadSceneData(Scene const& scene)
+{
+
+}
+
+void GLPathTraceIntegrator::SetCameraData(Camera const& camera)
+{
+
+}
+
+void GLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
+{
+
+}
+
+void GLPathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
+{
+
+}
+
+void GLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
+{
+
+}
+
+void GLPathTraceIntegrator::SetAOV(AOV aov)
+{
+
+}
+
+void GLPathTraceIntegrator::EnableDenoiser(bool enable)
+{
+
+}
+
+void GLPathTraceIntegrator::Integrate()
+{
+
+}

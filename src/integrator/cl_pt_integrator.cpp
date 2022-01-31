@@ -175,11 +175,10 @@ namespace args
 }
 
 CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-    CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint gl_interop_image)
-    : Integrator(width, height)
+    AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int output_image)
+    : Integrator(width, height, acc_structure)
     , cl_context_(cl_context)
-    , acc_structure_(acc_structure)
-    , gl_interop_image_(gl_interop_image)
+    , gl_interop_image_(output_image)
 {
     std::uint32_t num_rays = width_ * height_;
 

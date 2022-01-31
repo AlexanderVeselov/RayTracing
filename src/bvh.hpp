@@ -47,7 +47,7 @@ public:
             centroid(bounds.min * 0.5f + bounds.max * 0.5f)
         {}
 
-        unsigned int primitiveNumber;
+        unsigned int primitiveNumber = 0;
         Bounds3 bounds;
         float3 centroid;
 

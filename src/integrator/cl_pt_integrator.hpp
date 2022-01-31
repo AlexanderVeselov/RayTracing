@@ -24,19 +24,14 @@
 
 #pragma once
 
-#include "gpu_wrappers/cl_context.hpp"
 #include "integrator.hpp"
-#include <memory>
-
-class Scene;
-class CameraController;
-class AccelerationStructure;
+#include "gpu_wrappers/cl_context.hpp"
 
 class CLPathTraceIntegrator : public Integrator
 {
 public:
     CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-        CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
+        AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
     void Integrate() override;
     void UploadSceneData(Scene const& scene) override;
     void SetCameraData(Camera const& camera) override;
@@ -65,9 +60,6 @@ private:
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
-
-    // Acceleration structure
-    AccelerationStructure& acc_structure_;
 
     // Kernels
     std::shared_ptr<CLKernel> reset_kernel_;
