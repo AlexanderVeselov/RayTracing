@@ -38,7 +38,7 @@ public:
     CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
     void Integrate() override;
-    void SetSceneData(Scene const& scene) override;
+    void UploadSceneData(Scene const& scene) override;
     void SetCameraData(Camera const& camera) override;
     void EnableWhiteFurnace(bool enable) override;
     void SetMaxBounces(std::uint32_t max_bounces) override;
@@ -100,6 +100,17 @@ private:
     cl::Buffer normal_buffer_;
     cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;
+
+    // Scene buffers
+    cl::Buffer triangle_buffer_;
+    cl::Buffer material_buffer_;
+    cl::Buffer texture_buffer_;
+    cl::Buffer texture_data_buffer_;
+    cl::Buffer emissive_buffer_;
+    cl::Buffer analytic_light_buffer_;
+    cl::Buffer scene_info_buffer_;
+    cl::Image2D env_texture_;
+    SceneInfo scene_info_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

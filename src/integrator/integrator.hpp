@@ -51,7 +51,7 @@ public:
 
     Integrator(std::uint32_t width, std::uint32_t height) : width_(width), height_(height) {}
     virtual void Integrate() = 0;
-    virtual void SetSceneData(Scene const& scene) = 0;
+    virtual void UploadSceneData(Scene const& scene) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
     virtual void EnableWhiteFurnace(bool enable) = 0;

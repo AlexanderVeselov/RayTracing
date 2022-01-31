@@ -74,6 +74,7 @@ public:
     void SetArgument(std::uint32_t arg_index, cl::Buffer buffer);
     void SetArgument(std::uint32_t arg_index, void const* data, std::size_t size);
     const cl::Kernel& GetKernel() const { return kernel_; }
+    std::string const& GetName() const { return kernel_name_; }
 
 private:
     struct KernelArg

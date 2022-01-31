@@ -26,7 +26,7 @@
 
 #include "mathlib/mathlib.hpp"
 #include "kernels/shared_structures.h"
-#include <CL/cl.hpp>
+#include "io/image_loader.hpp"
 #include <vector>
 #include <unordered_map>
 
@@ -34,17 +34,17 @@ class CLContext;
 class Scene
 {
 public:
-    Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz);
-    // TODO: REPLACE TO CONST REF
-    std::vector<Triangle> & GetTriangles();
-    cl_mem GetTriangleBuffer() const { return triangle_buffer_(); }
-    cl_mem GetEmissiveIndicesBuffer() const { return emissive_buffer_(); }
-    cl_mem GetMaterialBuffer() const { return material_buffer_(); }
-    cl_mem GetTextureBuffer() const { return texture_buffer_(); }
-    cl_mem GetTextureDataBuffer() const { return texture_data_buffer_(); }
-    cl_mem GetEnvTextureBuffer() const { return env_texture_(); }
-    cl_mem GetAnalyticLightBuffer() const { return analytic_light_buffer_(); }
+    Scene(const char* filename, float scale, bool flip_yz);
+
+    std::vector<Triangle>& GetTriangles() { return triangles_; }
+    std::vector<Triangle> const& GetTriangles() const { return triangles_; }
+    std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
+    std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
+    std::vector<Texture> const& GetTextures() const { return textures_; }
+    std::vector<std::uint32_t> const& GetTextureData() const { return texture_data_; }
+    std::vector<Light> const& GetLights() const { return lights_; }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
+    Image const& GetEnvImage() const { return env_image_; }
     void Finalize();
     void AddPointLight(float3 origin, float3 radiance);
     void AddDirectionalLight(float3 direction, float3 radiance);
@@ -55,7 +55,6 @@ private:
     std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
-    CLContext& cl_context_;
     std::vector<Triangle> triangles_;
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
@@ -64,13 +63,5 @@ private:
     std::vector<std::uint32_t> texture_data_;
     std::unordered_map<std::string, std::size_t> loaded_textures_;
     SceneInfo scene_info_ = {};
-
-    cl::Buffer triangle_buffer_;
-    cl::Buffer material_buffer_;
-    cl::Buffer texture_buffer_;
-    cl::Buffer texture_data_buffer_;
-    cl::Buffer emissive_buffer_;
-    cl::Buffer analytic_light_buffer_;
-    cl::Buffer scene_info_buffer_;
-    cl::Image2D env_texture_;
+    Image env_image_;
 };

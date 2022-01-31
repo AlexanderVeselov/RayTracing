@@ -64,7 +64,7 @@ Render::Render(Window& window)
     bool flip_yz = true;
 #endif
 
-    scene_ = std::make_unique<Scene>(scene_path, *cl_context_, scene_scale, flip_yz);
+    scene_ = std::make_unique<Scene>(scene_path, scene_scale, flip_yz);
 
     auto get_rand = [](float min, float max)
     {
@@ -96,8 +96,9 @@ Render::Render(Window& window)
     // Create estimator
     integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *cl_context_,
         *acc_structure_, framebuffer_->GetGLImage());
-    integrator_->SetSceneData(*scene_);
 
+    // Upload scene data to the GPU
+    integrator_->UploadSceneData(*scene_);
 }
 
 Render::~Render()
@@ -208,7 +209,6 @@ void Render::RenderFrame()
     }
 
     camera_controller_->Update((float)GetDeltaTime());
-    integrator_->SetSceneData(*scene_);
     integrator_->SetCameraData(camera_controller_->GetData());
 
     need_to_reset = need_to_reset || camera_controller_->IsChanged();

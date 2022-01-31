@@ -417,23 +417,66 @@ void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void CLPathTraceIntegrator::SetSceneData(Scene const& scene)
+void CLPathTraceIntegrator::UploadSceneData(Scene const& scene)
 {
-    // Set scene buffers
-    SceneInfo scene_info = scene.GetSceneInfo();
+    // Create scene buffers
+    auto const& triangles = scene.GetTriangles();
+    auto const& materials = scene.GetMaterials();
+    auto const& emissive_indices = scene.GetEmissiveIndices();
+    auto const& lights = scene.GetLights();
+    auto const& textures = scene.GetTextures();
+    auto const& texture_data = scene.GetTextureData();
+    auto const& env_image = scene.GetEnvImage();
 
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, scene.GetTriangleBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, scene.GetAnalyticLightBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, scene.GetEmissiveIndicesBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, scene.GetMaterialBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTexturesBuffer, scene.GetTextureBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTextureDataBuffer, scene.GetTextureDataBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kSceneInfo, &scene_info, sizeof(scene_info));
-    miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, scene.GetEnvTextureBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTrianglesBuffer, scene.GetTriangleBuffer());
-    aov_kernel_->SetArgument(args::Aov::kMaterialsBuffer, scene.GetMaterialBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTexturesBuffer, scene.GetTextureBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTextureDataBuffer, scene.GetTextureDataBuffer());
+    cl_int status;
+
+    assert(!triangles.empty());
+    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        triangles.size() * sizeof(Triangle), (void*)triangles.data(), &status);
+    ThrowIfFailed(status, "Failed to create scene buffer");
+
+    assert(!materials.empty());
+    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        materials.size() * sizeof(PackedMaterial), (void*)materials.data(), &status);
+    ThrowIfFailed(status, "Failed to create material buffer");
+
+    if (!emissive_indices.empty())
+    {
+        emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            emissive_indices.size() * sizeof(std::uint32_t), (void*)emissive_indices.data(), &status);
+        ThrowIfFailed(status, "Failed to create emissive buffer");
+    }
+
+    if (!lights.empty())
+    {
+        analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            lights.size() * sizeof(Light), (void*)lights.data(), &status);
+        ThrowIfFailed(status, "Failed to create analytic light buffer");
+    }
+
+    if (!textures.empty())
+    {
+        texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            textures.size() * sizeof(Texture), (void*)textures.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture buffer");
+    }
+
+    if (!texture_data.empty())
+    {
+        texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            texture_data.size() * sizeof(std::uint32_t), (void*)texture_data.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture data buffer");
+    }
+
+    cl::ImageFormat image_format;
+    image_format.image_channel_order = CL_RGBA;
+    image_format.image_channel_data_type = CL_FLOAT;
+
+    env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        image_format, env_image.width, env_image.height, 0, (void*)env_image.data.data(), &status);
+    ThrowIfFailed(status, "Failed to create environment image");
+
+    scene_info_ = scene.GetSceneInfo();
 }
 
 void CLPathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
@@ -524,6 +567,10 @@ void CLPathTraceIntegrator::ComputeAOVs()
     aov_kernel_->SetArgument(args::Aov::kRayCounterBuffer, ray_counter_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kHitsBuffer, hits_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTrianglesBuffer, triangle_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kMaterialsBuffer, material_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTexturesBuffer, texture_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTextureDataBuffer, texture_data_buffer_);
     aov_kernel_->SetArgument(args::Aov::kWidth, &width_, sizeof(width_));
     aov_kernel_->SetArgument(args::Aov::kHeight, &height_, sizeof(height_));
     aov_kernel_->SetArgument(args::Aov::kDiffuseAlbedo, diffuse_albedo_buffer_);
@@ -550,6 +597,7 @@ void CLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     miss_kernel_->SetArgument(args::Miss::kRayBuffer, rays_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
+    miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, env_texture_());
     cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
 }
 
@@ -567,11 +615,19 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kHitsBuffer, hits_buffer_);
 
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, triangle_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, analytic_light_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, emissive_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, material_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTexturesBuffer, texture_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTextureDataBuffer, texture_data_buffer_);
+
     hit_surface_kernel_->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
     hit_surface_kernel_->SetArgument(args::HitSurface::kWidth, &width_, sizeof(width_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kHeight, &height_, sizeof(height_));
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kSampleCounterBuffer, sample_counter_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSceneInfo, &scene_info_, sizeof(scene_info_));
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kSobolBuffer, sampler_sobol_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kScramblingTileBuffer, sampler_scrambling_tile_buffer_);
