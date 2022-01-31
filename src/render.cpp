@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #include "render.hpp"
+#include "integrator/cl_pt_integrator.hpp"
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 #include "bvh.hpp"
@@ -172,7 +173,7 @@ void Render::DrawGUI()
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
-                CLPathTraceIntegrator::SamplerType::kBlueNoise : CLPathTraceIntegrator::SamplerType::kRandom);
+                Integrator::SamplerType::kBlueNoise : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -184,7 +185,7 @@ void Render::DrawGUI()
         const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
-            integrator_->SetAOV((CLPathTraceIntegrator::AOV)aov_index);
+            integrator_->SetAOV((Integrator::AOV)aov_index);
         }
     }
     ImGui::End();

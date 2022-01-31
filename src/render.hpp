@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "integrator/cl_pt_integrator.hpp"
+#include "integrator/integrator.hpp"
 #include "acceleration_structure.hpp"
 #include "scene/scene.hpp"
 #include "gpu_wrappers/cl_context.hpp"
@@ -64,8 +64,8 @@ private:
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
     std::shared_ptr<CLContext> cl_context_;
-    // Estimator
-    std::unique_ptr<CLPathTraceIntegrator> integrator_;
+    // Integrator
+    std::unique_ptr<Integrator> integrator_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
     // Scene
