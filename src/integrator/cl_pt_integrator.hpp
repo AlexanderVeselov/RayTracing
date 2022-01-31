@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "GpuWrappers/cl_context.hpp"
+#include "gpu_wrappers/cl_context.hpp"
 #include "integrator.hpp"
 #include <memory>
 

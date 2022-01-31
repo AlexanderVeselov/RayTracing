@@ -25,6 +25,7 @@
 #pragma once
 
 #include "gpu_wrappers/cl_context.hpp"
+#include "integrator.hpp"
 #include <memory>
 
 class Scene;

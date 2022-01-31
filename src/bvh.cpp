@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "bvh.hpp"
-#include "GpuWrappers/cl_context.hpp"
+#include "gpu_wrappers/cl_context.hpp"
 #include "Utils/cl_exception.hpp"
 
 namespace

@@ -27,7 +27,7 @@
 #include "integrator/cl_pt_integrator.hpp"
 #include "acceleration_structure.hpp"
 #include "scene/scene.hpp"
-#include "GpuWrappers/cl_context.hpp"
+#include "gpu_wrappers/cl_context.hpp"
 #include "utils/camera_controller.hpp"
 #include "utils/framebuffer.hpp"
 #include <memory>

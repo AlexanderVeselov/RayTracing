@@ -25,31 +25,17 @@
 #pragma once
 
 #include "gpu_wrappers/cl_context.hpp"
+#include "integrator.hpp"
 #include <memory>
 
 class Scene;
 class CameraController;
 class AccelerationStructure;
 
-class Integrator
+class GLPathTracingIntegrator : public Integrator
 {
 public:
-    enum class SamplerType
-    {
-        kRandom,
-        kBlueNoise
-    };
-
-    enum AOV
-    {
-        kShadedColor,
-        kDiffuseAlbedo,
-        kDepth,
-        kNormal,
-        kMotionVectors
-    };
-
-    Integrator(std::uint32_t width, std::uint32_t height) : width_(width), height_(height) {}
+    GLPathTracingIntegrator(std::uint32_t width, std::uint32_t height);
     virtual void Integrate() = 0;
     virtual void SetSceneData(Scene const& scene) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
@@ -59,20 +45,4 @@ public:
     virtual void SetSamplerType(SamplerType sampler_type) = 0;
     virtual void SetAOV(AOV aov) = 0;
     virtual void EnableDenoiser(bool enable) = 0;
-
-protected:
-    // Render size
-    std::uint32_t width_;
-    std::uint32_t height_;
-    Camera prev_camera_ = {};
-
-    std::uint32_t max_bounces_ = 5u;
-    SamplerType sampler_type_ = SamplerType::kRandom;
-    AOV aov_ = AOV::kShadedColor;
-
-    bool request_reset_ = false;
-    // For debugging
-    bool enable_white_furnace_ = false;
-    bool enable_denoiser_ = false;
-
 };

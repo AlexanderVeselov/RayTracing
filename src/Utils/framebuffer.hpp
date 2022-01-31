@@ -25,7 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
-#include "GpuWrappers/gl_graphics_pipeline.hpp"
+#include "gpu_wrappers/gl_graphics_pipeline.hpp"
 
 class Framebuffer
 {
