@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #include "render.hpp"
+#include "integrator/cl_pt_integrator.hpp"
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 #include "bvh.hpp"
@@ -64,7 +65,7 @@ Render::Render(Window& window)
     bool flip_yz = true;
 #endif
 
-    scene_ = std::make_unique<Scene>(scene_path, *cl_context_, scene_scale, flip_yz);
+    scene_ = std::make_unique<Scene>(scene_path, scene_scale, flip_yz);
 
     auto get_rand = [](float min, float max)
     {
@@ -94,10 +95,11 @@ Render::Render(Window& window)
     scene_->Finalize();
 
     // Create estimator
-    integrator_ = std::make_unique<PathTraceIntegrator>(width_, height_, *cl_context_,
+    integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *cl_context_,
         *acc_structure_, framebuffer_->GetGLImage());
-    integrator_->SetSceneData(*scene_);
 
+    // Upload scene data to the GPU
+    integrator_->UploadSceneData(*scene_);
 }
 
 Render::~Render()
@@ -171,7 +173,7 @@ void Render::DrawGUI()
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
-                PathTraceIntegrator::SamplerType::kBlueNoise : PathTraceIntegrator::SamplerType::kRandom);
+                Integrator::SamplerType::kBlueNoise : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -183,7 +185,7 @@ void Render::DrawGUI()
         const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
-            integrator_->SetAOV((PathTraceIntegrator::AOV)aov_index);
+            integrator_->SetAOV((Integrator::AOV)aov_index);
         }
     }
     ImGui::End();
@@ -208,7 +210,6 @@ void Render::RenderFrame()
     }
 
     camera_controller_->Update((float)GetDeltaTime());
-    integrator_->SetSceneData(*scene_);
     integrator_->SetCameraData(camera_controller_->GetData());
 
     need_to_reset = need_to_reset || camera_controller_->IsChanged();

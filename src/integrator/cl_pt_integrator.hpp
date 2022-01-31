@@ -24,42 +24,27 @@
 
 #pragma once
 
-#include "GpuWrappers/cl_context.hpp"
+#include "gpu_wrappers/cl_context.hpp"
+#include "integrator.hpp"
 #include <memory>
 
 class Scene;
 class CameraController;
 class AccelerationStructure;
 
-class PathTraceIntegrator
+class CLPathTraceIntegrator : public Integrator
 {
 public:
-    enum class SamplerType
-    {
-        kRandom,
-        kBlueNoise
-    };
-
-    enum AOV
-    {
-        kShadedColor,
-        kDiffuseAlbedo,
-        kDepth,
-        kNormal,
-        kMotionVectors
-    };
-
-    PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
+    CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
-    void Integrate();
-    void SetSceneData(Scene const& scene);
-    void SetCameraData(Camera const& camera);
-    void RequestReset() { request_reset_ = true; }
-    void EnableWhiteFurnace(bool enable);
-    void SetMaxBounces(std::uint32_t max_bounces);
-    void SetSamplerType(SamplerType sampler_type);
-    void SetAOV(AOV aov);
-    void EnableDenoiser(bool enable);
+    void Integrate() override;
+    void UploadSceneData(Scene const& scene) override;
+    void SetCameraData(Camera const& camera) override;
+    void EnableWhiteFurnace(bool enable) override;
+    void SetMaxBounces(std::uint32_t max_bounces) override;
+    void SetSamplerType(SamplerType sampler_type) override;
+    void SetAOV(AOV aov) override;
+    void EnableDenoiser(bool enable) override;
 
 private:
     void CreateKernels();
@@ -77,20 +62,6 @@ private:
     void Denoise();
     void CopyHistoryBuffers();
     void ResolveRadiance();
-
-    // Render size
-    std::uint32_t width_;
-    std::uint32_t height_;
-    Camera prev_camera_ = {};
-
-    std::uint32_t max_bounces_ = 5u;
-    SamplerType sampler_type_ = SamplerType::kRandom;
-    AOV aov_ = AOV::kShadedColor;
-
-    bool request_reset_ = false;
-    // For debugging
-    bool enable_white_furnace_ = false;
-    bool enable_denoiser_ = false;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
@@ -129,6 +100,17 @@ private:
     cl::Buffer normal_buffer_;
     cl::Buffer velocity_buffer_;
     cl::Buffer direct_light_samples_buffer_;
+
+    // Scene buffers
+    cl::Buffer triangle_buffer_;
+    cl::Buffer material_buffer_;
+    cl::Buffer texture_buffer_;
+    cl::Buffer texture_data_buffer_;
+    cl::Buffer emissive_buffer_;
+    cl::Buffer analytic_light_buffer_;
+    cl::Buffer scene_info_buffer_;
+    cl::Image2D env_texture_;
+    SceneInfo scene_info_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

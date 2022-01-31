@@ -29,7 +29,6 @@
 #include "mathlib/mathlib.hpp"
 #include "render.hpp"
 #include "utils/cl_exception.hpp"
-#include "io/image_loader.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -40,22 +39,9 @@
 #include <cctype>
 #include <GL/glew.h>
 
-Scene::Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz)
-    : cl_context_(cl_context)
+Scene::Scene(const char* filename, float scale, bool flip_yz)
 {
-    cl_int status;
-
-    std::uint32_t dummy_value = 0;
-    dummy_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(std::uint32_t), &dummy_value, &status);
-    ThrowIfFailed(status, "Failed to create dummy buffer");
-
     Load(filename, scale, flip_yz);
-}
-
-std::vector<Triangle>& Scene::GetTriangles()
-{
-    return triangles_;
 }
 
 namespace
@@ -367,55 +353,5 @@ void Scene::Finalize()
     //scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
     scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
 
-    cl_int status;
-
-    assert(!triangles_.empty());
-    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        triangles_.size() * sizeof(Triangle), triangles_.data(), &status);
-    ThrowIfFailed(status, "Failed to create scene buffer");
-
-    assert(!materials_.empty());
-    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        materials_.size() * sizeof(PackedMaterial), materials_.data(), &status);
-    ThrowIfFailed(status, "Failed to create material buffer");
-
-    if (!emissive_indices_.empty())
-    {
-        emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            emissive_indices_.size() * sizeof(std::uint32_t), emissive_indices_.data(), &status);
-        ThrowIfFailed(status, "Failed to create emissive buffer");
-    }
-
-    if (!lights_.empty())
-    {
-        analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            lights_.size() * sizeof(Light), lights_.data(), &status);
-        ThrowIfFailed(status, "Failed to create analytic light buffer");
-    }
-
-    if (!textures_.empty())
-    {
-        texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            textures_.size() * sizeof(Texture), textures_.data(), &status);
-        ThrowIfFailed(status, "Failed to create texture buffer");
-    }
-
-    if (!texture_data_.empty())
-    {
-        texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            texture_data_.size() * sizeof(std::uint32_t), texture_data_.data(), &status);
-        ThrowIfFailed(status, "Failed to create texture data buffer");
-    }
-
-    ///@TODO: remove from here
-    // Texture Buffers
-    cl::ImageFormat image_format;
-    image_format.image_channel_order = CL_RGBA;
-    image_format.image_channel_data_type = CL_FLOAT;
-
-    Image image;
-    LoadHDR("assets/ibl/CGSkies_0036_free.hdr", image);
-    env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        image_format, image.width, image.height, 0, image.data.data(), &status);
-    ThrowIfFailed(status, "Failed to create environment image");
+    LoadHDR("assets/ibl/CGSkies_0036_free.hdr", env_image_);
 }

@@ -1,8 +1,16 @@
 set(GPU_WRAPPERS_SOURCES
-    GpuWrappers/cl_context.cpp
-    GpuWrappers/cl_context.hpp
-    GpuWrappers/gl_graphics_pipeline.cpp
-    GpuWrappers/gl_graphics_pipeline.hpp
+    gpu_wrappers/cl_context.cpp
+    gpu_wrappers/cl_context.hpp
+    gpu_wrappers/gl_graphics_pipeline.cpp
+    gpu_wrappers/gl_graphics_pipeline.hpp
+)
+
+set(INTEGRATOR_SOURCES
+    integrator/integrator.hpp
+    integrator/cl_pt_integrator.cpp
+    integrator/cl_pt_integrator.hpp
+    integrator/gl_pt_integrator.cpp
+    integrator/gl_pt_integrator.hpp
 )
 
 set(IO_SOURCES
@@ -58,8 +66,6 @@ set(MAIN_SOURCES
     acceleration_structure.hpp
     bvh.cpp
     bvh.hpp
-    path_trace_integrator.cpp
-    path_trace_integrator.hpp
     render.cpp
     render.hpp
     main.cpp
@@ -67,6 +73,7 @@ set(MAIN_SOURCES
 
 set(SOURCES
     ${GPU_WRAPPERS_SOURCES}
+    ${INTEGRATOR_SOURCES}
     ${IO_SOURCES}
     ${KERNELS_SOURCES}
     ${MATHLIB_SOURCES}
@@ -76,6 +83,7 @@ set(SOURCES
 )
 
 source_group("GpuWrappers" FILES ${GPU_WRAPPERS_SOURCES})
+source_group("Integrator" FILES ${INTEGRATOR_SOURCES})
 source_group("Io" FILES ${IO_SOURCES})
 source_group("Kernels" FILES ${KERNELS_SOURCES})
 source_group("Mathlib" FILES ${MATHLIB_SOURCES})

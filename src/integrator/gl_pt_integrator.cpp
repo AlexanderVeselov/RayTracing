@@ -24,21 +24,25 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
-#include "gpu_wrappers/gl_graphics_pipeline.hpp"
+#include "gpu_wrappers/cl_context.hpp"
+#include "integrator.hpp"
+#include <memory>
 
-class Framebuffer
+class Scene;
+class CameraController;
+class AccelerationStructure;
+
+class GLPathTracingIntegrator : public Integrator
 {
 public:
-    Framebuffer(std::uint32_t width, std::uint32_t height);
-    void Present();
-    std::uint32_t GetWidth() const { return width_; }
-    std::uint32_t GetHeight() const { return height_; }
-    GLuint GetGLImage() const { return render_texture_; }
-
-private:
-    std::uint32_t width_;
-    std::uint32_t height_;
-    GraphicsPipeline draw_pipeline_;
-    GLuint render_texture_;
+    GLPathTracingIntegrator(std::uint32_t width, std::uint32_t height);
+    virtual void Integrate() = 0;
+    virtual void SetSceneData(Scene const& scene) = 0;
+    virtual void SetCameraData(Camera const& camera) = 0;
+    void RequestReset() { request_reset_ = true; }
+    virtual void EnableWhiteFurnace(bool enable) = 0;
+    virtual void SetMaxBounces(std::uint32_t max_bounces) = 0;
+    virtual void SetSamplerType(SamplerType sampler_type) = 0;
+    virtual void SetAOV(AOV aov) = 0;
+    virtual void EnableDenoiser(bool enable) = 0;
 };

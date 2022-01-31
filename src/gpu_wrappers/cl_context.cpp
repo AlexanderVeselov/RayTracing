@@ -100,7 +100,7 @@ void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_b
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
     cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
-    ThrowIfFailed(status, "Failed to enqueue kernel");
+    ThrowIfFailed(status, ("Failed to enqueue kernel " + kernel.GetName()).c_str());
 }
 
 void CLContext::AcquireGLObject(cl_mem mem)

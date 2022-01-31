@@ -24,63 +24,56 @@
 
 #pragma once
 
-#include "integrator/integrator.hpp"
-#include "acceleration_structure.hpp"
-#include "scene/scene.hpp"
 #include "gpu_wrappers/cl_context.hpp"
-#include "utils/camera_controller.hpp"
-#include "utils/framebuffer.hpp"
+#include "integrator.hpp"
 #include <memory>
-#include <ctime>
 
-class Window;
-class Render
+class Scene;
+class CameraController;
+class AccelerationStructure;
+
+class Integrator
 {
 public:
-    Render(Window& window);
-    ~Render();
+    enum class SamplerType
+    {
+        kRandom,
+        kBlueNoise
+    };
 
-    void    RenderFrame();
-    double  GetCurtime()   const;
-    double  GetDeltaTime() const;
-    Window& GetWindow() const { return window_; }
+    enum AOV
+    {
+        kShadedColor,
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kMotionVectors
+    };
 
-    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
+    Integrator(std::uint32_t width, std::uint32_t height) : width_(width), height_(height) {}
+    virtual void Integrate() = 0;
+    virtual void SetSceneData(Scene const& scene) = 0;
+    virtual void SetCameraData(Camera const& camera) = 0;
+    void RequestReset() { request_reset_ = true; }
+    virtual void EnableWhiteFurnace(bool enable) = 0;
+    virtual void SetMaxBounces(std::uint32_t max_bounces) = 0;
+    virtual void SetSamplerType(SamplerType sampler_type) = 0;
+    virtual void SetAOV(AOV aov) = 0;
+    virtual void EnableDenoiser(bool enable) = 0;
 
-private:
-    void FrameBegin();
-    void FrameEnd();
-    void DrawGUI();
-    
-private:
-    // Window
-    Window& window_;
-
+protected:
     // Render size
     std::uint32_t width_;
     std::uint32_t height_;
+    Camera prev_camera_ = {};
 
-    // Timing
-    double start_frame_time_ = 0.0;
-    double prev_frame_time_ = 0.0;
-    std::shared_ptr<CLContext> cl_context_;
-    // Integrator
-    std::unique_ptr<Integrator> integrator_;
-    // Acceleration structure
-    std::unique_ptr<AccelerationStructure> acc_structure_;
-    // Scene
-    std::unique_ptr<CameraController> camera_controller_;
-    std::unique_ptr<Scene>            scene_;
-    std::unique_ptr<Framebuffer>      framebuffer_;
+    std::uint32_t max_bounces_ = 5u;
+    SamplerType sampler_type_ = SamplerType::kRandom;
+    AOV aov_ = AOV::kShadedColor;
 
-    struct GuiParams
-    {
-        float camera_aperture = 0.0f;
-        float camera_focus_distance = 10.0f;
-        int   max_bounces = 3u;
-        bool  enable_denoiser = false;
-        bool  enable_white_furnace = false;
-        bool  enable_blue_noise = false;
-    } gui_params_;
+    bool request_reset_ = false;
+    // For debugging
+    bool enable_white_furnace_ = false;
+    bool enable_denoiser_ = false;
 
 };

@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "path_trace_integrator.hpp"
+#include "cl_pt_integrator.hpp"
 #include "utils/cl_exception.hpp"
 #include "Scene/scene.hpp"
 #include "acceleration_structure.hpp"
@@ -174,10 +174,9 @@ namespace args
     }
 }
 
-PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
+CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
     CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint gl_interop_image)
-    : width_(width)
-    , height_(height)
+    : Integrator(width, height)
     , cl_context_(cl_context)
     , acc_structure_(acc_structure)
     , gl_interop_image_(gl_interop_image)
@@ -296,7 +295,7 @@ PathTraceIntegrator::PathTraceIntegrator(std::uint32_t width, std::uint32_t heig
     Reset();
 }
 
-void PathTraceIntegrator::CreateKernels()
+void CLPathTraceIntegrator::CreateKernels()
 {
     // Create kernels
     reset_kernel_ = cl_context_.CreateKernel("src/Kernels/reset_radiance.cl", "ResetRadiance");
@@ -398,7 +397,7 @@ void PathTraceIntegrator::CreateKernels()
 
 }
 
-void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
+void CLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
 {
     if (enable == enable_white_furnace_)
     {
@@ -410,7 +409,7 @@ void PathTraceIntegrator::EnableWhiteFurnace(bool enable)
     RequestReset();
 }
 
-void PathTraceIntegrator::SetCameraData(Camera const& camera)
+void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
 {
     raygen_kernel_->SetArgument(args::Raygen::kCamera, &camera, sizeof(camera));
     aov_kernel_->SetArgument(args::Aov::kCamera, &camera, sizeof(camera));
@@ -418,32 +417,75 @@ void PathTraceIntegrator::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void PathTraceIntegrator::SetSceneData(Scene const& scene)
+void CLPathTraceIntegrator::UploadSceneData(Scene const& scene)
 {
-    // Set scene buffers
-    SceneInfo scene_info = scene.GetSceneInfo();
+    // Create scene buffers
+    auto const& triangles = scene.GetTriangles();
+    auto const& materials = scene.GetMaterials();
+    auto const& emissive_indices = scene.GetEmissiveIndices();
+    auto const& lights = scene.GetLights();
+    auto const& textures = scene.GetTextures();
+    auto const& texture_data = scene.GetTextureData();
+    auto const& env_image = scene.GetEnvImage();
 
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, scene.GetTriangleBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, scene.GetAnalyticLightBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, scene.GetEmissiveIndicesBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, scene.GetMaterialBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTexturesBuffer, scene.GetTextureBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTextureDataBuffer, scene.GetTextureDataBuffer());
-    hit_surface_kernel_->SetArgument(args::HitSurface::kSceneInfo, &scene_info, sizeof(scene_info));
-    miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, scene.GetEnvTextureBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTrianglesBuffer, scene.GetTriangleBuffer());
-    aov_kernel_->SetArgument(args::Aov::kMaterialsBuffer, scene.GetMaterialBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTexturesBuffer, scene.GetTextureBuffer());
-    aov_kernel_->SetArgument(args::Aov::kTextureDataBuffer, scene.GetTextureDataBuffer());
+    cl_int status;
+
+    assert(!triangles.empty());
+    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        triangles.size() * sizeof(Triangle), (void*)triangles.data(), &status);
+    ThrowIfFailed(status, "Failed to create scene buffer");
+
+    assert(!materials.empty());
+    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        materials.size() * sizeof(PackedMaterial), (void*)materials.data(), &status);
+    ThrowIfFailed(status, "Failed to create material buffer");
+
+    if (!emissive_indices.empty())
+    {
+        emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            emissive_indices.size() * sizeof(std::uint32_t), (void*)emissive_indices.data(), &status);
+        ThrowIfFailed(status, "Failed to create emissive buffer");
+    }
+
+    if (!lights.empty())
+    {
+        analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            lights.size() * sizeof(Light), (void*)lights.data(), &status);
+        ThrowIfFailed(status, "Failed to create analytic light buffer");
+    }
+
+    if (!textures.empty())
+    {
+        texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            textures.size() * sizeof(Texture), (void*)textures.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture buffer");
+    }
+
+    if (!texture_data.empty())
+    {
+        texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            texture_data.size() * sizeof(std::uint32_t), (void*)texture_data.data(), &status);
+        ThrowIfFailed(status, "Failed to create texture data buffer");
+    }
+
+    cl::ImageFormat image_format;
+    image_format.image_channel_order = CL_RGBA;
+    image_format.image_channel_data_type = CL_FLOAT;
+
+    env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        image_format, env_image.width, env_image.height, 0, (void*)env_image.data.data(), &status);
+    ThrowIfFailed(status, "Failed to create environment image");
+
+    scene_info_ = scene.GetSceneInfo();
 }
 
-void PathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
+void CLPathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
 {
     max_bounces_ = max_bounces;
     RequestReset();
 }
 
-void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
+void CLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
 {
     if (sampler_type == sampler_type_)
     {
@@ -455,7 +497,7 @@ void PathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
     RequestReset();
 }
 
-void PathTraceIntegrator::SetAOV(AOV aov)
+void CLPathTraceIntegrator::SetAOV(AOV aov)
 {
     if (aov == aov_)
     {
@@ -470,7 +512,7 @@ void PathTraceIntegrator::SetAOV(AOV aov)
     RequestReset();
 }
 
-void PathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
+void CLPathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
 {
     if (enable_denoiser == enable_denoiser_)
     {
@@ -482,7 +524,7 @@ void PathTraceIntegrator::EnableDenoiser(bool enable_denoiser)
     RequestReset();
 }
 
-void PathTraceIntegrator::Reset()
+void CLPathTraceIntegrator::Reset()
 {
     if (!enable_denoiser_)
     {
@@ -495,19 +537,19 @@ void PathTraceIntegrator::Reset()
     cl_context_.ExecuteKernel(*reset_kernel_, width_ * height_);
 }
 
-void PathTraceIntegrator::AdvanceSampleCount()
+void CLPathTraceIntegrator::AdvanceSampleCount()
 {
     increment_counter_kernel_->SetArgument(0, sample_counter_buffer_);
     cl_context_.ExecuteKernel(*increment_counter_kernel_, 1);
 }
 
-void PathTraceIntegrator::GenerateRays()
+void CLPathTraceIntegrator::GenerateRays()
 {
     std::uint32_t num_rays = width_ * height_;
     cl_context_.ExecuteKernel(*raygen_kernel_, num_rays);
 }
 
-void PathTraceIntegrator::IntersectRays(std::uint32_t bounce)
+void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 {
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
@@ -516,7 +558,7 @@ void PathTraceIntegrator::IntersectRays(std::uint32_t bounce)
         max_num_rays, hits_buffer_);
 }
 
-void PathTraceIntegrator::ComputeAOVs()
+void CLPathTraceIntegrator::ComputeAOVs()
 {
     std::uint32_t max_num_rays = width_ * height_;
 
@@ -525,6 +567,10 @@ void PathTraceIntegrator::ComputeAOVs()
     aov_kernel_->SetArgument(args::Aov::kRayCounterBuffer, ray_counter_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kHitsBuffer, hits_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTrianglesBuffer, triangle_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kMaterialsBuffer, material_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTexturesBuffer, texture_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kTextureDataBuffer, texture_data_buffer_);
     aov_kernel_->SetArgument(args::Aov::kWidth, &width_, sizeof(width_));
     aov_kernel_->SetArgument(args::Aov::kHeight, &height_, sizeof(height_));
     aov_kernel_->SetArgument(args::Aov::kDiffuseAlbedo, diffuse_albedo_buffer_);
@@ -535,7 +581,7 @@ void PathTraceIntegrator::ComputeAOVs()
     cl_context_.ExecuteKernel(*aov_kernel_, max_num_rays);
 }
 
-void PathTraceIntegrator::IntersectShadowRays()
+void CLPathTraceIntegrator::IntersectShadowRays()
 {
     std::uint32_t max_num_rays = width_ * height_;
 
@@ -543,7 +589,7 @@ void PathTraceIntegrator::IntersectShadowRays()
         max_num_rays, shadow_hits_buffer_, false);
 }
 
-void PathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
+void CLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
 {
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
@@ -551,10 +597,11 @@ void PathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     miss_kernel_->SetArgument(args::Miss::kRayBuffer, rays_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
+    miss_kernel_->SetArgument(args::Miss::kIblTextureBuffer, env_texture_());
     cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
 }
 
-void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
+void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 {
     std::uint32_t max_num_rays = width_ * height_;
 
@@ -568,11 +615,19 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kHitsBuffer, hits_buffer_);
 
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, triangle_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, analytic_light_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, emissive_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, material_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTexturesBuffer, texture_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kTextureDataBuffer, texture_data_buffer_);
+
     hit_surface_kernel_->SetArgument(args::HitSurface::kBounce, &bounce, sizeof(bounce));
     hit_surface_kernel_->SetArgument(args::HitSurface::kWidth, &width_, sizeof(width_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kHeight, &height_, sizeof(height_));
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kSampleCounterBuffer, sample_counter_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSceneInfo, &scene_info_, sizeof(scene_info_));
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kSobolBuffer, sampler_sobol_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kScramblingTileBuffer, sampler_scrambling_tile_buffer_);
@@ -597,13 +652,13 @@ void PathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
 }
 
-void PathTraceIntegrator::AccumulateDirectSamples()
+void CLPathTraceIntegrator::AccumulateDirectSamples()
 {
     std::uint32_t max_num_rays = width_ * height_;
     cl_context_.ExecuteKernel(*accumulate_direct_samples_kernel_, max_num_rays);
 }
 
-void PathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
+void CLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
@@ -611,25 +666,25 @@ void PathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
     cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);
 }
 
-void PathTraceIntegrator::ClearShadowRayCounter()
+void CLPathTraceIntegrator::ClearShadowRayCounter()
 {
     clear_counter_kernel_->SetArgument(0, shadow_ray_counter_buffer_);
     cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);
 }
 
-void PathTraceIntegrator::Denoise()
+void CLPathTraceIntegrator::Denoise()
 {
     cl_context_.ExecuteKernel(*temporal_accumulation_kernel_, width_ * height_);
 }
 
-void PathTraceIntegrator::CopyHistoryBuffers()
+void CLPathTraceIntegrator::CopyHistoryBuffers()
 {
     // Copy to the history
     cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
     cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
 }
 
-void PathTraceIntegrator::ResolveRadiance()
+void CLPathTraceIntegrator::ResolveRadiance()
 {
     // Copy radiance to the interop image
     cl_context_.AcquireGLObject((*output_image_)());
@@ -638,7 +693,7 @@ void PathTraceIntegrator::ResolveRadiance()
     cl_context_.ReleaseGLObject((*output_image_)());
 }
 
-void PathTraceIntegrator::Integrate()
+void CLPathTraceIntegrator::Integrate()
 {
     if (request_reset_ || enable_denoiser_)
     {
