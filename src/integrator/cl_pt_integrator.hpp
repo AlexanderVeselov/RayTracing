@@ -25,41 +25,26 @@
 #pragma once
 
 #include "GpuWrappers/cl_context.hpp"
+#include "integrator.hpp"
 #include <memory>
 
 class Scene;
 class CameraController;
 class AccelerationStructure;
 
-class PathTraceIntegrator
+class CLPathTraceIntegrator : public Integrator
 {
 public:
-    enum class SamplerType
-    {
-        kRandom,
-        kBlueNoise
-    };
-
-    enum AOV
-    {
-        kShadedColor,
-        kDiffuseAlbedo,
-        kDepth,
-        kNormal,
-        kMotionVectors
-    };
-
-    PathTraceIntegrator(std::uint32_t width, std::uint32_t height,
+    CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
-    void Integrate();
-    void SetSceneData(Scene const& scene);
-    void SetCameraData(Camera const& camera);
-    void RequestReset() { request_reset_ = true; }
-    void EnableWhiteFurnace(bool enable);
-    void SetMaxBounces(std::uint32_t max_bounces);
-    void SetSamplerType(SamplerType sampler_type);
-    void SetAOV(AOV aov);
-    void EnableDenoiser(bool enable);
+    void Integrate() override;
+    void SetSceneData(Scene const& scene) override;
+    void SetCameraData(Camera const& camera) override;
+    void EnableWhiteFurnace(bool enable) override;
+    void SetMaxBounces(std::uint32_t max_bounces) override;
+    void SetSamplerType(SamplerType sampler_type) override;
+    void SetAOV(AOV aov) override;
+    void EnableDenoiser(bool enable) override;
 
 private:
     void CreateKernels();
@@ -77,20 +62,6 @@ private:
     void Denoise();
     void CopyHistoryBuffers();
     void ResolveRadiance();
-
-    // Render size
-    std::uint32_t width_;
-    std::uint32_t height_;
-    Camera prev_camera_ = {};
-
-    std::uint32_t max_bounces_ = 5u;
-    SamplerType sampler_type_ = SamplerType::kRandom;
-    AOV aov_ = AOV::kShadedColor;
-
-    bool request_reset_ = false;
-    // For debugging
-    bool enable_white_furnace_ = false;
-    bool enable_denoiser_ = false;
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;

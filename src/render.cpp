@@ -94,7 +94,7 @@ Render::Render(Window& window)
     scene_->Finalize();
 
     // Create estimator
-    integrator_ = std::make_unique<PathTraceIntegrator>(width_, height_, *cl_context_,
+    integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *cl_context_,
         *acc_structure_, framebuffer_->GetGLImage());
     integrator_->SetSceneData(*scene_);
 
@@ -171,7 +171,7 @@ void Render::DrawGUI()
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
-                PathTraceIntegrator::SamplerType::kBlueNoise : PathTraceIntegrator::SamplerType::kRandom);
+                CLPathTraceIntegrator::SamplerType::kBlueNoise : CLPathTraceIntegrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -183,7 +183,7 @@ void Render::DrawGUI()
         const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
-            integrator_->SetAOV((PathTraceIntegrator::AOV)aov_index);
+            integrator_->SetAOV((CLPathTraceIntegrator::AOV)aov_index);
         }
     }
     ImGui::End();

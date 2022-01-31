@@ -43,13 +43,6 @@
 Scene::Scene(const char* filename, CLContext& cl_context, float scale, bool flip_yz)
     : cl_context_(cl_context)
 {
-    cl_int status;
-
-    std::uint32_t dummy_value = 0;
-    dummy_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(std::uint32_t), &dummy_value, &status);
-    ThrowIfFailed(status, "Failed to create dummy buffer");
-
     Load(filename, scale, flip_yz);
 }
 
