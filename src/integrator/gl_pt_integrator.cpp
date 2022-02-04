@@ -23,14 +23,17 @@
  *****************************************************************************/
 
 #include "gl_pt_integrator.hpp"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
 
 namespace
 {
 char const* kVertexShaderSource =
+"uniform mat4 g_ViewProjection;"
 "varying vec2 vTexcoord;"
 "void main() {"
 "    vTexcoord = vec2(gl_VertexID & 2, (gl_VertexID << 1) & 2);"
-"    gl_Position = vec4(vTexcoord * 2.0 - 1.0, 0.0, 1.0);"
+"    gl_Position = g_ViewProjection * vec4(vTexcoord * 2.0 - 1.0, 0.0, 1.0);"
 "}";
 
 char const* kFragmentShaderSource =
@@ -68,7 +71,12 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
 
 void GLPathTraceIntegrator::SetCameraData(Camera const& camera)
 {
+    glm::vec3 position = glm::vec3(camera.position.x, camera.position.y, camera.position.z);
+    glm::vec3 front = glm::vec3(camera.front.x, camera.front.y, camera.front.z);
+    glm::mat4 view_matrix = glm::lookAt(position, position + front, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 proj_matrix = glm::perspectiveFov(camera.fov, (float)width_, (float)height_, 0.1f, 100.0f);
 
+    view_proj_matrix_ = proj_matrix * view_matrix;
 }
 
 void GLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
@@ -104,6 +112,11 @@ void GLPathTraceIntegrator::Integrate()
     glClearColor(0.5f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     graphics_pipeline_.Use();
+
+    GLuint uniform_index = glGetUniformLocation(graphics_pipeline_.GetProgram(), "g_ViewProjection");
+    assert(uniform_index != GL_INVALID_INDEX);
+    glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
+
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     glFinish();
