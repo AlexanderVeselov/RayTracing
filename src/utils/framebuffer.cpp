@@ -26,27 +26,10 @@
 
 #include <vector>
 
-namespace
-{
-    char const* kVertexShaderSource =
-        "varying vec2 vTexcoord;"
-        "void main() {"
-        "    vTexcoord = vec2(gl_VertexID & 2, (gl_VertexID << 1) & 2);"
-        "    gl_Position = vec4(vTexcoord * 2.0 - 1.0, 0.0, 1.0);"
-        "}";
-
-    char const* kFragmentShaderSource =
-        "uniform sampler2D input_sampler;"
-        "varying vec2 vTexcoord;"
-        "void main() {"
-        "    gl_FragColor = texture(input_sampler, vTexcoord);"
-        "}";
-}
-
 Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     : width_(width)
     , height_(height)
-    , draw_pipeline_(kVertexShaderSource, kFragmentShaderSource)
+    , draw_pipeline_("src/kernels/glsl/fullscreen_quad.vs", "src/kernels/glsl/fullscreen_quad.fs")
 {
     // Enable SRGB framebuffer
     glEnable(GL_FRAMEBUFFER_SRGB);

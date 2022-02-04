@@ -29,7 +29,7 @@
 class GraphicsPipeline
 {
 public:
-    GraphicsPipeline(char const* vs_source, char const* fs_source);
+    GraphicsPipeline(char const* vs_filename, char const* fs_filename);
     void Use() const { glUseProgram(shader_program_); }
     GLuint GetProgram() const { return shader_program_; }
     ~GraphicsPipeline();

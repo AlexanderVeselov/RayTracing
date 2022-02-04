@@ -38,6 +38,13 @@ set(CL_KERNELS_SOURCES
     kernels/cl/utils.h
 )
 
+set(GLSL_KERNELS_SOURCES
+    kernels/glsl/fullscreen_quad.vs
+    kernels/glsl/fullscreen_quad.fs
+    kernels/glsl/visibility_buffer.vs
+    kernels/glsl/visibility_buffer.fs
+)
+
 set(LOADERS_SOURCES
     loaders/dds_loader.cpp
     loaders/hdr_loader.cpp
@@ -78,7 +85,8 @@ set(MAIN_SOURCES
 set(SOURCES
     ${GPU_WRAPPERS_SOURCES}
     ${INTEGRATOR_SOURCES}
-    ${KERNELS_SOURCES}
+    ${CL_KERNELS_SOURCES}
+    ${GLSL_KERNELS_SOURCES}
     ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
@@ -88,7 +96,8 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("kernels" FILES ${CL_KERNELS_SOURCES})
+source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
+source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})

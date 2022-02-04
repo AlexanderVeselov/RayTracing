@@ -25,6 +25,7 @@
 #include "gl_graphics_pipeline.hpp"
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
 namespace
 {
@@ -63,10 +64,26 @@ namespace
     }
 }
 
-GraphicsPipeline::GraphicsPipeline(char const* vs_source, char const* fs_source)
+GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filename)
 {
-    vertex_shader_ = CreateShader(vs_source, GL_VERTEX_SHADER);
-    fragment_shader_ = CreateShader(fs_source, GL_FRAGMENT_SHADER);
+    std::ifstream vs_file(vs_filename);
+    if (!vs_file)
+    {
+        throw std::runtime_error("Failed to load vs file!");
+    }
+
+    std::string vs_source((std::istreambuf_iterator<char>(vs_file)), (std::istreambuf_iterator<char>()));
+
+    std::ifstream fs_file(fs_filename);
+    if (!fs_file)
+    {
+        throw std::runtime_error("Failed to load fs file!");
+    }
+
+    std::string fs_source((std::istreambuf_iterator<char>(fs_file)), (std::istreambuf_iterator<char>()));
+
+    vertex_shader_ = CreateShader(vs_source.c_str(), GL_VERTEX_SHADER);
+    fragment_shader_ = CreateShader(fs_source.c_str(), GL_FRAGMENT_SHADER);
 
     shader_program_ = glCreateProgram();
     glAttachShader(shader_program_, vertex_shader_);

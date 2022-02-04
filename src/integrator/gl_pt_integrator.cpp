@@ -26,28 +26,11 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 
-namespace
-{
-char const* kVertexShaderSource =
-"uniform mat4 g_ViewProjection;"
-"varying vec2 vTexcoord;"
-"void main() {"
-"    vTexcoord = vec2(gl_VertexID & 2, (gl_VertexID << 1) & 2);"
-"    gl_Position = g_ViewProjection * vec4(vTexcoord * 2.0 - 1.0, 0.0, 1.0);"
-"}";
-
-char const* kFragmentShaderSource =
-"varying vec2 vTexcoord;"
-"void main() {"
-"    gl_FragColor = vec4(vTexcoord, 0.0f, 1.0f);"
-"}";
-}
-
 GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
     AccelerationStructure& acc_structure, std::uint32_t out_image)
     : Integrator(width, height, acc_structure)
     , framebuffer_(width, height)
-    , graphics_pipeline_(kVertexShaderSource, kFragmentShaderSource)
+    , graphics_pipeline_("src/kernels/glsl/visibility_buffer.vs", "src/kernels/glsl/visibility_buffer.fs")
     , out_image_(out_image)
 {
 }
