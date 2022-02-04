@@ -17,13 +17,6 @@ set(INTEGRATOR_SOURCES
     integrator/gl_pt_integrator.hpp
 )
 
-set(IO_SOURCES
-    io/dds_loader.cpp
-    io/hdr_loader.cpp
-    io/image_loader.cpp
-    io/image_loader.hpp
-)
-
 set(CL_KERNELS_SOURCES
     kernels/cl/accumulate_direct_samples.cl
     kernels/cl/aov.cl
@@ -43,6 +36,13 @@ set(CL_KERNELS_SOURCES
     kernels/cl/shared_structures.h
     kernels/cl/trace_bvh.cl
     kernels/cl/utils.h
+)
+
+set(LOADERS_SOURCES
+    loaders/dds_loader.cpp
+    loaders/hdr_loader.cpp
+    loaders/image_loader.cpp
+    loaders/image_loader.hpp
 )
 
 set(MATHLIB_SOURCES
@@ -78,8 +78,8 @@ set(MAIN_SOURCES
 set(SOURCES
     ${GPU_WRAPPERS_SOURCES}
     ${INTEGRATOR_SOURCES}
-    ${IO_SOURCES}
     ${KERNELS_SOURCES}
+    ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
@@ -88,8 +88,8 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("io" FILES ${IO_SOURCES})
 source_group("kernels" FILES ${CL_KERNELS_SOURCES})
+source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
 source_group("utils" FILES ${UTILS_SOURCES})
