@@ -31,13 +31,8 @@ namespace
     constexpr auto kMaxPrimitivesInNode = 4u;
 }
 
-Bvh::Bvh(CLContext& cl_context)
-    : AccelerationStructure(cl_context)
+Bvh::Bvh()
 {
-    intersect_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh");
-
-    std::vector<std::string> definitions = { "SHADOW_RAYS" };
-    intersect_shadow_kernel_ = cl_context.CreateKernel("src/Kernels/trace_bvh.cl", "TraceBvh", definitions);
 }
 
 void Bvh::BuildCPU(std::vector<Triangle> & triangles)
@@ -69,23 +64,6 @@ void Bvh::BuildCPU(std::vector<Triangle> & triangles)
     unsigned int offset = 0;
     FlattenBVHTree(root_node_, &offset);
     assert(totalNodes == offset);
-
-    // Upload GPU data
-    cl_int status;
-    nodes_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        nodes_.size() * sizeof(LinearBVHNode), nodes_.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create BVH node buffer", status);
-    }
-
-    triangles_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        triangles.size() * sizeof(Triangle), triangles.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create BVH triangles buffer", status);
-    }
-
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(
@@ -266,18 +244,4 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
     }
 
     return myOffset;
-}
-
-void Bvh::IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
-    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit)
-{
-    CLKernel& kernel = closest_hit ? *intersect_kernel_ : *intersect_shadow_kernel_;
-    kernel.SetArgument(0, rays_buffer);
-    kernel.SetArgument(1, ray_counter_buffer);
-    kernel.SetArgument(2, triangles_buffer_);
-    kernel.SetArgument(3, nodes_buffer_);
-    kernel.SetArgument(4, hits_buffer);
-
-    ///@TODO: use indirect dispatch
-    cl_context_.ExecuteKernel(kernel, max_num_rays);
 }

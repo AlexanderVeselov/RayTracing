@@ -24,28 +24,17 @@
 
 #pragma once
 
-#include "integrator.hpp"
-#include "gpu_wrappers/gl_framebuffer.hpp"
-#include "gpu_wrappers/gl_graphics_pipeline.hpp"
+#include <GL/glew.h>
 
-class GLPathTraceIntegrator : public Integrator
+class ComputePipeline
 {
 public:
-    GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-        AccelerationStructure& acc_structure, std::uint32_t out_image);
-    void Integrate() override;
-    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
-    void SetCameraData(Camera const& camera) override;
-    void EnableWhiteFurnace(bool enable) override;
-    void SetMaxBounces(std::uint32_t max_bounces) override;
-    void SetSamplerType(SamplerType sampler_type) override;
-    void SetAOV(AOV aov) override;
-    void EnableDenoiser(bool enable) override;
+    ComputePipeline(char const* vs_source);
+    void Use() const { glUseProgram(shader_program_); };
+    ~ComputePipeline();
 
 private:
-    GLFramebuffer framebuffer_;
-    GraphicsPipeline graphics_pipeline_;
-    GLuint out_image_;
-    GLuint triangle_buffer_;
-    std::uint32_t num_triangles_;
+    GLuint shader_;
+    GLuint shader_program_;
+
 };

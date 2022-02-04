@@ -24,6 +24,7 @@
 
 #include "render.hpp"
 #include "integrator/cl_pt_integrator.hpp"
+#include "integrator/gl_pt_integrator.hpp"
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 #include "bvh.hpp"
@@ -34,8 +35,9 @@
 #include <fstream>
 #include <sstream>
 
-Render::Render(Window& window)
+Render::Render(Window& window, RenderBackend backend)
     : window_(window)
+    , render_backend_(backend)
     , width_(window.GetWidth())
     , height_(window.GetHeight())
 {
@@ -44,14 +46,18 @@ Render::Render(Window& window)
     ImGui_ImplOpenGL3_Init();
     ImGui_ImplWin32_Init(window_.GetNativeHandle());
 
-    std::vector<cl::Platform> all_platforms;
-    cl::Platform::get(&all_platforms);
-    if (all_platforms.empty())
+    if (render_backend_ == RenderBackend::kOpenCL)
     {
-        throw std::runtime_error("No OpenCL platforms found");
-    }
+        std::vector<cl::Platform> all_platforms;
+        cl::Platform::get(&all_platforms);
+        if (all_platforms.empty())
+        {
+            throw std::runtime_error("No OpenCL platforms found");
+        }
 
-    cl_context_ = std::make_shared<CLContext>(all_platforms[0], window_.GetDisplayContext(), window_.GetGLContext());
+        cl_context_ = std::make_shared<CLContext>(all_platforms[0],
+            window_.GetDisplayContext(), window_.GetGLContext());
+    }
 
 #ifndef NDEBUG
     //char const* scene_path = "assets/CornellBox_Dragon.obj";
@@ -86,7 +92,7 @@ Render::Render(Window& window)
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
-    acc_structure_ = std::make_unique<Bvh>(*cl_context_);
+    acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
     acc_structure_->BuildCPU(scene_->GetTriangles());
 
@@ -94,12 +100,20 @@ Render::Render(Window& window)
     // Need to get rid of reordering
     scene_->Finalize();
 
-    // Create estimator
-    integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *cl_context_,
-        *acc_structure_, framebuffer_->GetGLImage());
+    // Create integrator
+    if (render_backend_ == RenderBackend::kOpenCL)
+    {
+        integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *acc_structure_,
+            *cl_context_, framebuffer_->GetGLImage());
+    }
+    else
+    {
+        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, *acc_structure_,
+            framebuffer_->GetGLImage());
+    }
 
     // Upload scene data to the GPU
-    integrator_->UploadSceneData(*scene_);
+    integrator_->UploadGPUData(*scene_, *acc_structure_);
 }
 
 Render::~Render()
@@ -133,6 +147,14 @@ void Render::FrameEnd()
     glFinish();
     window_.SwapBuffers();
     prev_frame_time_ = start_frame_time_;
+}
+
+void Render::ReloadKernels()
+{
+    if (cl_context_)
+    {
+        cl_context_->ReloadKernels();
+    }
 }
 
 void Render::DrawGUI()
@@ -205,7 +227,7 @@ void Render::RenderFrame()
 
     if (window_.IsKeyPressed('R'))
     {
-        cl_context_->ReloadKernels();
+        ReloadKernels();
         need_to_reset = true;
     }
 

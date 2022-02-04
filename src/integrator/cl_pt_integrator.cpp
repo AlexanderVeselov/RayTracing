@@ -175,11 +175,10 @@ namespace args
 }
 
 CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-    CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint gl_interop_image)
-    : Integrator(width, height)
+    AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int output_image)
+    : Integrator(width, height, acc_structure)
     , cl_context_(cl_context)
-    , acc_structure_(acc_structure)
-    , gl_interop_image_(gl_interop_image)
+    , gl_interop_image_(output_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -298,8 +297,8 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 void CLPathTraceIntegrator::CreateKernels()
 {
     // Create kernels
-    reset_kernel_ = cl_context_.CreateKernel("src/Kernels/reset_radiance.cl", "ResetRadiance");
-    raygen_kernel_ = cl_context_.CreateKernel("src/Kernels/raygeneration.cl", "RayGeneration");
+    reset_kernel_ = cl_context_.CreateKernel("src/kernels/cl/reset_radiance.cl", "ResetRadiance");
+    raygen_kernel_ = cl_context_.CreateKernel("src/kernels/cl/raygeneration.cl", "RayGeneration");
 
     std::vector<std::string> definitions;
     if (enable_white_furnace_)
@@ -317,18 +316,21 @@ void CLPathTraceIntegrator::CreateKernels()
         definitions.push_back("ENABLE_DENOISER");
     }
 
-    miss_kernel_ = cl_context_.CreateKernel("src/Kernels/miss.cl", "Miss", definitions);
-    aov_kernel_ = cl_context_.CreateKernel("src/Kernels/aov.cl", "GenerateAOV");
-    hit_surface_kernel_ = cl_context_.CreateKernel("src/Kernels/hit_surface.cl", "HitSurface", definitions);
-    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel("src/Kernels/accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
-    clear_counter_kernel_ = cl_context_.CreateKernel("src/Kernels/clear_counter.cl", "ClearCounter");
-    increment_counter_kernel_ = cl_context_.CreateKernel("src/Kernels/increment_counter.cl", "IncrementCounter");
-    resolve_kernel_ = cl_context_.CreateKernel("src/Kernels/resolve_radiance.cl", "ResolveRadiance", definitions);
+    miss_kernel_ = cl_context_.CreateKernel("src/kernels/cl/miss.cl", "Miss", definitions);
+    aov_kernel_ = cl_context_.CreateKernel("src/kernels/cl/aov.cl", "GenerateAOV");
+    hit_surface_kernel_ = cl_context_.CreateKernel("src/kernels/cl/hit_surface.cl", "HitSurface", definitions);
+    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel("src/kernels/cl/accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
+    clear_counter_kernel_ = cl_context_.CreateKernel("src/kernels/cl/clear_counter.cl", "ClearCounter");
+    increment_counter_kernel_ = cl_context_.CreateKernel("src/kernels/cl/increment_counter.cl", "IncrementCounter");
+    resolve_kernel_ = cl_context_.CreateKernel("src/kernels/cl/resolve_radiance.cl", "ResolveRadiance", definitions);
 
     if (enable_denoiser_)
     {
-        temporal_accumulation_kernel_ = cl_context_.CreateKernel("src/Kernels/denoiser.cl", "TemporalAccumulation");
+        temporal_accumulation_kernel_ = cl_context_.CreateKernel("src/kernels/cl/denoiser.cl", "TemporalAccumulation");
     }
+
+    intersect_kernel_ = cl_context_.CreateKernel("src/kernels/cl/trace_bvh.cl", "TraceBvh");
+    intersect_shadow_kernel_ = cl_context_.CreateKernel("src/kernels/cl/trace_bvh.cl", "TraceBvh", { "SHADOW_RAYS" });
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -417,7 +419,7 @@ void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void CLPathTraceIntegrator::UploadSceneData(Scene const& scene)
+void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
     // Create scene buffers
     auto const& triangles = scene.GetTriangles();
@@ -477,6 +479,16 @@ void CLPathTraceIntegrator::UploadSceneData(Scene const& scene)
     ThrowIfFailed(status, "Failed to create environment image");
 
     scene_info_ = scene.GetSceneInfo();
+
+    auto const& nodes = acc_structure_.GetNodes();
+
+    // Upload BVH data
+    nodes_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        nodes.size() * sizeof(LinearBVHNode), (void*)nodes.data(), &status);
+    if (status != CL_SUCCESS)
+    {
+        throw CLException("Failed to create BVH node buffer", status);
+    }
 }
 
 void CLPathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
@@ -554,8 +566,18 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
 
-    acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
-        max_num_rays, hits_buffer_);
+    CLKernel& kernel = *intersect_kernel_;
+    kernel.SetArgument(0, rays_buffer_[incoming_idx]);
+    kernel.SetArgument(1, ray_counter_buffer_[incoming_idx]);
+    kernel.SetArgument(2, triangle_buffer_);
+    kernel.SetArgument(3, nodes_buffer_);
+    kernel.SetArgument(4, hits_buffer_);
+
+    ///@TODO: use indirect dispatch
+    cl_context_.ExecuteKernel(kernel, max_num_rays);
+
+    //acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
+    //    max_num_rays, hits_buffer_);
 }
 
 void CLPathTraceIntegrator::ComputeAOVs()
@@ -585,8 +607,18 @@ void CLPathTraceIntegrator::IntersectShadowRays()
 {
     std::uint32_t max_num_rays = width_ * height_;
 
-    acc_structure_.IntersectRays(shadow_rays_buffer_, shadow_ray_counter_buffer_,
-        max_num_rays, shadow_hits_buffer_, false);
+    CLKernel& kernel = *intersect_shadow_kernel_;
+    kernel.SetArgument(0, shadow_rays_buffer_);
+    kernel.SetArgument(1, shadow_ray_counter_buffer_);
+    kernel.SetArgument(2, triangle_buffer_);
+    kernel.SetArgument(3, nodes_buffer_);
+    kernel.SetArgument(4, shadow_hits_buffer_);
+
+    ///@TODO: use indirect dispatch
+    cl_context_.ExecuteKernel(kernel, max_num_rays);
+
+    //acc_structure_.IntersectRays(shadow_rays_buffer_, shadow_ray_counter_buffer_,
+    //    max_num_rays, shadow_hits_buffer_, false);
 }
 
 void CLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)

@@ -25,7 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
-#include "Kernels/shared_structures.h"
+#include "kernels/cl/shared_structures.h"
 #include <memory>
 
 class Window;

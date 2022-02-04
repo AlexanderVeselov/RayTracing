@@ -24,21 +24,16 @@
 
 #pragma once
 
-#include "gpu_wrappers/cl_context.hpp"
 #include "integrator.hpp"
-#include <memory>
-
-class Scene;
-class CameraController;
-class AccelerationStructure;
+#include "gpu_wrappers/cl_context.hpp"
 
 class CLPathTraceIntegrator : public Integrator
 {
 public:
     CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-        CLContext& cl_context, AccelerationStructure& acc_structure, cl_GLuint interop_image);
+        AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
     void Integrate() override;
-    void UploadSceneData(Scene const& scene) override;
+    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void EnableWhiteFurnace(bool enable) override;
     void SetMaxBounces(std::uint32_t max_bounces) override;
@@ -66,9 +61,6 @@ private:
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
 
-    // Acceleration structure
-    AccelerationStructure& acc_structure_;
-
     // Kernels
     std::shared_ptr<CLKernel> reset_kernel_;
     std::shared_ptr<CLKernel> raygen_kernel_;
@@ -80,6 +72,10 @@ private:
     std::shared_ptr<CLKernel> increment_counter_kernel_;
     std::shared_ptr<CLKernel> temporal_accumulation_kernel_;
     std::shared_ptr<CLKernel> resolve_kernel_;
+
+    // BVH traversal kernels
+    std::shared_ptr<CLKernel> intersect_kernel_;
+    std::shared_ptr<CLKernel> intersect_shadow_kernel_;
 
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
@@ -111,6 +107,9 @@ private:
     cl::Buffer scene_info_buffer_;
     cl::Image2D env_texture_;
     SceneInfo scene_info_;
+
+    // Acceleration structure buffer
+    cl::Buffer nodes_buffer_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

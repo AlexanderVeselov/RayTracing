@@ -27,17 +27,19 @@
 #include "acceleration_structure.hpp"
 #include <memory>
 
-class CLContext;
-class CLKernel;
 class Bvh : public AccelerationStructure
 {
 public:
-    Bvh(CLContext& cl_context);
+    Bvh();
 
     // TODO: USE CONSTANT REF
     void BuildCPU(std::vector<Triangle> & triangles) override;
-    void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
-        std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit = true) override;
+    std::vector<LinearBVHNode> const& GetNodes() const override { return nodes_; }
+
+    //void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
+    //    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit = true) override;
+
+
 
     struct BVHPrimitiveInfo
     {
@@ -47,7 +49,7 @@ public:
             centroid(bounds.min * 0.5f + bounds.max * 0.5f)
         {}
 
-        unsigned int primitiveNumber;
+        unsigned int primitiveNumber = 0;
         Bounds3 bounds;
         float3 centroid;
 
@@ -98,8 +100,4 @@ private:
     std::vector<LinearBVHNode> nodes_;
     BVHBuildNode* root_node_;
     std::uint32_t max_prims_in_node_;
-    cl::Buffer triangles_buffer_;
-    cl::Buffer nodes_buffer_;
-    std::shared_ptr<CLKernel> intersect_kernel_;
-    std::shared_ptr<CLKernel> intersect_shadow_kernel_;
 };

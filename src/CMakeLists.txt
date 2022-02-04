@@ -1,8 +1,12 @@
 set(GPU_WRAPPERS_SOURCES
     gpu_wrappers/cl_context.cpp
     gpu_wrappers/cl_context.hpp
+    gpu_wrappers/gl_compute_pipeline.cpp
+    gpu_wrappers/gl_compute_pipeline.hpp
     gpu_wrappers/gl_graphics_pipeline.cpp
     gpu_wrappers/gl_graphics_pipeline.hpp
+    gpu_wrappers/gl_framebuffer.cpp
+    gpu_wrappers/gl_framebuffer.hpp
 )
 
 set(INTEGRATOR_SOURCES
@@ -13,32 +17,32 @@ set(INTEGRATOR_SOURCES
     integrator/gl_pt_integrator.hpp
 )
 
-set(IO_SOURCES
-    io/dds_loader.cpp
-    io/hdr_loader.cpp
-    io/image_loader.cpp
-    io/image_loader.hpp
+set(CL_KERNELS_SOURCES
+    kernels/cl/accumulate_direct_samples.cl
+    kernels/cl/aov.cl
+    kernels/cl/bxdf.h
+    kernels/cl/clear_counter.cl
+    kernels/cl/constants.h
+    kernels/cl/denoiser.cl
+    kernels/cl/hit_surface.cl
+    kernels/cl/increment_counter.cl
+    kernels/cl/light.h
+    kernels/cl/material.h
+    kernels/cl/miss.cl
+    kernels/cl/raygeneration.cl
+    kernels/cl/reset_radiance.cl
+    kernels/cl/resolve_radiance.cl
+    kernels/cl/sampling.h
+    kernels/cl/shared_structures.h
+    kernels/cl/trace_bvh.cl
+    kernels/cl/utils.h
 )
 
-set(KERNELS_SOURCES
-    kernels/accumulate_direct_samples.cl
-    kernels/aov.cl
-    kernels/bxdf.h
-    kernels/clear_counter.cl
-    kernels/constants.h
-    kernels/denoiser.cl
-    kernels/hit_surface.cl
-    kernels/increment_counter.cl
-    kernels/light.h
-    kernels/material.h
-    kernels/miss.cl
-    kernels/raygeneration.cl
-    kernels/reset_radiance.cl
-    kernels/resolve_radiance.cl
-    kernels/sampling.h
-    kernels/shared_structures.h
-    kernels/trace_bvh.cl
-    kernels/utils.h
+set(LOADERS_SOURCES
+    loaders/dds_loader.cpp
+    loaders/hdr_loader.cpp
+    loaders/image_loader.cpp
+    loaders/image_loader.hpp
 )
 
 set(MATHLIB_SOURCES
@@ -74,21 +78,21 @@ set(MAIN_SOURCES
 set(SOURCES
     ${GPU_WRAPPERS_SOURCES}
     ${INTEGRATOR_SOURCES}
-    ${IO_SOURCES}
     ${KERNELS_SOURCES}
+    ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
     ${MAIN_SOURCES}
 )
 
-source_group("GpuWrappers" FILES ${GPU_WRAPPERS_SOURCES})
-source_group("Integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("Io" FILES ${IO_SOURCES})
-source_group("Kernels" FILES ${KERNELS_SOURCES})
-source_group("Mathlib" FILES ${MATHLIB_SOURCES})
-source_group("Scene" FILES ${SCENE_SOURCES})
-source_group("Utils" FILES ${UTILS_SOURCES})
+source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
+source_group("integrator" FILES ${INTEGRATOR_SOURCES})
+source_group("kernels" FILES ${CL_KERNELS_SOURCES})
+source_group("loaders" FILES ${LOADERS_SOURCES})
+source_group("mathlib" FILES ${MATHLIB_SOURCES})
+source_group("scene" FILES ${SCENE_SOURCES})
+source_group("utils" FILES ${UTILS_SOURCES})
 
 add_executable(RayTracingApp ${SOURCES})
 
