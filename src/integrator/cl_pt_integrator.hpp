@@ -33,7 +33,7 @@ public:
     CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
     void Integrate() override;
-    void UploadSceneData(Scene const& scene) override;
+    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void EnableWhiteFurnace(bool enable) override;
     void SetMaxBounces(std::uint32_t max_bounces) override;
@@ -73,6 +73,10 @@ private:
     std::shared_ptr<CLKernel> temporal_accumulation_kernel_;
     std::shared_ptr<CLKernel> resolve_kernel_;
 
+    // BVH traversal kernels
+    std::shared_ptr<CLKernel> intersect_kernel_;
+    std::shared_ptr<CLKernel> intersect_shadow_kernel_;
+
     // Internal buffers
     cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
     cl::Buffer shadow_rays_buffer_;
@@ -103,6 +107,9 @@ private:
     cl::Buffer scene_info_buffer_;
     cl::Image2D env_texture_;
     SceneInfo scene_info_;
+
+    // Acceleration structure buffer
+    cl::Buffer nodes_buffer_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

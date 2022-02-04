@@ -92,7 +92,7 @@ Render::Render(Window& window, RenderBackend backend)
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
-    acc_structure_ = std::make_unique<Bvh>(*cl_context_);
+    acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
     acc_structure_->BuildCPU(scene_->GetTriangles());
 
@@ -113,7 +113,7 @@ Render::Render(Window& window, RenderBackend backend)
     }
 
     // Upload scene data to the GPU
-    integrator_->UploadSceneData(*scene_);
+    integrator_->UploadGPUData(*scene_, *acc_structure_);
 }
 
 Render::~Render()

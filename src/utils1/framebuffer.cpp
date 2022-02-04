@@ -54,21 +54,6 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     // Create framebuffer texture
     glCreateTextures(GL_TEXTURE_2D, 1, &render_texture_);
     glTextureStorage2D(render_texture_, 1, GL_RGBA32F, width_, height_);
-    //glTextureSubImage2D(render_texture_, 0, 0, 0, width_, height_, GL_RGBA, GL_FLOAT, nullptr);
-
-    //glGenTextures(1, &render_texture_);
-    //glBindTexture(GL_TEXTURE_2D, render_texture_);
-    ////regular sampler params
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    ////need to set GL_NEAREST
-    ////(not GL_NEAREST_MIPMAP_* which would cause CL_INVALID_GL_OBJECT later)
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width_, height_, 0, GL_RGBA, GL_FLOAT, 0);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-
-
 }
 
 void Framebuffer::Present()

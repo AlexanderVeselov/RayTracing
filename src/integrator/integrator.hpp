@@ -52,7 +52,7 @@ public:
     Integrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure)
         : width_(width), height_(height), acc_structure_(acc_structure) {}
     virtual void Integrate() = 0;
-    virtual void UploadSceneData(Scene const& scene) = 0;
+    virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
     virtual void EnableWhiteFurnace(bool enable) = 0;
