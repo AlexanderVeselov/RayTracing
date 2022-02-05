@@ -144,6 +144,14 @@ typedef struct Triangle
 
 } Triangle;
 
+// Compressed version of Triangle
+typedef struct RTTriangle
+{
+    float3 position1;
+    float3 position2;
+    float3 position3;
+} RTTriangle;
+
 typedef struct CellData
 {
     unsigned int start_index;

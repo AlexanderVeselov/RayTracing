@@ -33,7 +33,6 @@ set(CL_KERNELS_SOURCES
     kernels/cl/reset_radiance.cl
     kernels/cl/resolve_radiance.cl
     kernels/cl/sampling.h
-    kernels/cl/shared_structures.h
     kernels/cl/trace_bvh.cl
     kernels/cl/utils.h
 )
@@ -87,6 +86,7 @@ set(SOURCES
     ${INTEGRATOR_SOURCES}
     ${CL_KERNELS_SOURCES}
     ${GLSL_KERNELS_SOURCES}
+    kernels/shared_structures.h
     ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
@@ -96,6 +96,7 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
+source_group("kernels" FILES kernels/shared_structures.h)
 source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
 source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})

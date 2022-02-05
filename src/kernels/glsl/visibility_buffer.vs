@@ -1,14 +1,16 @@
 #version 430 core
 
+#include "src/kernels/shared_structures.h"
+
 layout (location = 0) uniform mat4 g_ViewProjection;
 varying vec2 vTexcoord;
 
 struct Vertex
 {
-    vec4 position;
-    vec4 texcoord;
-    vec4 normal;
-    vec4 tangent_s;
+    vec3 position;
+    vec3 texcoord;
+    vec3 normal;
+    vec3 tangent_s;
 };
 
 struct Triangle
@@ -26,7 +28,7 @@ layout (binding = 1, std430) buffer TriangleBuffer
 void main()
 {
     vTexcoord = vec2(gl_VertexID & 2, (gl_VertexID << 1) & 2);
-    
+
     Triangle triangle = triangles[gl_VertexID / 3];
 
     int vertex_idx = (gl_VertexID % 3);

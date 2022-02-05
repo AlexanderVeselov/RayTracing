@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "shared_structures.h"
+#include "../shared_structures.h"
 #include "constants.h"
 
 float GetRandomFloat(unsigned int* seed)

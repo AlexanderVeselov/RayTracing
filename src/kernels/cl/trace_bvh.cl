@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "shared_structures.h"
+#include "../shared_structures.h"
 #include "constants.h"
 
 bool RayTriangle(Ray ray, const __global Triangle* triangle, float2* bc, float* out_t)

@@ -25,7 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
-#include "kernels/cl/shared_structures.h"
+#include "kernels/shared_structures.h"
 #include "loaders/image_loader.hpp"
 #include <vector>
 #include <unordered_map>
@@ -38,6 +38,7 @@ public:
 
     std::vector<Triangle>& GetTriangles() { return triangles_; }
     std::vector<Triangle> const& GetTriangles() const { return triangles_; }
+    std::vector<RTTriangle> const& GetRTTriangles() const { return rt_triangles_; }
     std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Texture> const& GetTextures() const { return textures_; }
@@ -56,6 +57,7 @@ private:
     void CollectEmissiveTriangles();
 
     std::vector<Triangle> triangles_;
+    std::vector<RTTriangle> rt_triangles_;
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;

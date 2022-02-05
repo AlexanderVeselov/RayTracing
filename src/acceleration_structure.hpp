@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "kernels/cl/shared_structures.h"
+#include "kernels/shared_structures.h"
 #include <vector>
 
 class CLContext;

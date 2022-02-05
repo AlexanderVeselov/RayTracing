@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "mathlib.hpp"
-#include "kernels/cl/shared_structures.h"
+#include "kernels/shared_structures.h"
 
 bool Bounds3::Intersects(const Triangle &triangle) const
 {

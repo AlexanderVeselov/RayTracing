@@ -27,7 +27,7 @@
 
 #include "bxdf.h"
 #include "utils.h"
-#include "shared_structures.h"
+#include "../shared_structures.h"
 
 typedef struct
 {
