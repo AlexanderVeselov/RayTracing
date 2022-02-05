@@ -117,13 +117,13 @@ typedef struct Triangle
         : v1(v1), v2(v2), v3(v3), mtlIndex(mtlIndex)
     {}
 
-    void Project(float3 axis, float &min, float &max) const
+    void Project(float3 axis, float& min, float& max) const
     {
         min = std::numeric_limits<float>::max();
         max = std::numeric_limits<float>::lowest();
-    
+
         float3 points[3] = { v1.position, v2.position, v3.position };
-    
+
         for (size_t i = 0; i < 3; ++i)
         {
             float val = Dot(points[i], axis);
@@ -143,6 +143,19 @@ typedef struct Triangle
     unsigned int padding[3];
 
 } Triangle;
+
+typedef struct RTTriangle
+{
+#ifdef __cplusplus
+    RTTriangle(float3 v1, float3 v2, float3 v3)
+        : position1(v1), position2(v2), position3(v3)
+    {}
+#endif
+
+    float3 position1;
+    float3 position2;
+    float3 position3;
+} RTTriangle;
 
 typedef struct CellData
 {
