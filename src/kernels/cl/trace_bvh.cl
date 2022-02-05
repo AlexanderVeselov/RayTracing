@@ -25,10 +25,10 @@
 #include "shared_structures.h"
 #include "constants.h"
 
-bool RayTriangle(Ray ray, const __global Triangle* triangle, float2* bc, float* out_t)
+bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
 {
-    float3 e1 = triangle->v2.position - triangle->v1.position;
-    float3 e2 = triangle->v3.position - triangle->v1.position;
+    float3 e1 = triangle->position2 - triangle->position1;
+    float3 e2 = triangle->position3 - triangle->position1;
     // Calculate planes normal vector
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
@@ -40,7 +40,7 @@ bool RayTriangle(Ray ray, const __global Triangle* triangle, float2* bc, float* 
     }
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle->v1.position;
+    float3 tvec = ray.origin.xyz - triangle->position1;
     float u = dot(tvec, pvec) * inv_det;
 
     if (u < 0.0f || u > 1.0f)
@@ -101,7 +101,7 @@ __kernel void TraceBvh
     // Input
     __global Ray* rays,
     __global uint* ray_counter,
-    __global Triangle* triangles,
+    __global RTTriangle* triangles,
     __global LinearBVHNode* nodes,
     // Output
 #ifdef SHADOW_RAYS

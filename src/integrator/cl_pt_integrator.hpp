@@ -99,6 +99,7 @@ private:
 
     // Scene buffers
     cl::Buffer triangle_buffer_;
+    cl::Buffer rt_triangle_buffer_;
     cl::Buffer material_buffer_;
     cl::Buffer texture_buffer_;
     cl::Buffer texture_data_buffer_;
