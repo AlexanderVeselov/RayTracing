@@ -48,6 +48,7 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
 
     // Triangle buffer
     num_triangles_ = triangles.size();
+
     glCreateBuffers(1, &triangle_buffer_);
     glNamedBufferData(triangle_buffer_, triangles.size() * sizeof(Triangle), triangles.data(), GL_STATIC_DRAW);
 }
@@ -92,6 +93,7 @@ void GLPathTraceIntegrator::Integrate()
     glViewport(0, 0, width_, height_);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
 
+    glEnable(GL_DEPTH_TEST);
     glClearColor(0.5f, 0.5f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     graphics_pipeline_.Use();
@@ -100,7 +102,13 @@ void GLPathTraceIntegrator::Integrate()
     assert(uniform_index != GL_INVALID_INDEX);
     glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    //GLuint storage_index = glGetProgramResourceIndex(graphics_pipeline_.GetProgram(),
+    //    GL_SHADER_STORAGE_BLOCK, "TriangleBuffer");
+    //assert(storage_index != GL_INVALID_INDEX);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangle_buffer_);
+
+    glDrawArrays(GL_TRIANGLES, 0, num_triangles_ * 3);
+    glDisable(GL_DEPTH_TEST);
 
     glFinish();
 

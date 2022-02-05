@@ -1,3 +1,5 @@
+#version 430 core
+
 varying vec2 vTexcoord;
 
 void main()
