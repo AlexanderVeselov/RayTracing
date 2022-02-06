@@ -1,6 +1,5 @@
 #version 430 core
 
-#include "src/kernels/shared_structures.h"
 
 layout (location = 0) uniform mat4 g_ViewProjection;
 varying vec2 vTexcoord;
@@ -10,7 +9,6 @@ struct Vertex
     vec3 position;
     vec3 texcoord;
     vec3 normal;
-    vec3 tangent_s;
 };
 
 struct Triangle

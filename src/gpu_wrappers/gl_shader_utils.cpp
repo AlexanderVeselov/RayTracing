@@ -22,43 +22,54 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "gl_graphics_pipeline.hpp"
 #include "gl_shader_utils.hpp"
-#include <cstring>
+#include <string>
 #include <stdexcept>
 #include <fstream>
 
-GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filename)
+std::string ReadFile(char const* filename)
 {
-    vertex_shader_ = CreateShader(vs_filename, GL_VERTEX_SHADER);
-    fragment_shader_ = CreateShader(fs_filename, GL_FRAGMENT_SHADER);
+    std::ifstream file(filename);
+    if (!filename)
+    {
+        throw std::runtime_error("Failed to load shader from file!");
+    }
 
-    shader_program_ = glCreateProgram();
-    glAttachShader(shader_program_, vertex_shader_);
-    glAttachShader(shader_program_, fragment_shader_);
-    glLinkProgram(shader_program_);
+    return std::string((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
+}
 
-    GLint link_status;
-    glGetProgramiv(shader_program_, GL_LINK_STATUS, &link_status);
+GLuint CreateShader(char const* filename, GLenum shader_type)
+{
+    std::string source = ReadFile(filename);
+    char const* source_c_str = source.c_str();
 
-    if (link_status == false)
+    // Create shader
+    GLuint shader = glCreateShader(shader_type);
+
+    // Associate shader source
+    GLint source_length = source.size();
+    glShaderSource(shader, 1, &source_c_str, &source_length);
+
+    // Compile shader
+    glCompileShader(shader);
+
+    // Get compile status
+    GLint compile_status;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
+
+    // Throw an error with description if we can't compile the shader
+    if (compile_status == false)
     {
         GLint log_length = 0;
-        glGetProgramiv(shader_program_, GL_INFO_LOG_LENGTH, &log_length);
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
 
         // The maxLength includes the NULL character
         std::string info_log;
         info_log.resize(log_length);
-        glGetProgramInfoLog(shader_program_, log_length, &log_length, &info_log[0]);
+        glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
 
         throw std::runtime_error(info_log);
     }
 
-}
-
-GraphicsPipeline::~GraphicsPipeline()
-{
-    glDeleteProgram(shader_program_);
-    glDeleteShader(fragment_shader_);
-    glDeleteShader(vertex_shader_);
+    return shader;
 }

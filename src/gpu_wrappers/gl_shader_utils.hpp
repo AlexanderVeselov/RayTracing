@@ -22,43 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "gl_graphics_pipeline.hpp"
-#include "gl_shader_utils.hpp"
-#include <cstring>
-#include <stdexcept>
-#include <fstream>
+#pragma once
 
-GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filename)
-{
-    vertex_shader_ = CreateShader(vs_filename, GL_VERTEX_SHADER);
-    fragment_shader_ = CreateShader(fs_filename, GL_FRAGMENT_SHADER);
+#include <GL/glew.h>
 
-    shader_program_ = glCreateProgram();
-    glAttachShader(shader_program_, vertex_shader_);
-    glAttachShader(shader_program_, fragment_shader_);
-    glLinkProgram(shader_program_);
-
-    GLint link_status;
-    glGetProgramiv(shader_program_, GL_LINK_STATUS, &link_status);
-
-    if (link_status == false)
-    {
-        GLint log_length = 0;
-        glGetProgramiv(shader_program_, GL_INFO_LOG_LENGTH, &log_length);
-
-        // The maxLength includes the NULL character
-        std::string info_log;
-        info_log.resize(log_length);
-        glGetProgramInfoLog(shader_program_, log_length, &log_length, &info_log[0]);
-
-        throw std::runtime_error(info_log);
-    }
-
-}
-
-GraphicsPipeline::~GraphicsPipeline()
-{
-    glDeleteProgram(shader_program_);
-    glDeleteShader(fragment_shader_);
-    glDeleteShader(vertex_shader_);
-}
+GLuint CreateShader(char const* filename, GLenum shader_type);

@@ -7,6 +7,8 @@ set(GPU_WRAPPERS_SOURCES
     gpu_wrappers/gl_graphics_pipeline.hpp
     gpu_wrappers/gl_framebuffer.cpp
     gpu_wrappers/gl_framebuffer.hpp
+    gpu_wrappers/gl_shader_utils.cpp
+    gpu_wrappers/gl_shader_utils.hpp
 )
 
 set(INTEGRATOR_SOURCES

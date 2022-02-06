@@ -23,45 +23,9 @@
  *****************************************************************************/
 
 #include "gl_compute_pipeline.hpp"
+#include "gl_shader_utils.hpp"
 #include <cstring>
 #include <stdexcept>
-
-namespace
-{
-    GLuint CreateShader(char const* source, GLenum shader_type)
-    {
-        // Create shader
-        GLuint shader = glCreateShader(shader_type);
-
-        // Associate shader source
-        GLint source_length = (GLint)strlen(source);
-        glShaderSource(shader, 1, &source, &source_length);
-
-        // Compile shader
-        glCompileShader(shader);
-
-        // Get compile status
-        GLint compile_status;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
-
-        // Throw an error with description if we can't compile the shader
-        if (compile_status == false)
-        {
-            GLint log_length = 0;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-
-            // The maxLength includes the NULL character
-            std::string info_log;
-            info_log.resize(log_length);
-            glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
-
-            throw std::runtime_error(info_log);
-        }
-
-        return shader;
-
-    }
-}
 
 ComputePipeline::ComputePipeline(char const* cs_source)
 {
@@ -86,7 +50,6 @@ ComputePipeline::ComputePipeline(char const* cs_source)
 
         throw std::runtime_error(info_log);
     }
-
 }
 
 ComputePipeline::~ComputePipeline()
