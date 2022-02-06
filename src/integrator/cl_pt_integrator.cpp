@@ -430,12 +430,26 @@ void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     auto const& texture_data = scene.GetTextureData();
     auto const& env_image = scene.GetEnvImage();
 
+
     cl_int status;
 
     assert(!triangles.empty());
     triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         triangles.size() * sizeof(Triangle), (void*)triangles.data(), &status);
-    ThrowIfFailed(status, "Failed to create scene buffer");
+    ThrowIfFailed(status, "Failed to create triangle buffer");
+
+    // Additional compressed triangle buffer
+    {
+        std::vector<RTTriangle> rt_triangles;
+        for (auto const& triangle : triangles)
+        {
+            rt_triangles.emplace_back(triangle.v1.position, triangle.v2.position, triangle.v3.position);
+        }
+
+        rt_triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            rt_triangles.size() * sizeof(RTTriangle), (void*)rt_triangles.data(), &status);
+        ThrowIfFailed(status, "Failed to create rt triangle buffer");
+    }
 
     assert(!materials.empty());
     material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -569,7 +583,7 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     CLKernel& kernel = *intersect_kernel_;
     kernel.SetArgument(0, rays_buffer_[incoming_idx]);
     kernel.SetArgument(1, ray_counter_buffer_[incoming_idx]);
-    kernel.SetArgument(2, triangle_buffer_);
+    kernel.SetArgument(2, rt_triangle_buffer_);
     kernel.SetArgument(3, nodes_buffer_);
     kernel.SetArgument(4, hits_buffer_);
 
@@ -610,7 +624,7 @@ void CLPathTraceIntegrator::IntersectShadowRays()
     CLKernel& kernel = *intersect_shadow_kernel_;
     kernel.SetArgument(0, shadow_rays_buffer_);
     kernel.SetArgument(1, shadow_ray_counter_buffer_);
-    kernel.SetArgument(2, triangle_buffer_);
+    kernel.SetArgument(2, rt_triangle_buffer_);
     kernel.SetArgument(3, nodes_buffer_);
     kernel.SetArgument(4, shadow_hits_buffer_);
 
