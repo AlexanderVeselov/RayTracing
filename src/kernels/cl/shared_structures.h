@@ -106,8 +106,6 @@ typedef struct Vertex
     float3 position;
     float3 texcoord;
     float3 normal;
-    float3 tangent_s;
-
 } Vertex;
 
 typedef struct Triangle
