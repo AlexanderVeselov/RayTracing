@@ -1,5 +1,6 @@
 #version 430 core
 
+#include "src/kernels/shared_structures.h"
 
 layout (location = 0) uniform mat4 g_ViewProjection;
 varying vec2 vTexcoord;
