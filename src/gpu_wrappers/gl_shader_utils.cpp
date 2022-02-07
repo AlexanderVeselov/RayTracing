@@ -29,56 +29,69 @@
 #include <stdexcept>
 #include <fstream>
 
-std::string ReadShader(char const* filename)
+std::string ReadHeader(char const* filename)
 {
     std::ifstream file(filename);
     if (!file)
     {
-        return "";//throw std::runtime_error("Failed to load shader from file!");
+        return "";
     }
 
     std::string source;
     std::string line;
-    std::stack<bool> exclude_stack;
-    exclude_stack.push(true);
-
     while (std::getline(file, line))
     {
         std::string include_str("#include");
-        std::string ifdef_str("#ifdef");
-        std::string ifndef_str("#ifndef");
-        std::string else_str("#else");
-        std::string endif_str("#endif");
 
         std::size_t start_pos = 0;
-        if (exclude_stack.top() && (start_pos = line.find(include_str)) != std::string::npos)
+        if ((start_pos = line.find(include_str)) != std::string::npos)
         {
             start_pos = line.find("\"", start_pos) + 1;
             std::size_t end_pos = line.find("\"", start_pos);
 
             std::string include_filename = line.substr(start_pos, end_pos - start_pos);
-            source += ReadShader(include_filename.c_str()) + "\n";
+            source += ReadHeader(include_filename.c_str()) + "\n";
         }
-        //else if ((start_pos = line.find(ifdef_str)) != std::string::npos)
-        //{
-        //    // No definitions for now...
-        //    exclude_stack.push(false);
-        //}
-        //else if ((start_pos = line.find(ifndef_str)) != std::string::npos)
-        //{
-        //    // No definitions for now...
-        //    exclude_stack.push(true && exclude_stack.top());
-        //}
-        //else if ((start_pos = line.find(else_str)) != std::string::npos)
-        //{
-        //    // Flip exclude flag
-        //    exclude_stack.top() = !exclude_stack.top();
-        //}
-        //else if ((start_pos = line.find(endif_str)) != std::string::npos)
-        //{
-        //    exclude_stack.pop();
-        //}
-        else if (exclude_stack.top())
+        else
+        {
+            source += line + "\n";
+        }
+    }
+
+    return source;
+}
+
+std::string ReadShader(char const* filename)
+{
+    std::ifstream file(filename);
+    if (!file)
+    {
+        throw std::runtime_error("Failed to load shader!");
+    }
+
+    std::string source;
+    source += "#version 430 core\n";
+    source += "#define GLSL\n";
+    source += "#define typedef\n";
+    source += "#define float4 vec4\n";
+    source += "#define float3 vec3\n";
+    source += "#define float2 vec2\n";
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        std::string include_str("#include");
+
+        std::size_t start_pos = 0;
+        if ((start_pos = line.find(include_str)) != std::string::npos)
+        {
+            start_pos = line.find("\"", start_pos) + 1;
+            std::size_t end_pos = line.find("\"", start_pos);
+
+            std::string include_filename = line.substr(start_pos, end_pos - start_pos);
+            source += ReadHeader(include_filename.c_str()) + "\n";
+        }
+        else
         {
             source += line + "\n";
         }
