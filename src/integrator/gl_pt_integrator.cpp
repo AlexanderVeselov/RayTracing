@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -72,7 +72,7 @@ void GLPathTraceIntegrator::CreateKernels()
 {
     //reset_pipeline_ = std::make_unique<ComputePipeline>("reset_radiance.comp");
     raygen_pipeline_ = std::make_unique<ComputePipeline>("raygeneration.comp");
-    //miss_pipeline_ = std::make_unique<ComputePipeline>("miss.comp");
+    miss_pipeline_ = std::make_unique<ComputePipeline>("miss.comp");
 }
 
 void GLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
