@@ -36,6 +36,8 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 {
     glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
     glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
+
+    CreateKernels();
 }
 
 void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
@@ -64,6 +66,13 @@ void GLPathTraceIntegrator::SetCameraData(Camera const& camera)
     glm::mat4 proj_matrix = glm::perspectiveFov(camera.fov, (float)width_, (float)height_, 0.1f, 100.0f);
 
     view_proj_matrix_ = proj_matrix * view_matrix;
+}
+
+void GLPathTraceIntegrator::CreateKernels()
+{
+    //reset_pipeline_ = std::make_unique<ComputePipeline>("reset_radiance.comp");
+    raygen_pipeline_ = std::make_unique<ComputePipeline>("raygeneration.comp");
+    //miss_pipeline_ = std::make_unique<ComputePipeline>("miss.comp");
 }
 
 void GLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
@@ -103,6 +112,7 @@ void GLPathTraceIntegrator::AdvanceSampleCount()
 
 void GLPathTraceIntegrator::GenerateRays()
 {
+    /*
     glViewport(0, 0, width_, height_);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
 
@@ -136,6 +146,7 @@ void GLPathTraceIntegrator::GenerateRays()
 
     //glCopyImageSubData(framebuffer_.GetNativeTexture(), GL_TEXTURE_2D, 0, 0, 0, 0,
     //    out_image_, GL_TEXTURE_2D, 0, 0, 0, 0, width_, height_, 1);
+    */
 }
 
 void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)

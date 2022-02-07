@@ -20,12 +20,16 @@ set(INTEGRATOR_SOURCES
     integrator/gl_pt_integrator.hpp
 )
 
+set(COMMON_KERNELS_SOURCES
+    kernels/constants.h
+    kernels/shared_structures.h
+)
+
 set(CL_KERNELS_SOURCES
     kernels/cl/accumulate_direct_samples.cl
     kernels/cl/aov.cl
     kernels/cl/bxdf.h
     kernels/cl/clear_counter.cl
-    kernels/cl/constants.h
     kernels/cl/denoiser.cl
     kernels/cl/hit_surface.cl
     kernels/cl/increment_counter.cl
@@ -95,7 +99,7 @@ set(SOURCES
     ${INTEGRATOR_SOURCES}
     ${CL_KERNELS_SOURCES}
     ${GLSL_KERNELS_SOURCES}
-    kernels/shared_structures.h
+    ${COMMON_KERNELS_SOURCES}
     ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
@@ -105,7 +109,7 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("kernels" FILES kernels/shared_structures.h)
+source_group("kernels" FILES ${COMMON_KERNELS_SOURCES})
 source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
 source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})

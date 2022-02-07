@@ -1,11 +1,110 @@
-layout (local_size_x = 32, local_size_y = 32) in;
+/*****************************************************************************
+ MIT License
 
-layout(binding = 0, rgba32f) uniform image2D g_input_image;
-layout(binding = 1, rgba32f)   uniform image2D g_output_image;
+ Copyright(c) 2021 Alexander Veselov
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this softwareand associated documentation files(the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions :
+
+ The above copyright noticeand this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ *****************************************************************************/
+
+layout (local_size_x = 256) in;
+
+#include "src/kernels/shared_structures.h"
+#include "src/kernels/constants.h"
+
+uniform uint width;
+uniform uint height;
+uniform Camera camera;
+
+layout(std430, binding = 0) buffer SampleCounter 
+{
+    uint sample_counter[];
+};
+
+layout(std430, binding = 1) buffer Rays 
+{
+    Ray rays[];
+};
+
+layout(std430, binding = 2) buffer RayCounter 
+{
+    uint ray_counter[];
+};
+
+layout(std430, binding = 3) buffer PixelIndices 
+{
+    uint pixel_indices[];
+};
+
+layout(std430, binding = 4) buffer Throughputs 
+{
+    vec3 throughputs[];
+};
 
 void main()
 {
-    uvec2 gidx = gl_GlobalInvocationID.xy;
-    vec4 in_value = imageLoad(g_input_image, ivec2(gidx));
-    imageStore(g_output_image, ivec2(gidx), in_value);
+    uint ray_idx = gl_GlobalInvocationID.x;
+
+    if (ray_idx >= width * height)
+    {
+        return;
+    }
+
+    uint pixel_idx = ray_idx;
+    uint pixel_x = pixel_idx % width;
+    uint pixel_y = pixel_idx / width;
+
+    float inv_width = 1.0f / float(width);
+    float inv_height = 1.0f / float(height);
+
+    uint sample_idx = sample_counter[0];
+
+#if 0
+    float x = (pixel_x + GetRandomFloat(&seed)) * inv_width;
+    float y = (pixel_y + GetRandomFloat(&seed)) * inv_height;
+#else
+    float x = (pixel_x + 0.5f) * inv_width;
+    float y = (pixel_y + 0.5f) * inv_height;
+#endif
+
+    float angle = tan(0.5f * camera.fov);
+    x = (x * 2.0f - 1.0f) * angle * camera.aspect_ratio;
+    y = (y * 2.0f - 1.0f) * angle;
+
+    float3 dir = normalize(x * cross(camera.front, camera.up) + y * camera.up + camera.front);
+
+    Ray ray;
+    ray.origin.xyz = camera.position;
+    ray.origin.w = 0.0;
+    ray.direction.xyz = dir;
+    ray.direction.w = MAX_RENDER_DIST;
+
+    rays[ray_idx] = ray;
+    pixel_indices[ray_idx] = pixel_idx;
+    throughputs[pixel_idx] = float3(1.0f, 1.0f, 1.0f);
+    //diffuse_albedo[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
+    //depth_buffer[pixel_idx] = MAX_RENDER_DIST;
+    //normal_buffer[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
+    //velocity_buffer[pixel_idx] = float2(0.0f, 0.0f);
+
+    // Write to global ray counter
+    if (ray_idx == 0)
+    {
+        ray_counter[0] = width * height;
+    }
 }
