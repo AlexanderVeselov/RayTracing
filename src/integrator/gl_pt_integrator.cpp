@@ -70,7 +70,7 @@ void GLPathTraceIntegrator::SetCameraData(Camera const& camera)
 
 void GLPathTraceIntegrator::CreateKernels()
 {
-    //reset_pipeline_ = std::make_unique<ComputePipeline>("reset_radiance.comp");
+    reset_pipeline_ = std::make_unique<ComputePipeline>("reset_radiance.comp");
     raygen_pipeline_ = std::make_unique<ComputePipeline>("raygeneration.comp");
     miss_pipeline_ = std::make_unique<ComputePipeline>("miss.comp");
 }

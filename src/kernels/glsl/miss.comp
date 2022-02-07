@@ -22,14 +22,70 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 32, local_size_y = 32) in;
+layout (local_size_x = 32) in;
 
-layout(binding = 0, rgba32f) uniform image2D g_input_image;
-layout(binding = 1, rgba32f)   uniform image2D g_output_image;
+#include "src/kernels/shared_structures.h"
+#include "src/kernels/constants.h"
+
+uniform uint width;
+uniform uint height;
+
+layout(std430, binding = 0) buffer Rays 
+{
+    Ray rays[];
+};
+
+layout(std430, binding = 1) buffer RayCounter 
+{
+    uint ray_counter[];
+};
+
+layout(std430, binding = 2) buffer Hits 
+{
+    Hit hits[];
+};
+
+layout(std430, binding = 3) buffer PixelIndices 
+{
+    uint pixel_indices[];
+};
+
+layout(std430, binding = 4) buffer Throughputs 
+{
+    vec3 throughputs[];
+};
+
+layout(binding = 5, rgba32f) uniform image2D radiance_image;
 
 void main()
 {
-    uvec2 gidx = gl_GlobalInvocationID.xy;
-    vec4 in_value = imageLoad(g_input_image, ivec2(gidx));
-    imageStore(g_output_image, ivec2(gidx), in_value);
+    uint ray_idx = gl_GlobalInvocationID.x;
+
+    uint num_rays = ray_counter[0];
+
+    if (ray_idx >= num_rays)
+    {
+        return;
+    }
+
+    Ray ray = rays[ray_idx];
+    //Hit hit = hits[ray_idx];
+
+    if (true)//hit.primitive_id == INVALID_ID)
+    {
+        uint pixel_idx = pixel_indices[ray_idx];
+        uint pixel_x = pixel_idx % width;
+        uint pixel_y = pixel_idx / width;
+
+        float3 throughput = throughputs[pixel_idx];
+
+#if 1//def ENABLE_WHITE_FURNACE
+        float3 sky_radiance = ray.direction.xyz * 0.5f + 0.5f;//0.5f;
+#else
+        float3 sky_radiance = SampleSky(ray.direction.xyz, tex);
+#endif
+        vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
+        radiance.xyz += sky_radiance * throughput;
+        imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
+    }
 }

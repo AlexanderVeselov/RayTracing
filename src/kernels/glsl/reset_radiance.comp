@@ -1,0 +1,44 @@
+/*****************************************************************************
+ MIT License
+
+ Copyright(c) 2022 Alexander Veselov
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this softwareand associated documentation files(the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions :
+
+ The above copyright noticeand this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ *****************************************************************************/
+
+layout (local_size_x = 256) in;
+
+uint width;
+uint height;
+layout(binding = 0, rgba32f) uniform image2D radiance_image;
+
+void main()
+{
+    uint pixel_idx = gl_GlobalInvocationID.x;
+
+    if (pixel_idx >= width * height)
+    {
+        return;
+    }
+
+    uint pixel_x = pixel_idx % width;
+    uint pixel_y = pixel_idx / width;
+
+    imageStore(radiance_image, ivec2(pixel_x, pixel_y), vec4(0.0f));
+}
