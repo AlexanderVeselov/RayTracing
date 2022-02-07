@@ -30,7 +30,8 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     AccelerationStructure& acc_structure, std::uint32_t out_image)
     : Integrator(width, height, acc_structure)
     , framebuffer_(width, height)
-    , graphics_pipeline_("src/kernels/glsl/visibility_buffer.vs", "src/kernels/glsl/visibility_buffer.fs")
+    , graphics_pipeline_("visibility_buffer.vert", "visibility_buffer.frag")
+    , copy_pipeline_("copy_image.comp")
     , out_image_(out_image)
 {
 }
@@ -114,6 +115,13 @@ void GLPathTraceIntegrator::Integrate()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glCopyImageSubData(framebuffer_.GetNativeTexture(), GL_TEXTURE_2D, 0, 0, 0, 0,
-        out_image_, GL_TEXTURE_2D, 0, 0, 0, 0, width_, height_, 1);
+    copy_pipeline_.Use();
+    std::uint32_t num_groups_x = (width_ + 31) / 32;
+    std::uint32_t num_groups_y = (height_ + 31) / 32;
+    glBindImageTexture(0, framebuffer_.GetNativeTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, out_image_, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glDispatchCompute(num_groups_x, num_groups_y, 1);
+
+    //glCopyImageSubData(framebuffer_.GetNativeTexture(), GL_TEXTURE_2D, 0, 0, 0, 0,
+    //    out_image_, GL_TEXTURE_2D, 0, 0, 0, 0, width_, height_, 1);
 }

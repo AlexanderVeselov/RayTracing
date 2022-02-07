@@ -27,6 +27,7 @@
 #include "integrator.hpp"
 #include "gpu_wrappers/gl_framebuffer.hpp"
 #include "gpu_wrappers/gl_graphics_pipeline.hpp"
+#include "gpu_wrappers/gl_compute_pipeline.hpp"
 #include "glm/matrix.hpp"
 
 class GLPathTraceIntegrator : public Integrator
@@ -46,6 +47,7 @@ public:
 private:
     GLFramebuffer framebuffer_;
     GraphicsPipeline graphics_pipeline_;
+    ComputePipeline copy_pipeline_;
     GLuint out_image_;
     GLuint triangle_buffer_;
     std::uint32_t num_triangles_;

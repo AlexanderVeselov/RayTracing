@@ -40,10 +40,11 @@ set(CL_KERNELS_SOURCES
 )
 
 set(GLSL_KERNELS_SOURCES
-    kernels/glsl/fullscreen_quad.vs
-    kernels/glsl/fullscreen_quad.fs
-    kernels/glsl/visibility_buffer.vs
-    kernels/glsl/visibility_buffer.fs
+    kernels/glsl/copy_image.comp
+    kernels/glsl/fullscreen_quad.vert
+    kernels/glsl/fullscreen_quad.frag
+    kernels/glsl/visibility_buffer.vert
+    kernels/glsl/visibility_buffer.frag
 )
 
 set(LOADERS_SOURCES

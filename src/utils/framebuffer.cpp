@@ -29,7 +29,7 @@
 Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     : width_(width)
     , height_(height)
-    , draw_pipeline_("src/kernels/glsl/fullscreen_quad.vs", "src/kernels/glsl/fullscreen_quad.fs")
+    , draw_pipeline_("fullscreen_quad.vert", "fullscreen_quad.frag")
 {
     // Enable SRGB framebuffer
     glEnable(GL_FRAMEBUFFER_SRGB);

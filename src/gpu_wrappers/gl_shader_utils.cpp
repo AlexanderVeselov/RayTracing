@@ -102,7 +102,8 @@ std::string ReadShader(char const* filename)
 
 GLuint CreateShader(char const* filename, GLenum shader_type)
 {
-    std::string source = ReadShader(filename);
+    std::string shader_folder = "src/kernels/glsl/";
+    std::string source = ReadShader((shader_folder + filename).c_str());
     char const* source_c_str = source.c_str();
 
     // Create shader
