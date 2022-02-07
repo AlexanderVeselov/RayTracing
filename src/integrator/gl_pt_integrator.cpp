@@ -34,6 +34,8 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     , copy_pipeline_("copy_image.comp")
     , out_image_(out_image)
 {
+    glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
+    glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
 }
 
 void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
@@ -89,7 +91,17 @@ void GLPathTraceIntegrator::EnableDenoiser(bool enable)
 
 }
 
-void GLPathTraceIntegrator::Integrate()
+void GLPathTraceIntegrator::Reset()
+{
+
+}
+
+void GLPathTraceIntegrator::AdvanceSampleCount()
+{
+
+}
+
+void GLPathTraceIntegrator::GenerateRays()
 {
     glViewport(0, 0, width_, height_);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
@@ -124,4 +136,59 @@ void GLPathTraceIntegrator::Integrate()
 
     //glCopyImageSubData(framebuffer_.GetNativeTexture(), GL_TEXTURE_2D, 0, 0, 0, 0,
     //    out_image_, GL_TEXTURE_2D, 0, 0, 0, 0, width_, height_, 1);
+}
+
+void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
+{
+
+}
+
+void GLPathTraceIntegrator::ComputeAOVs()
+{
+
+}
+
+void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
+{
+
+}
+
+void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
+{
+
+}
+
+void GLPathTraceIntegrator::IntersectShadowRays()
+{
+
+}
+
+void GLPathTraceIntegrator::AccumulateDirectSamples()
+{
+
+}
+
+void GLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
+{
+
+}
+
+void GLPathTraceIntegrator::ClearShadowRayCounter()
+{
+
+}
+
+void GLPathTraceIntegrator::Denoise()
+{
+
+}
+
+void GLPathTraceIntegrator::CopyHistoryBuffers()
+{
+
+}
+
+void GLPathTraceIntegrator::ResolveRadiance()
+{
+
 }

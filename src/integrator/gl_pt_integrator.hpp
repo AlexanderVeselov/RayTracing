@@ -35,7 +35,6 @@ class GLPathTraceIntegrator : public Integrator
 public:
     GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         AccelerationStructure& acc_structure, std::uint32_t out_image);
-    void Integrate() override;
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void EnableWhiteFurnace(bool enable) override;
@@ -44,10 +43,43 @@ public:
     void SetAOV(AOV aov) override;
     void EnableDenoiser(bool enable) override;
 
+protected:
+    void Reset() override;
+    void AdvanceSampleCount() override;
+    void GenerateRays() override;
+    void IntersectRays(std::uint32_t bounce) override;
+    void ComputeAOVs() override;
+    void ShadeMissedRays(std::uint32_t bounce) override;
+    void ShadeSurfaceHits(std::uint32_t bounce) override;
+    void IntersectShadowRays() override;
+    void AccumulateDirectSamples() override;
+    void ClearOutgoingRayCounter(std::uint32_t bounce) override;
+    void ClearShadowRayCounter() override;
+    void Denoise() override;
+    void CopyHistoryBuffers() override;
+    void ResolveRadiance() override;
+
 private:
+    void CreateKernels();
+
     GLFramebuffer framebuffer_;
     GraphicsPipeline graphics_pipeline_;
     ComputePipeline copy_pipeline_;
+
+    // Pipelines
+    std::unique_ptr<ComputePipeline> reset_pipeline_;
+    std::unique_ptr<ComputePipeline> raygen_pipeline_;
+    std::unique_ptr<ComputePipeline> miss_pipeline_;
+    std::unique_ptr<ComputePipeline> aov_pipeline_;
+    std::unique_ptr<ComputePipeline> hit_surface_pipeline_;
+    std::unique_ptr<ComputePipeline> accumulate_direct_samples_pipeline_;
+    std::unique_ptr<ComputePipeline> clear_counter_pipeline_;
+    std::unique_ptr<ComputePipeline> increment_counter_pipeline_;
+    std::unique_ptr<ComputePipeline> temporal_accumulation_pipeline_;
+    std::unique_ptr<ComputePipeline> resolve_pipeline_;
+
+    GLuint radiance_image_;
+
     GLuint out_image_;
     GLuint triangle_buffer_;
     std::uint32_t num_triangles_;

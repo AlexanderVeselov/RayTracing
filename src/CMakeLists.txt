@@ -12,6 +12,7 @@ set(GPU_WRAPPERS_SOURCES
 )
 
 set(INTEGRATOR_SOURCES
+    integrator/integrator.cpp
     integrator/integrator.hpp
     integrator/cl_pt_integrator.cpp
     integrator/cl_pt_integrator.hpp
@@ -43,6 +44,11 @@ set(GLSL_KERNELS_SOURCES
     kernels/glsl/copy_image.comp
     kernels/glsl/fullscreen_quad.vert
     kernels/glsl/fullscreen_quad.frag
+    kernels/glsl/miss.comp
+    kernels/glsl/raygeneration.comp
+    kernels/glsl/reset_radiance.comp
+    kernels/glsl/resolve_radiance.comp
+    kernels/glsl/trace_bvh.comp
     kernels/glsl/visibility_buffer.vert
     kernels/glsl/visibility_buffer.frag
 )

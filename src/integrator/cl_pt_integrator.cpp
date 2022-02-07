@@ -738,37 +738,3 @@ void CLPathTraceIntegrator::ResolveRadiance()
     cl_context_.Finish();
     cl_context_.ReleaseGLObject((*output_image_)());
 }
-
-void CLPathTraceIntegrator::Integrate()
-{
-    if (request_reset_ || enable_denoiser_)
-    {
-        Reset();
-        request_reset_ = false;
-    }
-
-    GenerateRays();
-
-    for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
-    {
-        IntersectRays(bounce);
-        if (bounce == 0)
-        {
-            ComputeAOVs();
-        }
-        ShadeMissedRays(bounce);
-        ClearOutgoingRayCounter(bounce);
-        ClearShadowRayCounter();
-        ShadeSurfaceHits(bounce);
-        IntersectShadowRays();
-        AccumulateDirectSamples();
-    }
-
-    AdvanceSampleCount();
-    if (enable_denoiser_)
-    {
-        Denoise();
-        CopyHistoryBuffers();
-    }
-    ResolveRadiance();
-}
