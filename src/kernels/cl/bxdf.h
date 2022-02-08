@@ -25,7 +25,7 @@
 #ifndef BXDF_H
 #define BXDF_H
 
-#include "constants.h"
+#include "../constants.h"
 
 // See http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
 

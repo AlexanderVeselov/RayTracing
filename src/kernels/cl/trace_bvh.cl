@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "../shared_structures.h"
-#include "constants.h"
+#include "../constants.h"
 
 bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
 {

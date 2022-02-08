@@ -195,11 +195,11 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     // Create buffers and images
     cl_int status;
 
-    radiance_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
+    radiance_buffer_ = CreateBuffer(num_rays * sizeof(cl_float4));
 
     // if (enable_denoiser_)
     {
-        prev_radiance_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
+        prev_radiance_buffer_ = CreateBuffer(num_rays * sizeof(cl_float4));
     }
 
     for (int i = 0; i < 2; ++i)
@@ -216,7 +216,7 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
     throughputs_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
     sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
-    direct_light_samples_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
+    direct_light_samples_buffer_ = CreateBuffer(num_rays * sizeof(cl_float4));
 
     // Sampler buffers
     {
@@ -235,16 +235,16 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 
     // AOV buffers
     {
-        diffuse_albedo_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float3));
-        depth_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float));
+        diffuse_albedo_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
+        depth_buffer_ = CreateBuffer(num_rays * sizeof(cl_float));
 
         // if (enable_denoiser_)
         {
-            prev_depth_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float));
+            prev_depth_buffer_ = CreateBuffer(num_rays * sizeof(cl_float));
         }
 
-        normal_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float3));
-        velocity_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float2));
+        normal_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
+        velocity_buffer_ = CreateBuffer(num_rays * sizeof(cl_float2));
     }
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,

@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "constants.h"
+#include "../constants.h"
 
 __kernel void AccumulateDirectSamples
 (

@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "../shared_structures.h"
-#include "constants.h"
+#include "../constants.h"
 
 float3 SampleSky(float3 dir, __read_only image2d_t tex)
 {
