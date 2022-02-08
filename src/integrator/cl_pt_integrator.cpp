@@ -174,6 +174,16 @@ namespace args
     }
 }
 
+cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
+{
+    cl_int status;
+    cl::Buffer buffer(cl_context_.GetContext(), CL_MEM_READ_WRITE,
+        size, nullptr, &status);
+    ThrowIfFailed(status, "Failed to create the buffer");
+
+    return buffer;
+}
+
 CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
     AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int output_image)
     : Integrator(width, height, acc_structure)
@@ -185,63 +195,28 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     // Create buffers and images
     cl_int status;
 
-    radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        width_ * height_ * sizeof(cl_float4), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create radiance buffer");
+    radiance_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
 
     // if (enable_denoiser_)
     {
-        prev_radiance_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float4), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create prev radiance buffer");
+        prev_radiance_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
     }
 
     for (int i = 0; i < 2; ++i)
     {
-        rays_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            num_rays * sizeof(Ray), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create ray buffer");
-
-        pixel_indices_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            num_rays * sizeof(std::uint32_t), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create pixel indices buffer");
-
-        ray_counter_buffer_[i] = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            sizeof(std::uint32_t), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create ray counter buffer");
+        rays_buffer_[i] = CreateBuffer(num_rays * sizeof(Ray));
+        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(std::uint32_t));
+        ray_counter_buffer_[i] = CreateBuffer(sizeof(std::uint32_t));
     }
 
-    shadow_rays_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        num_rays * sizeof(Ray), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create shadow ray buffer");
-
-    shadow_pixel_indices_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        num_rays * sizeof(std::uint32_t), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create shadow pixel indices buffer");
-
-    shadow_ray_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        sizeof(std::uint32_t), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create shadow ray counter buffer");
-
-    hits_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        num_rays * sizeof(Hit), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create hits buffer");
-
-    shadow_hits_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        num_rays * sizeof(std::uint32_t), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create shadow hits buffer");
-
-    throughputs_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        num_rays * sizeof(cl_float3), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create throughputs buffer");
-
-    sample_counter_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        sizeof(std::uint32_t), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create sample counter buffer");
-
-    direct_light_samples_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-        width_ * height_ * sizeof(cl_float4), nullptr, &status);
-    ThrowIfFailed(status, "Failed to create direct light samples buffer");
+    shadow_rays_buffer_ = CreateBuffer(num_rays * sizeof(Ray));
+    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    hits_buffer_ = CreateBuffer(num_rays * sizeof(Hit));
+    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    throughputs_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
+    sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    direct_light_samples_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float4));
 
     // Sampler buffers
     {
@@ -260,28 +235,16 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 
     // AOV buffers
     {
-        diffuse_albedo_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float3), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create diffuse albedo buffer");
-
-        depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create depth buffer");
+        diffuse_albedo_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float3));
+        depth_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float));
 
         // if (enable_denoiser_)
         {
-            prev_depth_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-                width_ * height_ * sizeof(cl_float), nullptr, &status);
-            ThrowIfFailed(status, "Failed to create prev depth buffer");
+            prev_depth_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float));
         }
 
-        normal_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float3), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create normal buffer");
-
-        velocity_buffer_ = cl::Buffer(cl_context.GetContext(), CL_MEM_READ_WRITE,
-            width_ * height_ * sizeof(cl_float2), nullptr, &status);
-        ThrowIfFailed(status, "Failed to create velocity buffer");
+        normal_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float3));
+        velocity_buffer_ = CreateBuffer(width_ * height_ * sizeof(cl_float2));
     }
 
     output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(), CL_MEM_WRITE_ONLY,

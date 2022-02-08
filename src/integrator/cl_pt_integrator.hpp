@@ -58,6 +58,7 @@ protected:
 
 private:
     void CreateKernels();
+    cl::Buffer CreateBuffer(std::size_t size);
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;

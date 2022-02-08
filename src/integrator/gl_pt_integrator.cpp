@@ -51,6 +51,14 @@ void BindUint(GLuint program, char const* name, std::uint32_t value)
     assert(uniform_index != GL_INVALID_INDEX);
     glUniform1ui(uniform_index, value);
 }
+
+GLuint CreateBuffer(std::size_t size)
+{
+    GLuint buffer;
+    glCreateBuffers(1, &buffer);
+    glNamedBufferData(buffer, size, nullptr, GL_DYNAMIC_DRAW);
+    return buffer;
+}
 }
 
 GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
@@ -61,8 +69,25 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     , copy_pipeline_("copy_image.comp")
     , out_image_(out_image)
 {
+    std::uint32_t num_rays = width_ * height_;
+
     glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
     glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        rays_buffer_[i] = CreateBuffer(num_rays * sizeof(Ray));
+        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(std::uint32_t));
+        ray_counter_buffer_[i] = CreateBuffer(sizeof(std::uint32_t));
+    }
+
+    shadow_rays_buffer_ = CreateBuffer(num_rays * sizeof(Ray));
+    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    hits_buffer_ = CreateBuffer(num_rays * sizeof(Hit));
+    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    throughputs_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
+    sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
 
     CreateKernels();
 }
