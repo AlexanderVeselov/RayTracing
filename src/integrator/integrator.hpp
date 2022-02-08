@@ -84,6 +84,7 @@ protected:
     // Acceleration structure
     AccelerationStructure& acc_structure_;
 
+    Camera camera_ = {};
     Camera prev_camera_ = {};
 
     std::uint32_t max_bounces_ = 5u;

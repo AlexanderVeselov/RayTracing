@@ -29,6 +29,28 @@
 namespace
 {
 constexpr std::uint32_t kResetGroupSize = 32u;
+constexpr std::uint32_t kRayGenerationGroupSize = 256u;
+
+void BindFloat(GLuint program, char const* name, float value)
+{
+    GLuint uniform_index = glGetUniformLocation(program, name);
+    assert(uniform_index != GL_INVALID_INDEX);
+    glUniform1f(uniform_index, value);
+}
+
+void BindFloat3(GLuint program, char const* name, float3 value)
+{
+    GLuint uniform_index = glGetUniformLocation(program, name);
+    assert(uniform_index != GL_INVALID_INDEX);
+    glUniform3f(uniform_index, value.x, value.y, value.z);
+}
+
+void BindUint(GLuint program, char const* name, std::uint32_t value)
+{
+    GLuint uniform_index = glGetUniformLocation(program, name);
+    assert(uniform_index != GL_INVALID_INDEX);
+    glUniform1ui(uniform_index, value);
+}
 }
 
 GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
@@ -109,14 +131,8 @@ void GLPathTraceIntegrator::Reset()
 {
     reset_pipeline_->Use();
 
-    GLuint width_uniform_index = glGetUniformLocation(reset_pipeline_->GetProgram(), "width");
-    assert(width_uniform_index != GL_INVALID_INDEX);
-    glUniform1ui(width_uniform_index, width_);
-
-    GLuint height_uniform_index = glGetUniformLocation(reset_pipeline_->GetProgram(), "height");
-    assert(height_uniform_index != GL_INVALID_INDEX);
-    glUniform1ui(height_uniform_index, height_);
-
+    BindUint(reset_pipeline_->GetProgram(), "width", width_);
+    BindUint(reset_pipeline_->GetProgram(), "height", height_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     std::uint32_t num_groups_x = (width_  + kResetGroupSize - 1) / kResetGroupSize;
@@ -132,6 +148,25 @@ void GLPathTraceIntegrator::AdvanceSampleCount()
 void GLPathTraceIntegrator::GenerateRays()
 {
     raygen_pipeline_->Use();
+
+    BindUint(raygen_pipeline_->GetProgram(), "width", width_);
+    BindUint(raygen_pipeline_->GetProgram(), "height", height_);
+    BindFloat3(raygen_pipeline_->GetProgram(), "camera.position", camera_.position);
+    BindFloat3(raygen_pipeline_->GetProgram(), "camera.front", camera_.front);
+    BindFloat3(raygen_pipeline_->GetProgram(), "camera.up", camera_.up);
+    BindFloat(raygen_pipeline_->GetProgram(), "camera.fov", camera_.fov);
+    BindFloat(raygen_pipeline_->GetProgram(), "camera.aspect_ratio", camera_.aspect_ratio);
+    //BindFloat(raygen_pipeline_->GetProgram(), "camera.aperture", camera_.aperture);
+    //BindFloat(raygen_pipeline_->GetProgram(), "camera.focus_distance", camera_.focus_distance);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, sample_counter_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rays_buffer_[0]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ray_counter_buffer_[0]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, pixel_indices_buffer_[0]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, throughputs_buffer_);
+
+    std::uint32_t num_groups = (width_ * height_ + kRayGenerationGroupSize - 1) / kRayGenerationGroupSize;
+    glDispatchCompute(num_groups, 1, 1);
 
     /*
     glViewport(0, 0, width_, height_);

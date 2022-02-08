@@ -82,6 +82,21 @@ private:
 
     GLuint out_image_;
     GLuint triangle_buffer_;
+
+    GLuint rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    GLuint shadow_rays_buffer_;
+    GLuint pixel_indices_buffer_[2];
+    GLuint shadow_pixel_indices_buffer_;
+    GLuint ray_counter_buffer_[2];
+    GLuint shadow_ray_counter_buffer_;
+    GLuint hits_buffer_;
+    GLuint shadow_hits_buffer_;
+    GLuint throughputs_buffer_;
+    GLuint sample_counter_buffer_;
+    GLuint direct_light_samples_buffer_;
+
     std::uint32_t num_triangles_;
+    Camera camera = {};
+    Camera prev_camera = {};
     glm::mat4 view_proj_matrix_;
 };
