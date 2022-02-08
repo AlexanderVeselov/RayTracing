@@ -22,23 +22,20 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 256) in;
+layout (local_size_x = 32, local_size_y = 32) in;
 
-uint width;
-uint height;
+uniform uint width;
+uniform uint height;
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
 
 void main()
 {
-    uint pixel_idx = gl_GlobalInvocationID.x;
+    uint2 pixel_pos = gl_GlobalInvocationID.xy;
 
-    if (pixel_idx >= width * height)
+    if (pixel_pos.x >= width || pixel_pos.y >= height)
     {
         return;
     }
 
-    uint pixel_x = pixel_idx % width;
-    uint pixel_y = pixel_idx / width;
-
-    imageStore(radiance_image, ivec2(pixel_x, pixel_y), vec4(0.0f));
+    imageStore(radiance_image, ivec2(pixel_pos), vec4(0.0f));
 }

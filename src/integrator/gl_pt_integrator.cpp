@@ -26,6 +26,11 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 
+namespace
+{
+constexpr std::uint32_t kResetGroupSize = 32u;
+}
+
 GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
     AccelerationStructure& acc_structure, std::uint32_t out_image)
     : Integrator(width, height, acc_structure)
@@ -102,7 +107,21 @@ void GLPathTraceIntegrator::EnableDenoiser(bool enable)
 
 void GLPathTraceIntegrator::Reset()
 {
+    reset_pipeline_->Use();
 
+    GLuint width_uniform_index = glGetUniformLocation(reset_pipeline_->GetProgram(), "width");
+    assert(width_uniform_index != GL_INVALID_INDEX);
+    glUniform1ui(width_uniform_index, width_);
+
+    GLuint height_uniform_index = glGetUniformLocation(reset_pipeline_->GetProgram(), "height");
+    assert(height_uniform_index != GL_INVALID_INDEX);
+    glUniform1ui(height_uniform_index, height_);
+
+    glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    std::uint32_t num_groups_x = (width_  + kResetGroupSize - 1) / kResetGroupSize;
+    std::uint32_t num_groups_y = (height_ + kResetGroupSize - 1) / kResetGroupSize;
+    glDispatchCompute(num_groups_x, num_groups_y, 1);
 }
 
 void GLPathTraceIntegrator::AdvanceSampleCount()
@@ -112,6 +131,8 @@ void GLPathTraceIntegrator::AdvanceSampleCount()
 
 void GLPathTraceIntegrator::GenerateRays()
 {
+    raygen_pipeline_->Use();
+
     /*
     glViewport(0, 0, width_, height_);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());

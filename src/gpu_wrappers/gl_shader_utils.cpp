@@ -76,6 +76,9 @@ std::string ReadShader(char const* filename)
     source += "#define float4 vec4\n";
     source += "#define float3 vec3\n";
     source += "#define float2 vec2\n";
+    source += "#define uint4 uvec4\n";
+    source += "#define uint3 uvec3\n";
+    source += "#define uint2 uvec2\n";
 
     std::string line;
     while (std::getline(file, line))
