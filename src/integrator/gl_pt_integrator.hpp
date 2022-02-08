@@ -69,6 +69,7 @@ private:
     // Pipelines
     std::unique_ptr<ComputePipeline> reset_pipeline_;
     std::unique_ptr<ComputePipeline> raygen_pipeline_;
+    std::unique_ptr<ComputePipeline> intersect_pipeline_;
     std::unique_ptr<ComputePipeline> miss_pipeline_;
     std::unique_ptr<ComputePipeline> aov_pipeline_;
     std::unique_ptr<ComputePipeline> hit_surface_pipeline_;
