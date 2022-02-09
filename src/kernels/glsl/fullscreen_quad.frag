@@ -22,33 +22,10 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+uniform sampler2D input_sampler;
+varying vec2 vTexcoord;
 
-#include "mathlib/mathlib.hpp"
-#include "kernels/shared_structures.h"
-#include <memory>
-
-class Window;
-
-class CameraController
+void main()
 {
-public:
-    CameraController(Window& window);
-    void Update(float dt);
-    bool IsChanged() const { return is_changed_; }
-    void OnEndFrame() { is_changed_ = false; }
-    Camera const& GetData() const { return camera_data_; }
-
-    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
-    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
-
-private:
-    Window& window_;
-
-    bool is_changed_ = true;
-    Camera camera_data_ = {};
-    float3 up_;
-    float pitch_;
-    float yaw_;
-    float speed_;
-};
+    gl_FragColor = texture(input_sampler, vTexcoord);
+}

@@ -22,13 +22,47 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../constants.h"
+layout (local_size_x = 32) in;
 
-bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
+#include "src/kernels/shared_structures.h"
+#include "src/kernels/constants.h"
+
+layout(std430, binding = 0) buffer Rays 
 {
-    float3 e1 = triangle->position2 - triangle->position1;
-    float3 e2 = triangle->position3 - triangle->position1;
+    Ray rays[];
+};
+
+layout(std430, binding = 1) buffer RayCounter 
+{
+    uint ray_counter[];
+};
+
+layout(std430, binding = 2) buffer RTTriangles 
+{
+    RTTriangle triangles[];
+};
+
+layout(std430, binding = 3) buffer BVHNodes 
+{
+    LinearBVHNode nodes[];
+};
+
+#ifdef SHADOW_RAYS
+layout(std430, binding = 4) buffer ShadowHits 
+{
+    uint shadow_hits[];
+};
+#else
+layout(std430, binding = 4) buffer Hits 
+{
+    Hit hits[];
+};
+#endif // #ifdef SHADOW_RAYS
+
+bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
+{
+    float3 e1 = triangle.position2 - triangle.position1;
+    float3 e2 = triangle.position3 - triangle.position1;
     // Calculate planes normal vector
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
@@ -40,7 +74,7 @@ bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float
     }
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle->position1;
+    float3 tvec = ray.origin.xyz - triangle.position1;
     float u = dot(tvec, pvec) * inv_det;
 
     if (u < 0.0f || u > 1.0f)
@@ -66,8 +100,8 @@ bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float
     }
 
     // Intersection is found
-    *bc = (float2)(u, v);
-    *out_t = t;
+    bc = float2(u, v);
+    out_t = t;
 
     return true;
 }
@@ -82,10 +116,10 @@ float min3(float3 val)
     return min(min(val.x, val.y), val.z);
 }
 
-bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
 {
-    float3 aabb_min = bounds->pos[0];
-    float3 aabb_max = bounds->pos[1];
+    float3 aabb_min = bounds.pos[0];
+    float3 aabb_max = bounds.pos[1];
 
     float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
     float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
@@ -96,22 +130,9 @@ bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv
     return (tmax >= tmin);
 }
 
-__kernel void TraceBvh
-(
-    // Input
-    __global Ray* rays,
-    __global uint* ray_counter,
-    __global RTTriangle* triangles,
-    __global LinearBVHNode* nodes,
-    // Output
-#ifdef SHADOW_RAYS
-    __global uint* shadow_hits
-#else
-    __global Hit* hits
-#endif
-)
+void main()
 {
-    uint ray_idx = get_global_id(0);
+    uint ray_idx = gl_GlobalInvocationID.x;
     ///@TODO: use indirect dispatch
     uint num_rays = ray_counter[0];
 
@@ -121,12 +142,13 @@ __kernel void TraceBvh
     }
 
     Ray ray = rays[ray_idx];
+
     // TODO: fix it
-    float3 ray_inv_dir = (float3)(1.0f, 1.0f, 1.0f) / ray.direction.xyz;
+    float3 ray_inv_dir = float3(1.0f) / ray.direction.xyz;
     int ray_sign[3];
-    ray_sign[0] = ray_inv_dir.x < 0;
-    ray_sign[1] = ray_inv_dir.y < 0;
-    ray_sign[2] = ray_inv_dir.z < 0;
+    ray_sign[0] = (ray_inv_dir.x < 0) ? 1 : 0;
+    ray_sign[1] = (ray_inv_dir.y < 0) ? 1 : 0;
+    ray_sign[2] = (ray_inv_dir.z < 0) ? 1 : 0;
 
 #ifdef SHADOW_RAYS
     uint shadow_hit = INVALID_ID;
@@ -143,19 +165,19 @@ __kernel void TraceBvh
 
     while (true)
     {
-        __global LinearBVHNode* node = &nodes[currentNodeIndex];
+        LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(&node->bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
             // Leaf node
-            if (node->nPrimitives > 0)
+            if (int(node.nPrimitives) > 0)
             {
                 // Intersect ray with primitives in leaf BVH node
-                for (int i = 0; i < node->nPrimitives; ++i)
+                for (int i = 0; i < int(node.nPrimitives); ++i)
                 {
-                    if (RayTriangle(ray, &triangles[node->offset + i], &hit.bc, &hit.t))
+                    if (RayTriangle(ray, triangles[node.offset + i], hit.bc, hit.t))
                     {
-                        hit.primitive_id = node->offset + i;
+                        hit.primitive_id = node.offset + i;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;
@@ -177,14 +199,14 @@ __kernel void TraceBvh
             else
             {
                 // Put far BVH node on _nodesToVisit_ stack, advance to near node
-                if (ray_sign[node->axis])
+                if (ray_sign[node.axis] != 0)
                 {
                     nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
-                    currentNodeIndex = node->offset;
+                    currentNodeIndex = int(node.offset);
                 }
                 else
                 {
-                    nodesToVisit[toVisitOffset++] = node->offset;
+                    nodesToVisit[toVisitOffset++] = int(node.offset);
                     currentNodeIndex = currentNodeIndex + 1;
                 }
             }
@@ -200,9 +222,9 @@ __kernel void TraceBvh
         }
     }
 
-endtrace:
     // Write the result to the output buffer
 #ifdef SHADOW_RAYS
+endtrace:
     shadow_hits[ray_idx] = shadow_hit;
 #else
     hits[ray_idx] = hit;

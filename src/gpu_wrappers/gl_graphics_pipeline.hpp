@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -29,8 +29,9 @@
 class GraphicsPipeline
 {
 public:
-    GraphicsPipeline(char const* vs_source, char const* fs_source);
-    void Use() const { glUseProgram(shader_program_); };
+    GraphicsPipeline(char const* vs_filename, char const* fs_filename);
+    void Use() const { glUseProgram(shader_program_); }
+    GLuint GetProgram() const { return shader_program_; }
     ~GraphicsPipeline();
 
 private:

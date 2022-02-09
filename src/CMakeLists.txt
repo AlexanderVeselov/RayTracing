@@ -7,9 +7,12 @@ set(GPU_WRAPPERS_SOURCES
     gpu_wrappers/gl_graphics_pipeline.hpp
     gpu_wrappers/gl_framebuffer.cpp
     gpu_wrappers/gl_framebuffer.hpp
+    gpu_wrappers/gl_shader_utils.cpp
+    gpu_wrappers/gl_shader_utils.hpp
 )
 
 set(INTEGRATOR_SOURCES
+    integrator/integrator.cpp
     integrator/integrator.hpp
     integrator/cl_pt_integrator.cpp
     integrator/cl_pt_integrator.hpp
@@ -17,12 +20,16 @@ set(INTEGRATOR_SOURCES
     integrator/gl_pt_integrator.hpp
 )
 
+set(COMMON_KERNELS_SOURCES
+    kernels/constants.h
+    kernels/shared_structures.h
+)
+
 set(CL_KERNELS_SOURCES
     kernels/cl/accumulate_direct_samples.cl
     kernels/cl/aov.cl
     kernels/cl/bxdf.h
     kernels/cl/clear_counter.cl
-    kernels/cl/constants.h
     kernels/cl/denoiser.cl
     kernels/cl/hit_surface.cl
     kernels/cl/increment_counter.cl
@@ -33,9 +40,23 @@ set(CL_KERNELS_SOURCES
     kernels/cl/reset_radiance.cl
     kernels/cl/resolve_radiance.cl
     kernels/cl/sampling.h
-    kernels/cl/shared_structures.h
     kernels/cl/trace_bvh.cl
     kernels/cl/utils.h
+)
+
+set(GLSL_KERNELS_SOURCES
+    kernels/glsl/clear_counter.comp
+    kernels/glsl/copy_image.comp
+    kernels/glsl/fullscreen_quad.vert
+    kernels/glsl/fullscreen_quad.frag
+    kernels/glsl/increment_counter.comp
+    kernels/glsl/miss.comp
+    kernels/glsl/raygeneration.comp
+    kernels/glsl/reset_radiance.comp
+    kernels/glsl/resolve_radiance.comp
+    kernels/glsl/trace_bvh.comp
+    kernels/glsl/visibility_buffer.vert
+    kernels/glsl/visibility_buffer.frag
 )
 
 set(LOADERS_SOURCES
@@ -78,7 +99,9 @@ set(MAIN_SOURCES
 set(SOURCES
     ${GPU_WRAPPERS_SOURCES}
     ${INTEGRATOR_SOURCES}
-    ${KERNELS_SOURCES}
+    ${CL_KERNELS_SOURCES}
+    ${GLSL_KERNELS_SOURCES}
+    ${COMMON_KERNELS_SOURCES}
     ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
@@ -88,7 +111,9 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("kernels" FILES ${CL_KERNELS_SOURCES})
+source_group("kernels" FILES ${COMMON_KERNELS_SOURCES})
+source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
+source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
@@ -97,7 +122,7 @@ source_group("utils" FILES ${UTILS_SOURCES})
 add_executable(RayTracingApp ${SOURCES})
 
 target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader)
+target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader ${CMAKE_SOURCE_DIR}/3rdparty/glm)
 
 target_link_libraries(RayTracingApp PUBLIC OpenCL::OpenCL OpenGL::GL GLEW::GLEW OpenGL::GLU imgui)
 set_target_properties(RayTracingApp PROPERTIES

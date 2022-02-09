@@ -22,33 +22,16 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
-#include "mathlib/mathlib.hpp"
-#include "kernels/shared_structures.h"
-#include <memory>
+#define MAX_RENDER_DIST 20000.0f
+#define EPS 1e-3f
+#define PI 3.14159265359f
+#define TWO_PI 6.28318530718f
+#define INV_PI 0.31830988618f
+#define INV_TWO_PI 0.15915494309f
+#define INVALID_ID 0xFFFFFFFF
+#define INVALID_TEXTURE_IDX 0xFF
 
-class Window;
-
-class CameraController
-{
-public:
-    CameraController(Window& window);
-    void Update(float dt);
-    bool IsChanged() const { return is_changed_; }
-    void OnEndFrame() { is_changed_ = false; }
-    Camera const& GetData() const { return camera_data_; }
-
-    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
-    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
-
-private:
-    Window& window_;
-
-    bool is_changed_ = true;
-    Camera camera_data_ = {};
-    float3 up_;
-    float pitch_;
-    float yaw_;
-    float speed_;
-};
+#endif // CONSTANTS_H

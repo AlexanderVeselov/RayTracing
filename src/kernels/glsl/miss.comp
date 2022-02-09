@@ -22,41 +22,66 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../constants.h"
+layout (local_size_x = 32) in;
 
-float3 SampleSky(float3 dir, __read_only image2d_t tex)
+#include "src/kernels/shared_structures.h"
+#include "src/kernels/constants.h"
+
+uniform uint width;
+
+layout(std430, binding = 0) buffer Rays
 {
-    const sampler_t smp = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+    Ray rays[];
+};
 
+layout(std430, binding = 1) buffer RayCounter
+{
+    uint ray_counter[];
+};
+
+layout(std430, binding = 2) buffer Hits
+{
+    Hit hits[];
+};
+
+layout(std430, binding = 3) buffer PixelIndices
+{
+    uint pixel_indices[];
+};
+
+layout(std430, binding = 4) buffer Throughputs
+{
+    vec3 throughputs[];
+};
+
+layout(binding = 5, rgba32f) uniform image2D radiance_image;
+
+float atan2(in float y, in float x)
+{
+    bool s = (abs(x) > abs(y));
+    return mix(PI/2.0 - atan(x,y), atan(y,x), s);
+}
+
+float3 SampleSky(float3 dir)
+{
     // Convert (normalized) dir to spherical coordinates.
-    float2 coords = (float2)(atan2(dir.x, dir.y) + PI, acos(dir.z));
+    float2 coords = float2(atan2(dir.x, dir.y) + PI, acos(dir.z));
     coords.x = coords.x < 0.0f ? coords.x + TWO_PI : coords.x;
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return read_imagef(tex, smp, coords).xyz;
+    return float3(coords.x, coords.y, 0.0f);//read_imagef(tex, smp, coords).xyz;
 }
 
-__kernel void Miss
-(
-    // Input
-    __global Ray* rays,
-    __global uint* ray_counter,
-    __global Hit* hits,
-    __global uint* pixel_indices,
-    __global float3* throughputs,
-    __read_only image2d_t tex,
-    // Output
-    __global float3* result_radiance
-)
+void main()
 {
-    uint ray_idx = get_global_id(0);
+    uint ray_idx = gl_GlobalInvocationID.x;
+
     uint num_rays = ray_counter[0];
 
     if (ray_idx >= num_rays)
     {
-        return;
+    //    return;
     }
 
     Ray ray = rays[ray_idx];
@@ -65,13 +90,18 @@ __kernel void Miss
     if (hit.primitive_id == INVALID_ID)
     {
         uint pixel_idx = pixel_indices[ray_idx];
+        uint pixel_x = pixel_idx % width;
+        uint pixel_y = pixel_idx / width;
+
         float3 throughput = throughputs[pixel_idx];
 
 #ifdef ENABLE_WHITE_FURNACE
-        float3 sky_radiance = 0.5f;
+        float3 sky_radiance = float3(0.5f);
 #else
-        float3 sky_radiance = SampleSky(ray.direction.xyz, tex);
+        float3 sky_radiance = SampleSky(ray.direction.xyz);
 #endif
-        result_radiance[pixel_idx] += sky_radiance * throughput;
+        vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
+        radiance.xyz += sky_radiance;// * throughput;
+        imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
     }
 }

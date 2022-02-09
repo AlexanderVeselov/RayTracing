@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -22,16 +22,26 @@
  SOFTWARE.
  *****************************************************************************/
 
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#include "src/kernels/shared_structures.h"
 
-#define MAX_RENDER_DIST 20000.0f
-#define EPS 1e-3f
-#define PI 3.14159265359f
-#define TWO_PI 6.28318530718f
-#define INV_PI 0.31830988618f
-#define INV_TWO_PI 0.15915494309f
-#define INVALID_ID 0xFFFFFFFF
-#define INVALID_TEXTURE_IDX 0xFF
+layout (location = 0) uniform mat4 g_ViewProjection;
+varying vec2 vTexcoord;
 
-#endif // CONSTANTS_H
+layout (binding = 1, std430) buffer TriangleBuffer
+{
+    Triangle triangles[];
+};
+
+void main()
+{
+    vTexcoord = vec2(gl_VertexID & 2, (gl_VertexID << 1) & 2);
+
+    Triangle triangle = triangles[gl_VertexID / 3];
+
+    int vertex_idx = (gl_VertexID % 3);
+    vec3 pos[3] = { triangle.v1.position.xyz,
+                    triangle.v2.position.xyz,
+                    triangle.v3.position.xyz };
+
+    gl_Position = g_ViewProjection * vec4(pos[vertex_idx], 1.0);
+}

@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -25,7 +25,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "constants.h"
+#include "../constants.h"
 
 float3 Light_Sample(__global Light* analytic_lights, SceneInfo scene_info, float3 position, float3 normal, float s, float3* outgoing, float* pdf)
 {

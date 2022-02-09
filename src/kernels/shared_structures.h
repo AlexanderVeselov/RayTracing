@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -39,62 +39,62 @@
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_DIRECTIONAL 1
 
-#ifndef __cplusplus
-typedef struct
-{
-    float3 pos[2];
-} Bounds3;
+#ifdef GLSL
+#define STRUCT_BEGIN(x) struct x {
+#define STRUCT_END(x) };
+#else
+#define STRUCT_BEGIN(x) typedef struct x {
+#define STRUCT_END(x) } x;
 #endif
 
-typedef struct
-{
+#ifndef __cplusplus
+STRUCT_BEGIN(Bounds3)
+    float3 pos[2];
+STRUCT_END(Bounds3)
+#endif
+
+STRUCT_BEGIN(Ray)
     float4 origin; // w - t_min
     float4 direction; // w - t_max
-} Ray;
+STRUCT_END(Ray)
 
-typedef struct
-{
+STRUCT_BEGIN(Hit)
     float2 bc;
     unsigned int primitive_id;
     // TODO: remove t from hit structure
     float t;
-} Hit;
+STRUCT_END(Hit)
 
-typedef struct
-{
+STRUCT_BEGIN(SceneInfo)
     unsigned int analytic_light_count;
     unsigned int emissive_count;
     unsigned int environment_map_index;
     unsigned int padding;
-} SceneInfo;
+STRUCT_END(SceneInfo)
 
-typedef struct
-{
+STRUCT_BEGIN(PackedMaterial)
     unsigned int diffuse_albedo;                // 24 bit - RGB, 8 bit - texture index
     unsigned int specular_albedo;               // 24 bit - RGB, 8 bit - texture index
     unsigned int emission;                      // 32 bit - RGBE
     unsigned int roughness_metalness;           // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
     unsigned int ior_emission_idx_transparency; // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
-} PackedMaterial;
+STRUCT_END(PackedMaterial)
 
-typedef struct
-{
+STRUCT_BEGIN(Light)
     float3 origin;
     float3 radiance;
     unsigned int type;
     unsigned int padding[3];
-} Light;
+STRUCT_END(Light)
 
-typedef struct
-{
+STRUCT_BEGIN(Texture)
     int data_start;
     int width;
     int height;
     int padding;
-} Texture;
+STRUCT_END(Texture)
 
-typedef struct Vertex
-{
+STRUCT_BEGIN(Vertex)
 #ifdef __cplusplus
     Vertex() {}
     Vertex(const float3& position, const float2& texcoord, const float3& normal)
@@ -106,10 +106,9 @@ typedef struct Vertex
     float3 position;
     float3 texcoord;
     float3 normal;
-} Vertex;
+STRUCT_END(Vertex)
 
-typedef struct Triangle
-{
+STRUCT_BEGIN(Triangle)
 #ifdef __cplusplus
     Triangle(Vertex v1, Vertex v2, Vertex v3, unsigned int mtlIndex)
         : v1(v1), v2(v2), v3(v3), mtlIndex(mtlIndex)
@@ -139,11 +138,9 @@ typedef struct Triangle
     Vertex v1, v2, v3;
     unsigned int mtlIndex;
     unsigned int padding[3];
+STRUCT_END(Triangle)
 
-} Triangle;
-
-typedef struct RTTriangle
-{
+STRUCT_BEGIN(RTTriangle)
 #ifdef __cplusplus
     RTTriangle(float3 v1, float3 v2, float3 v3)
         : position1(v1), position2(v2), position3(v3)
@@ -153,16 +150,14 @@ typedef struct RTTriangle
     float3 position1;
     float3 position2;
     float3 position3;
-} RTTriangle;
+STRUCT_END(RTTriangle)
 
-typedef struct CellData
-{
+STRUCT_BEGIN(CellData)
     unsigned int start_index;
     unsigned int count;
-} CellData;
+STRUCT_END(CellData)
 
-typedef struct LinearBVHNode
-{
+STRUCT_BEGIN(LinearBVHNode)
 #ifdef __cplusplus
     LinearBVHNode() {}
 #endif
@@ -175,11 +170,9 @@ typedef struct LinearBVHNode
     // 1 byte
     unsigned char axis;          // interior node: xyz
     unsigned char pad[9];        // ensure 48 byte total size
+STRUCT_END(LinearBVHNode)
 
-} LinearBVHNode;
-
-typedef struct
-{
+STRUCT_BEGIN(Camera)
     float3 position;
     float3 front;
     float3 up;
@@ -187,6 +180,6 @@ typedef struct
     float  aspect_ratio;
     float  aperture;
     float  focus_distance;
-} Camera;
+STRUCT_END(Camera)
 
 #endif // SHARED_STRUCTURES_HPP

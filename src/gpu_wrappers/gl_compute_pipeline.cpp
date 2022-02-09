@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -23,45 +23,9 @@
  *****************************************************************************/
 
 #include "gl_compute_pipeline.hpp"
+#include "gl_shader_utils.hpp"
 #include <cstring>
 #include <stdexcept>
-
-namespace
-{
-    GLuint CreateShader(char const* source, GLenum shader_type)
-    {
-        // Create shader
-        GLuint shader = glCreateShader(shader_type);
-
-        // Associate shader source
-        GLint source_length = (GLint)strlen(source);
-        glShaderSource(shader, 1, &source, &source_length);
-
-        // Compile shader
-        glCompileShader(shader);
-
-        // Get compile status
-        GLint compile_status;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
-
-        // Throw an error with description if we can't compile the shader
-        if (compile_status == false)
-        {
-            GLint log_length = 0;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-
-            // The maxLength includes the NULL character
-            std::string info_log;
-            info_log.resize(log_length);
-            glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
-
-            throw std::runtime_error(info_log);
-        }
-
-        return shader;
-
-    }
-}
 
 ComputePipeline::ComputePipeline(char const* cs_source)
 {
@@ -86,11 +50,40 @@ ComputePipeline::ComputePipeline(char const* cs_source)
 
         throw std::runtime_error(info_log);
     }
-
 }
 
 ComputePipeline::~ComputePipeline()
 {
     glDeleteProgram(shader_program_);
     glDeleteShader(shader_);
+}
+
+void ComputePipeline::BindConstant(char const* name, std::uint32_t value)
+{
+    GLuint uniform_index = glGetUniformLocation(shader_program_, name);
+    if (uniform_index == GL_INVALID_INDEX)
+    {
+        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+    }
+    glUniform1ui(uniform_index, value);
+}
+
+void ComputePipeline::BindConstant(char const* name, float value)
+{
+    GLuint uniform_index = glGetUniformLocation(shader_program_, name);
+    if (uniform_index == GL_INVALID_INDEX)
+    {
+        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+    }
+    glUniform1f(uniform_index, value);
+}
+
+void ComputePipeline::BindConstant(char const* name, float3 value)
+{
+    GLuint uniform_index = glGetUniformLocation(shader_program_, name);
+    if (uniform_index == GL_INVALID_INDEX)
+    {
+        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+    }
+    glUniform3f(uniform_index, value.x, value.y, value.z);
 }

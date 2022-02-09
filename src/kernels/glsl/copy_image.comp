@@ -22,33 +22,14 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+layout (local_size_x = 32, local_size_y = 32) in;
 
-#include "mathlib/mathlib.hpp"
-#include "kernels/shared_structures.h"
-#include <memory>
+layout(binding = 0, rgba32f) uniform image2D g_input_image;
+layout(binding = 1, rgba32f)   uniform image2D g_output_image;
 
-class Window;
-
-class CameraController
+void main()
 {
-public:
-    CameraController(Window& window);
-    void Update(float dt);
-    bool IsChanged() const { return is_changed_; }
-    void OnEndFrame() { is_changed_ = false; }
-    Camera const& GetData() const { return camera_data_; }
-
-    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
-    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
-
-private:
-    Window& window_;
-
-    bool is_changed_ = true;
-    Camera camera_data_ = {};
-    float3 up_;
-    float pitch_;
-    float yaw_;
-    float speed_;
-};
+    uvec2 gidx = gl_GlobalInvocationID.xy;
+    vec4 in_value = imageLoad(g_input_image, ivec2(gidx));
+    imageStore(g_output_image, ivec2(gidx), in_value);
+}

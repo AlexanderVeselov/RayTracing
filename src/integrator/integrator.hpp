@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -51,7 +51,7 @@ public:
 
     Integrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure)
         : width_(width), height_(height), acc_structure_(acc_structure) {}
-    virtual void Integrate() = 0;
+    void Integrate();
     virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
@@ -62,6 +62,21 @@ public:
     virtual void EnableDenoiser(bool enable) = 0;
 
 protected:
+    virtual void Reset() = 0;
+    virtual void AdvanceSampleCount() = 0;
+    virtual void GenerateRays() = 0;
+    virtual void IntersectRays(std::uint32_t bounce) = 0;
+    virtual void ComputeAOVs() = 0;
+    virtual void ShadeMissedRays(std::uint32_t bounce) = 0;
+    virtual void ShadeSurfaceHits(std::uint32_t bounce) = 0;
+    virtual void IntersectShadowRays() = 0;
+    virtual void AccumulateDirectSamples() = 0;
+    virtual void ClearOutgoingRayCounter(std::uint32_t bounce) = 0;
+    virtual void ClearShadowRayCounter() = 0;
+    virtual void Denoise() = 0;
+    virtual void CopyHistoryBuffers() = 0;
+    virtual void ResolveRadiance() = 0;
+
     // Render size
     std::uint32_t width_;
     std::uint32_t height_;
@@ -69,6 +84,7 @@ protected:
     // Acceleration structure
     AccelerationStructure& acc_structure_;
 
+    Camera camera_ = {};
     Camera prev_camera_ = {};
 
     std::uint32_t max_bounces_ = 5u;

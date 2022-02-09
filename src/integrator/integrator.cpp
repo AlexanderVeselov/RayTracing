@@ -22,33 +22,38 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+#include "integrator.hpp"
 
-#include "mathlib/mathlib.hpp"
-#include "kernels/shared_structures.h"
-#include <memory>
-
-class Window;
-
-class CameraController
+void Integrator::Integrate()
 {
-public:
-    CameraController(Window& window);
-    void Update(float dt);
-    bool IsChanged() const { return is_changed_; }
-    void OnEndFrame() { is_changed_ = false; }
-    Camera const& GetData() const { return camera_data_; }
+    if (request_reset_ || enable_denoiser_)
+    {
+        Reset();
+        request_reset_ = false;
+    }
 
-    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
-    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
+    GenerateRays();
 
-private:
-    Window& window_;
+    for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
+    {
+        IntersectRays(bounce);
+        if (bounce == 0)
+        {
+            ComputeAOVs();
+        }
+        ShadeMissedRays(bounce);
+        ClearOutgoingRayCounter(bounce);
+        ClearShadowRayCounter();
+        ShadeSurfaceHits(bounce);
+        IntersectShadowRays();
+        AccumulateDirectSamples();
+    }
 
-    bool is_changed_ = true;
-    Camera camera_data_ = {};
-    float3 up_;
-    float pitch_;
-    float yaw_;
-    float speed_;
-};
+    AdvanceSampleCount();
+    if (enable_denoiser_)
+    {
+        Denoise();
+        CopyHistoryBuffers();
+    }
+    ResolveRadiance();
+}

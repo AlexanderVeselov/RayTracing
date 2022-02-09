@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -25,12 +25,17 @@
 #pragma once
 
 #include <GL/glew.h>
+#include "mathlib/mathlib.hpp"
 
 class ComputePipeline
 {
 public:
     ComputePipeline(char const* vs_source);
-    void Use() const { glUseProgram(shader_program_); };
+    void Use() const { glUseProgram(shader_program_); }
+    GLuint GetProgram() const { return shader_program_; }
+    void BindConstant(char const* name, std::uint32_t value);
+    void BindConstant(char const* name, float value);
+    void BindConstant(char const* name, float3 value);
     ~ComputePipeline();
 
 private:

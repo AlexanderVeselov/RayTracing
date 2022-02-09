@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -23,50 +23,15 @@
  *****************************************************************************/
 
 #include "gl_graphics_pipeline.hpp"
+#include "gl_shader_utils.hpp"
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
-namespace
+GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filename)
 {
-    GLuint CreateShader(char const* source, GLenum shader_type)
-    {
-        // Create shader
-        GLuint shader = glCreateShader(shader_type);
-
-        // Associate shader source
-        GLint source_length = (GLint)strlen(source);
-        glShaderSource(shader, 1, &source, &source_length);
-
-        // Compile shader
-        glCompileShader(shader);
-
-        // Get compile status
-        GLint compile_status;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
-
-        // Throw an error with description if we can't compile the shader
-        if (compile_status == false)
-        {
-            GLint log_length = 0;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-
-            // The maxLength includes the NULL character
-            std::string info_log;
-            info_log.resize(log_length);
-            glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
-
-            throw std::runtime_error(info_log);
-        }
-
-        return shader;
-
-    }
-}
-
-GraphicsPipeline::GraphicsPipeline(char const* vs_source, char const* fs_source)
-{
-    vertex_shader_ = CreateShader(vs_source, GL_VERTEX_SHADER);
-    fragment_shader_ = CreateShader(fs_source, GL_FRAGMENT_SHADER);
+    vertex_shader_ = CreateShader(vs_filename, GL_VERTEX_SHADER);
+    fragment_shader_ = CreateShader(fs_filename, GL_FRAGMENT_SHADER);
 
     shader_program_ = glCreateProgram();
     glAttachShader(shader_program_, vertex_shader_);

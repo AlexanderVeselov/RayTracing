@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -32,7 +32,6 @@ class CLPathTraceIntegrator : public Integrator
 public:
     CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
         AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
-    void Integrate() override;
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void EnableWhiteFurnace(bool enable) override;
@@ -41,22 +40,25 @@ public:
     void SetAOV(AOV aov) override;
     void EnableDenoiser(bool enable) override;
 
+protected:
+    void Reset() override;
+    void AdvanceSampleCount() override;
+    void GenerateRays() override;
+    void IntersectRays(std::uint32_t bounce) override;
+    void ComputeAOVs() override;
+    void ShadeMissedRays(std::uint32_t bounce) override;
+    void ShadeSurfaceHits(std::uint32_t bounce) override;
+    void IntersectShadowRays() override;
+    void AccumulateDirectSamples() override;
+    void ClearOutgoingRayCounter(std::uint32_t bounce) override;
+    void ClearShadowRayCounter() override;
+    void Denoise() override;
+    void CopyHistoryBuffers() override;
+    void ResolveRadiance() override;
+
 private:
     void CreateKernels();
-    void Reset();
-    void AdvanceSampleCount();
-    void GenerateRays();
-    void IntersectRays(std::uint32_t bounce);
-    void ComputeAOVs();
-    void ShadeMissedRays(std::uint32_t bounce);
-    void ShadeSurfaceHits(std::uint32_t bounce);
-    void IntersectShadowRays();
-    void AccumulateDirectSamples();
-    void ClearOutgoingRayCounter(std::uint32_t bounce);
-    void ClearShadowRayCounter();
-    void Denoise();
-    void CopyHistoryBuffers();
-    void ResolveRadiance();
+    cl::Buffer CreateBuffer(std::size_t size);
 
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;

@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2021 Alexander Veselov
+ Copyright(c) 2022 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -25,7 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
-#include "kernels/cl/shared_structures.h"
+#include "kernels/shared_structures.h"
 #include "loaders/image_loader.hpp"
 #include <vector>
 #include <unordered_map>
