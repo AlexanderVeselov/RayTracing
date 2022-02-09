@@ -24,7 +24,7 @@
 
 #include "../shared_structures.h"
 #include "../material.h"
-#include "sampling.h"
+#include "../sampling.h"
 #include "light.h"
 
 __kernel void HitSurface

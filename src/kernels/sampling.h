@@ -33,6 +33,7 @@
 
 #define BLUE_NOISE_BUFFERS sobol_256spp_256d, scramblingTile, rankingTile
 
+#ifndef GLSL
 float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimension,
     __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
 {
@@ -55,11 +56,15 @@ float SampleBlueNoise(int pixel_i, int pixel_j, int sampleIndex, int sampleDimen
     float v = (0.5f + value) / 256.0f;
     return v;
 }
+#endif
 
-float SampleRandom(int pixel_i, int pixel_j, int sample_index, int bounce, int sample_type,
-    __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile)
+float SampleRandom(uint pixel_i, uint pixel_j, uint sample_index, uint bounce, uint sample_type
+#ifndef GLSL
+    , __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile
+#endif
+)
 {
-    int sample_dimension = bounce * SAMPLE_TYPE_MAX + sample_type;
+    uint sample_dimension = bounce * SAMPLE_TYPE_MAX + sample_type;
 
 #ifdef BLUE_NOISE_SAMPLER
     return SampleBlueNoise(pixel_i, pixel_j, sample_index, sample_dimension,

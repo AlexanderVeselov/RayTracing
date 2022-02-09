@@ -26,6 +26,7 @@ layout (local_size_x = 32) in;
 
 #include "src/kernels/shared_structures.h"
 #include "src/kernels/material.h"
+#include "src/kernels/sampling.h"
 
 uniform uint bounce;
 uniform uint width;
@@ -152,20 +153,20 @@ void main()
 
     float3 hit_throughput = throughputs[pixel_idx];
 
-    /*
     // Indirect lighting
     {
         // Sample bxdf
         float2 s;
-        s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
-        s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
-        float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
+        s.x = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U);
+        s.y = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V);
+        float s1 = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER);
 
         float pdf = 0.0f;
-        float3 throughput = 0.0f;
+        float3 throughput = to_float3(0.0f);
         float3 outgoing;
         float offset;
-        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf, &offset);
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
+        outgoing = reflect(-incoming, normal);
 
         if (pdf > 0.0)
         {
@@ -174,12 +175,12 @@ void main()
 
         throughputs[pixel_idx] *= throughput;
 
-        bool spawn_outgoing_ray = (pdf > 0.0);
+        bool spawn_outgoing_ray = true;//(pdf > 0.0f);
 
         if (spawn_outgoing_ray)
         {
             ///@TODO: use LDS
-            uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
+            uint outgoing_ray_idx = atomicAdd(outgoing_ray_counter[0], 1);
 
             Ray outgoing_ray;
             outgoing_ray.origin.xyz = position + geometry_normal * EPS * offset;
@@ -191,5 +192,4 @@ void main()
             outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
         }
     }
-    */
 }

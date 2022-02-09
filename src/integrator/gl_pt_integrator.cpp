@@ -328,7 +328,11 @@ void GLPathTraceIntegrator::AccumulateDirectSamples()
 
 void GLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
+    std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
+    clear_counter_pipeline_->Use();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ray_counter_buffer_[outgoing_idx]);
+    glDispatchCompute(1, 1, 1);
 }
 
 void GLPathTraceIntegrator::ClearShadowRayCounter()

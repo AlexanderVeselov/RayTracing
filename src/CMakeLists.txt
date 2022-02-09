@@ -24,6 +24,7 @@ set(COMMON_KERNELS_SOURCES
     kernels/bxdf.h
     kernels/constants.h
     kernels/material.h
+    kernels/sampling.h
     kernels/shared_structures.h
     kernels/utils.h
 )
@@ -40,7 +41,6 @@ set(CL_KERNELS_SOURCES
     kernels/cl/raygeneration.cl
     kernels/cl/reset_radiance.cl
     kernels/cl/resolve_radiance.cl
-    kernels/cl/sampling.h
     kernels/cl/trace_bvh.cl
 )
 
