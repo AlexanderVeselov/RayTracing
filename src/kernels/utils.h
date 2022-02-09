@@ -26,6 +26,18 @@
 #define UTILS_H
 
 #ifdef GLSL
+float to_float(uint x)
+{
+    return float(x);
+}
+int to_int(uint x)
+{
+    return int(x);
+}
+float3 to_float3(float x)
+{
+    return float3(x, x, x);
+}
 float3 make_float3(float x, float y, float z)
 {
     return float3(x, y, z);
@@ -36,6 +48,18 @@ float4 make_float4(float x, float y, float z, float w)
 }
 #define OUT(x) x
 #else
+float to_float(uint x)
+{
+    return (float)(x);
+}
+int to_int(uint x)
+{
+    return (int)(x);
+}
+float3 to_float3(float x)
+{
+    return (float3)(x, x, x);
+}
 float3 make_float3(float x, float y, float z)
 {
     return (float3)(x, y, z);
@@ -98,51 +122,71 @@ unsigned int WangHash(unsigned int x)
 
 float4 UnpackRGBA8(uint data)
 {
-    float r = (float)(data & 0xFF);
-    float g = (float)((data >> 8) & 0xFF);
-    float b = (float)((data >> 16) & 0xFF);
-    float a = (float)((data >> 24) & 0xFF);
+    float r = to_float(data & 0xFF);
+    float g = to_float((data >> 8) & 0xFF);
+    float b = to_float((data >> 16) & 0xFF);
+    float a = to_float((data >> 24) & 0xFF);
 
-    return (float4)(r, g, b, a) / 255.0f;
+    return make_float4(r, g, b, a) / 255.0f;
 }
 
-float3 UnpackRGBTex(uint data, uint* texture_idx)
+float3 UnpackRGBTex(uint data,
+#ifdef GLSL
+    out uint texture_idx
+#else
+    uint* texture_idx
+#endif
+)
 {
-    float r = (float)(data & 0xFF);
-    float g = (float)((data >> 8) & 0xFF);
-    float b = (float)((data >> 16) & 0xFF);
-    *texture_idx = ((data >> 24) & 0xFF);
+    float r = to_float(data & 0xFF);
+    float g = to_float((data >> 8) & 0xFF);
+    float b = to_float((data >> 16) & 0xFF);
+    OUT(texture_idx) = ((data >> 24) & 0xFF);
 
     return make_float3(r, g, b) / 255.0f;
 }
 
 float3 UnpackRGBE(uint rgbe)
 {
-    int r = (int)(rgbe >> 0) & 0xFF;
-    int g = (int)(rgbe >> 8) & 0xFF;
-    int b = (int)(rgbe >> 16) & 0xFF;
-    int e = (int)(rgbe >> 24);
+    int r = to_int((rgbe >> 0) & 0xFF);
+    int g = to_int((rgbe >> 8) & 0xFF);
+    int b = to_int((rgbe >> 16) & 0xFF);
+    int e = to_int(rgbe >> 24);
 
     float f = ldexp(1.0f, e - (128 + 8));
     return make_float3(r, g, b) * f;
 }
 
-void UnpackRoughnessMetalness(uint data, float* roughness, uint* roughness_idx,
-    float* metalness, uint* metalness_idx)
+void UnpackRoughnessMetalness(uint data,
+#ifdef GLSL
+    out float roughness, out uint roughness_idx,
+    out float metalness, out uint metalness_idx
+#else
+    float* roughness, uint* roughness_idx,
+    float* metalness, uint* metalness_idx
+#endif
+)
 {
-    OUT(roughness) = (float)((data >> 0) & 0xFF) / 255.0f;
+    OUT(roughness) = to_float((data >> 0) & 0xFF) / 255.0f;
     OUT(roughness_idx) = ((data >> 8) & 0xFF);
-    OUT(metalness) = (float)((data >> 16) & 0xFF) / 255.0f;
+    OUT(metalness) = to_float((data >> 16) & 0xFF) / 255.0f;
     OUT(metalness_idx) = ((data >> 24) & 0xFF);
 }
 
-void UnpackIorEmissionIdxTransparency(uint data, float* ior, uint* emission_idx,
-    float* transparency, uint* transparency_idx)
+void UnpackIorEmissionIdxTransparency(uint data,
+#ifdef GLSL
+    out float ior, out uint emission_idx,
+    out float transparency, out uint transparency_idx
+#else
+    float* ior, uint* emission_idx,
+    float* transparency, uint* transparency_idx
+#endif
+)
 {
-    *ior = (float)((data >> 0) & 0xFF) / 25.5f;
-    *emission_idx = ((data >> 8) & 0xFF);
-    *transparency = (float)((data >> 16) & 0xFF) / 255.0f;
-    *transparency_idx = ((data >> 24) & 0xFF);
+    OUT(ior) = to_float((data >> 0) & 0xFF) / 25.5f;
+    OUT(emission_idx) = ((data >> 8) & 0xFF);
+    OUT(transparency) = to_float((data >> 16) & 0xFF) / 255.0f;
+    OUT(transparency_idx) = ((data >> 24) & 0xFF);
 }
 
 #endif // UTILS_H

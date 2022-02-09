@@ -78,7 +78,7 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha,
         OUT(pdf) = 1.0;
         float n_dot_o = dot(OUT(outgoing), normal);
         // Don't apply fresnel here, it's applied in the external function
-        return 1.0f / n_dot_o;
+        return to_float3(1.0f / n_dot_o);
     }
     else
     {
@@ -95,9 +95,10 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha,
         //float3 F = FresnelSchlick(f0, h_dot_o);
         float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
 
-        *pdf = D * n_dot_h / (4.0f * dot(wh, OUT(outgoing)));
+        OUT(pdf) = D * n_dot_h / (4.0f * dot(wh, OUT(outgoing)));
 
-        return D /* F */ * G;
+        // TODO: why do we need float3 here?
+        return to_float3(D /* F */ * G);
     }
 }
 
@@ -111,10 +112,11 @@ float3 SampleTransparency(float2 s, float3 normal, float3 incoming,
 {
     OUT(pdf) = 1.0f;
     OUT(outgoing) = -incoming;
-    return 1.0f;
+    // TODO: do we need float3 here?
+    return to_float3(1.0f);
 }
 
-float3 EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
+float EvaluateSpecular(float alpha, float n_dot_i, float n_dot_o, float n_dot_h)
 {
     float D = GGX_D(alpha, n_dot_h);
     float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
@@ -145,22 +147,22 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float alpha = roughness * roughness;
 
     // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float f0_dielectric = IorToF0(1.0f, material.ior);
     float3 f0_metal = material.specular_albedo.xyz;
 
     // Blend f0 values based on metalness
-    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
+    float3 f0 = mix(to_float3(f0_dielectric), f0_metal, to_float3(material.metalness));
 
     // Since metals don't have the diffuse term, fade it to zero
     //@TODO: precompute it?
     float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     // This is the scaling value for specular bxdf
-    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0f, material.metalness);
+    float3 specular_albedo = mix(material.specular_albedo.xyz, to_float3(1.0f), to_float3(material.metalness));
 
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
 
-    float3 specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
+    float specular = EvaluateSpecular(alpha, n_dot_i, n_dot_o, n_dot_h);
     float3 diffuse = EvaluateDiffuse(diffuse_color);
 
     return fresnel * specular + (1.0f - fresnel) * diffuse;
@@ -185,18 +187,18 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     float alpha = roughness * roughness;
 
     // Compute f0 values for metals and dielectrics
-    float3 f0_dielectric = IorToF0(1.0f, material.ior);
+    float f0_dielectric = IorToF0(1.0f, material.ior);
     float3 f0_metal = material.specular_albedo.xyz;
 
     // Blend f0 values based on metalness
-    float3 f0 = mix(f0_dielectric, f0_metal, material.metalness);
+    float3 f0 = mix(to_float3(f0_dielectric), f0_metal, to_float3(material.metalness));
 
     // Since metals don't have the diffuse term, fade it to zero
     //@TODO: precompute it?
     float3 diffuse_albedo = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     // This is the scaling value for specular bxdf
-    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
+    float3 specular_albedo = mix(material.specular_albedo.xyz, to_float3(1.0f), to_float3(material.metalness));
 
     // This is not an actual fresnel value, because we need to use half vector instead of normal here
     // it's a "heuristic" used for better layer importance sampling and energy conservation
@@ -212,7 +214,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     //@TODO: reduce diffuse intensity where the specular value is high
     //@TODO: evaluate all layers at once?
 
-    float3 bxdf = 0.0f;
+    float3 bxdf = to_float3(0.0f);
     OUT(offset) = 1.0f;
 
     if (material.transparency < 0.5)

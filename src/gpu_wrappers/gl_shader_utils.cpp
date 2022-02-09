@@ -134,7 +134,8 @@ GLuint CreateShader(char const* filename, GLenum shader_type)
         info_log.resize(log_length);
         glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
 
-        throw std::runtime_error(info_log);
+        throw std::runtime_error(("Failed to compile shader " + std::string(filename) + "\n"
+            + std::string(info_log)).c_str());
     }
 
     return shader;
