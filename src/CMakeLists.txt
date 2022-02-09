@@ -36,7 +36,6 @@ set(CL_KERNELS_SOURCES
     kernels/cl/hit_surface.cl
     kernels/cl/increment_counter.cl
     kernels/cl/light.h
-    kernels/cl/material.h
     kernels/cl/miss.cl
     kernels/cl/raygeneration.cl
     kernels/cl/reset_radiance.cl

@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "../shared_structures.h"
-#include "material.h"
+#include "../material.h"
 #include "sampling.h"
 #include "light.h"
 
