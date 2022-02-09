@@ -45,9 +45,11 @@ set(CL_KERNELS_SOURCES
 )
 
 set(GLSL_KERNELS_SOURCES
+    kernels/glsl/clear_counter.comp
     kernels/glsl/copy_image.comp
     kernels/glsl/fullscreen_quad.vert
     kernels/glsl/fullscreen_quad.frag
+    kernels/glsl/increment_counter.comp
     kernels/glsl/miss.comp
     kernels/glsl/raygeneration.comp
     kernels/glsl/reset_radiance.comp

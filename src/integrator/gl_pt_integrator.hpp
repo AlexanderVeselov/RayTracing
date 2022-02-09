@@ -82,7 +82,13 @@ private:
     GLuint radiance_image_;
 
     GLuint out_image_;
+
+    // Scene buffers
     GLuint triangle_buffer_;
+
+    // Acceleration structure
+    GLuint rt_triangle_buffer_;
+    GLuint nodes_buffer_;
 
     GLuint rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
     GLuint shadow_rays_buffer_;

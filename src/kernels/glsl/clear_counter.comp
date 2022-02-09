@@ -22,24 +22,14 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+layout (local_size_x = 1) in;
 
-#include <GL/glew.h>
-#include "mathlib/mathlib.hpp"
-
-class ComputePipeline
+layout(std430, binding = 0) buffer Counter 
 {
-public:
-    ComputePipeline(char const* vs_source);
-    void Use() const { glUseProgram(shader_program_); }
-    GLuint GetProgram() const { return shader_program_; }
-    void BindConstant(char const* name, std::uint32_t value);
-    void BindConstant(char const* name, float value);
-    void BindConstant(char const* name, float3 value);
-    ~ComputePipeline();
-
-private:
-    GLuint shader_;
-    GLuint shader_program_;
-
+    uint counter[];
 };
+
+void main()
+{
+    counter[0] = 0;
+}

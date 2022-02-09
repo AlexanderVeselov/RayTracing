@@ -36,7 +36,6 @@ float3 SampleSky(float3 dir, __read_only image2d_t tex)
     coords.y *= INV_PI;
 
     return read_imagef(tex, smp, coords).xyz;
-
 }
 
 __kernel void Miss

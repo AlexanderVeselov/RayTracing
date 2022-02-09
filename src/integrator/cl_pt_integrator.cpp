@@ -393,7 +393,6 @@ void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     auto const& texture_data = scene.GetTextureData();
     auto const& env_image = scene.GetEnvImage();
 
-
     cl_int status;
 
     assert(!triangles.empty());
