@@ -81,7 +81,7 @@ void main()
 
     if (ray_idx >= num_rays)
     {
-    //    return;
+        return;
     }
 
     Ray ray = rays[ray_idx];

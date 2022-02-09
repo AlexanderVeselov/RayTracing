@@ -1,0 +1,133 @@
+/*****************************************************************************
+ MIT License
+
+ Copyright(c) 2022 Alexander Veselov
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this softwareand associated documentation files(the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions :
+
+ The above copyright noticeand this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ *****************************************************************************/
+
+layout (local_size_x = 32) in;
+
+#include "src/kernels/shared_structures.h"
+#include "src/kernels/constants.h"
+
+uniform uint bounce;
+uniform uint width;
+uniform uint height;
+
+layout(binding = 0, rgba32f) uniform image2D radiance_image;
+
+layout(std430, binding = 1) buffer IncomingRays
+{
+    Ray incoming_rays[];
+};
+
+layout(std430, binding = 2) buffer IncomingRayCounter
+{
+    uint incoming_ray_counter[];
+};
+
+layout(std430, binding = 3) buffer IncomingPixelIndices
+{
+    uint incoming_pixel_indices[];
+};
+
+layout(std430, binding = 4) buffer OutgoingRays
+{
+    Ray outgoing_rays[];
+};
+
+layout(std430, binding = 5) buffer OutgoingRayCounter
+{
+    uint outgoing_ray_counter[];
+};
+
+layout(std430, binding = 6) buffer OutgoingPixelIndices
+{
+    uint outgoing_pixel_indices[];
+};
+
+layout(std430, binding = 7) buffer Hits
+{
+    Hit hits[];
+};
+
+layout(std430, binding = 8) buffer Throughputs
+{
+    vec3 throughputs[];
+};
+
+layout(std430, binding = 9) buffer Triangles
+{
+    Triangle triangles[];
+};
+
+layout(std430, binding = 10) buffer AnalyticLights
+{
+    Light analytic_lights[];
+};
+
+layout(std430, binding = 11) buffer EmissiveIndices
+{
+    uint emissive_indices[];
+};
+
+layout(std430, binding = 12) buffer Materials
+{
+    PackedMaterial materials[];
+};
+
+layout(std430, binding = 13) buffer SampleCounter
+{
+    uint sample_counter[];
+};
+
+void main()
+{
+    uint incoming_ray_idx = gl_GlobalInvocationID.x;
+    uint num_incoming_rays = incoming_ray_counter[0];
+
+    if (incoming_ray_idx >= num_incoming_rays)
+    {
+        return;
+    }
+
+    Hit hit = hits[incoming_ray_idx];
+
+    if (hit.primitive_id == INVALID_ID)
+    {
+        return;
+    }
+
+    Ray incoming_ray = incoming_rays[incoming_ray_idx];
+    float3 incoming = -incoming_ray.direction.xyz;
+
+    uint pixel_idx = incoming_pixel_indices[incoming_ray_idx];
+    uint sample_idx = sample_counter[0];
+
+    uint pixel_x = pixel_idx % width;
+    uint pixel_y = pixel_idx / width;
+
+    Triangle triangle = triangles[hit.primitive_id];
+
+    vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
+    radiance.xyz += incoming;// * throughput;
+
+    imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
+}
