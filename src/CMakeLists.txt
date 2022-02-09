@@ -21,6 +21,8 @@ set(INTEGRATOR_SOURCES
 )
 
 set(COMMON_KERNELS_SOURCES
+    kernels/bxdf.h
+    kernels/common.h
     kernels/constants.h
     kernels/shared_structures.h
 )
@@ -28,7 +30,6 @@ set(COMMON_KERNELS_SOURCES
 set(CL_KERNELS_SOURCES
     kernels/cl/accumulate_direct_samples.cl
     kernels/cl/aov.cl
-    kernels/cl/bxdf.h
     kernels/cl/clear_counter.cl
     kernels/cl/denoiser.cl
     kernels/cl/hit_surface.cl

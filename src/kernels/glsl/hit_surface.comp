@@ -25,7 +25,7 @@
 layout (local_size_x = 32) in;
 
 #include "src/kernels/shared_structures.h"
-#include "src/kernels/constants.h"
+#include "src/kernels/bxdf.h"
 
 uniform uint bounce;
 uniform uint width;
@@ -126,8 +126,71 @@ void main()
 
     Triangle triangle = triangles[hit.primitive_id];
 
-    vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
-    radiance.xyz += incoming;// * throughput;
+    float3 position = InterpolateAttributes(triangle.v1.position,
+        triangle.v2.position, triangle.v3.position, hit.bc);
 
-    imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
+    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position,
+        triangle.v3.position - triangle.v1.position));
+
+    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
+        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+
+    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
+        triangle.v2.normal, triangle.v3.normal, hit.bc));
+
+    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    // ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
+
+    /*
+    Material material;
+    material.diffuse_albedo = float3(0.5f);
+    material.roughness = 0.0f;
+    material.specular_albedo = float3(0.0f);
+    material.metalness = 0.0f;
+    material.emission = float3(0.0f);
+    material.ior = 1.0f;
+    material.transparency = 0.0f;
+    */
+    float3 hit_throughput = throughputs[pixel_idx];
+
+    /*
+    // Indirect lighting
+    {
+        // Sample bxdf
+        float2 s;
+        s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
+        s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
+        float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
+
+        float pdf = 0.0f;
+        float3 throughput = 0.0f;
+        float3 outgoing;
+        float offset;
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, &outgoing, &pdf, &offset);
+
+        if (pdf > 0.0)
+        {
+            throughput = bxdf / pdf;
+        }
+
+        throughputs[pixel_idx] *= throughput;
+
+        bool spawn_outgoing_ray = (pdf > 0.0);
+
+        if (spawn_outgoing_ray)
+        {
+            ///@TODO: use LDS
+            uint outgoing_ray_idx = atomic_add(outgoing_ray_counter, 1);
+
+            Ray outgoing_ray;
+            outgoing_ray.origin.xyz = position + geometry_normal * EPS * offset;
+            outgoing_ray.origin.w = 0.0f;
+            outgoing_ray.direction.xyz = outgoing;
+            outgoing_ray.direction.w = MAX_RENDER_DIST;
+
+            outgoing_rays[outgoing_ray_idx] = outgoing_ray;
+            outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
+        }
+    }
+    */
 }
