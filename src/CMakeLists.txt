@@ -22,9 +22,10 @@ set(INTEGRATOR_SOURCES
 
 set(COMMON_KERNELS_SOURCES
     kernels/bxdf.h
-    kernels/common.h
     kernels/constants.h
+    kernels/material.h
     kernels/shared_structures.h
+    kernels/utils.h
 )
 
 set(CL_KERNELS_SOURCES
@@ -42,7 +43,6 @@ set(CL_KERNELS_SOURCES
     kernels/cl/resolve_radiance.cl
     kernels/cl/sampling.h
     kernels/cl/trace_bvh.cl
-    kernels/cl/utils.h
 )
 
 set(GLSL_KERNELS_SOURCES

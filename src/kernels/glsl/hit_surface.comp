@@ -25,7 +25,7 @@
 layout (local_size_x = 32) in;
 
 #include "src/kernels/shared_structures.h"
-#include "src/kernels/bxdf.h"
+#include "src/kernels/material.h"
 
 uniform uint bounce;
 uniform uint width;

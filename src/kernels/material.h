@@ -27,9 +27,13 @@
 
 #include "src/kernels/bxdf.h"
 #include "src/kernels/utils.h"
-#include "../shared_structures.h"
+#include "src/kernels/shared_structures.h"
 
+#ifdef GLSL
+struct Material
+#else
 typedef struct
+#endif
 {
     float3 diffuse_albedo;
     float  roughness;
@@ -38,53 +42,75 @@ typedef struct
     float3 emission;
     float  ior;
     float  transparency;
-} Material;
+}
+#ifndef GLSL
+Material
+#endif
+;
 
 float3 SampleDiffuse(float2 s, float3 albedo, float3 f0, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf)
+    float3 incoming,
+#ifdef GLSL
+    out float3 outgoing, out float pdf
+#else
+    float3* outgoing, float* pdf
+#endif
+)
 {
     float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
-    *outgoing = TangentToWorld(tbn_outgoing, normal);
+    OUT(outgoing) = TangentToWorld(tbn_outgoing, normal);
 
     return albedo * INV_PI;
 }
 
 float3 SampleSpecular(float2 s, float3 f0, float alpha,
-    float3 normal, float3 incoming, float3* outgoing, float* pdf)
+    float3 normal, float3 incoming,
+#ifdef GLSL
+    out float3 outgoing, out float pdf
+#else
+    float3* outgoing, float* pdf
+#endif
+)
 {
     if (alpha <= 1e-4f)
     {
-        *outgoing = reflect(incoming, normal);
-        *pdf = 1.0;
-        float n_dot_o = dot(*outgoing, normal);
+        OUT(outgoing) = reflect(incoming, normal);
+        OUT(pdf) = 1.0;
+        float n_dot_o = dot(OUT(outgoing), normal);
         // Don't apply fresnel here, it's applied in the external function
         return 1.0f / n_dot_o;
     }
     else
     {
         float3 wh = GGX_Sample(s, normal, alpha);
-        *outgoing = reflect(incoming, wh);
+        OUT(outgoing) = reflect(incoming, wh);
 
-        float n_dot_o = dot(normal, *outgoing);
+        float n_dot_o = dot(normal, OUT(outgoing));
         float n_dot_h = dot(normal, wh);
         float n_dot_i = dot(normal, incoming);
-        float h_dot_o = dot(*outgoing, wh);
+        float h_dot_o = dot(OUT(outgoing), wh);
 
         float D = GGX_D(alpha, n_dot_h);
         // Don't apply fresnel here, it's applied in the external function
         //float3 F = FresnelSchlick(f0, h_dot_o);
         float G = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
 
-        *pdf = D * n_dot_h / (4.0f * dot(wh, *outgoing));
+        *pdf = D * n_dot_h / (4.0f * dot(wh, OUT(outgoing)));
 
         return D /* F */ * G;
     }
 }
 
-float3 SampleTransparency(float2 s, float3 normal, float3 incoming, float3* outgoing, float* pdf)
+float3 SampleTransparency(float2 s, float3 normal, float3 incoming,
+#ifdef GLSL
+    out float3 outgoing, out float pdf
+#else
+    float3* outgoing, float* pdf
+#endif
+)
 {
-    *pdf = 1.0f;
-    *outgoing = -incoming;
+    OUT(pdf) = 1.0f;
+    OUT(outgoing) = -incoming;
     return 1.0f;
 }
 
@@ -105,7 +131,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 {
     if (material.transparency < 0.5)
     {
-        return (float3)(0.0f, 0.0f, 0.0f);
+        return make_float3(0.0f, 0.0f, 0.0f);
     }
 
     float3 half_vec = normalize(incoming + outgoing);
@@ -130,7 +156,7 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo.xyz;
 
     // This is the scaling value for specular bxdf
-    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0, material.metalness);
+    float3 specular_albedo = mix(material.specular_albedo.xyz, 1.0f, material.metalness);
 
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
 
@@ -141,7 +167,13 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
-    float3 incoming, float3* outgoing, float* pdf, float* offset)
+    float3 incoming,
+#ifdef GLSL
+    out float3 outgoing, out float pdf, out float offset
+#else
+    float3* outgoing, float* pdf, float* offset
+#endif
+)
 {
 #ifdef ENABLE_WHITE_FURNACE
     material.diffuse_albedo.xyz = 1.0f;
@@ -181,31 +213,32 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     //@TODO: evaluate all layers at once?
 
     float3 bxdf = 0.0f;
-    *offset = 1.0f;
+    OUT(offset) = 1.0f;
 
     if (material.transparency < 0.5)
     {
         bxdf = SampleTransparency(s, normal, incoming, outgoing, pdf);
-        *offset = -1.0f;
+        OUT(offset) = -1.0f;
         return bxdf;
     }
 
     if (s1 <= specular_sampling_pdf)
     {
         // Sample specular
-        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf) * max(dot(*outgoing, normal), 0.0f);
-        *pdf *= specular_sampling_pdf;
+        bxdf = fresnel * SampleSpecular(s, f0, alpha, normal, incoming, outgoing, pdf) * max(dot(OUT(outgoing), normal), 0.0f);
+        OUT(pdf) *= specular_sampling_pdf;
     }
     else
     {
         // Sample diffuse
-        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf) * max(dot(*outgoing, normal), 0.0f);
-        *pdf *= diffuse_sampling_pdf;
+        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, f0, normal, incoming, outgoing, pdf) * max(dot(OUT(outgoing), normal), 0.0f);
+        OUT(pdf) *= diffuse_sampling_pdf;
     }
 
     return bxdf;
 }
 
+#ifndef GLSL
 float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
 {
     // Wrap coords
@@ -272,5 +305,6 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
         out_material->transparency *= SampleTexture(textures[transparency_idx], uv, texture_data).x;
     }
 }
+#endif
 
 #endif // MATERIAL_H

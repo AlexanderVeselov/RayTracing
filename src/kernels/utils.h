@@ -25,16 +25,56 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "../common.h"
+#ifdef GLSL
+float3 make_float3(float x, float y, float z)
+{
+    return float3(x, y, z);
+}
+float4 make_float4(float x, float y, float z, float w)
+{
+    return float4(x, y, z, w);
+}
+#define OUT(x) x
+#else
+float3 make_float3(float x, float y, float z)
+{
+    return (float3)(x, y, z);
+}
+float4 make_float4(float x, float y, float z, float w)
+{
+    return (float4)(x, y, z, w);
+}
+#define OUT(x) *x
+#endif
 
+#ifdef GLSL
+float fabs(float x)
+{
+    return abs(x);
+}
+#endif // #ifdef GLSL
+
+#ifndef GLSL
+// OpenCL
 float3 reflect(float3 v, float3 n)
 {
     return -v + 2.0f * dot(v, n) * n;
 }
+#endif // #ifndef GLSL
+
+float2 InterpolateAttributes2(float2 attr1, float2 attr2, float2 attr3, float2 uv)
+{
+    return attr1 * (1.0f - uv.x - uv.y) + attr2 * uv.x + attr3 * uv.y;
+}
+
+float3 InterpolateAttributes(float3 attr1, float3 attr2, float3 attr3, float2 uv)
+{
+    return attr1 * (1.0f - uv.x - uv.y) + attr2 * uv.x + attr3 * uv.y;
+}
 
 float3 TangentToWorld(float3 dir, float3 n)
 {
-    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 axis = fabs(n.x) > 0.001f ? make_float3(0.0f, 1.0f, 0.0f) : make_float3(1.0f, 0.0f, 0.0f);
     float3 t = normalize(cross(axis, n));
     float3 b = cross(n, t);
 
@@ -43,7 +83,7 @@ float3 TangentToWorld(float3 dir, float3 n)
 
 float Luma(float3 rgb)
 {
-    return dot(rgb, (float3)(0.299f, 0.587f, 0.114f));
+    return dot(rgb, make_float3(0.299f, 0.587f, 0.114f));
 }
 
 unsigned int WangHash(unsigned int x)
@@ -58,8 +98,8 @@ unsigned int WangHash(unsigned int x)
 
 float4 UnpackRGBA8(uint data)
 {
-    float r = (float)( data        & 0xFF);
-    float g = (float)((data >>  8) & 0xFF);
+    float r = (float)(data & 0xFF);
+    float g = (float)((data >> 8) & 0xFF);
     float b = (float)((data >> 16) & 0xFF);
     float a = (float)((data >> 24) & 0xFF);
 
@@ -71,29 +111,29 @@ float3 UnpackRGBTex(uint data, uint* texture_idx)
     float r = (float)(data & 0xFF);
     float g = (float)((data >> 8) & 0xFF);
     float b = (float)((data >> 16) & 0xFF);
-    *texture_idx =   ((data >> 24) & 0xFF);
+    *texture_idx = ((data >> 24) & 0xFF);
 
-    return (float3)(r, g, b) / 255.0f;
+    return make_float3(r, g, b) / 255.0f;
 }
 
 float3 UnpackRGBE(uint rgbe)
 {
-    int r = (int)(rgbe >> 0 ) & 0xFF;
-    int g = (int)(rgbe >> 8 ) & 0xFF;
+    int r = (int)(rgbe >> 0) & 0xFF;
+    int g = (int)(rgbe >> 8) & 0xFF;
     int b = (int)(rgbe >> 16) & 0xFF;
     int e = (int)(rgbe >> 24);
 
     float f = ldexp(1.0f, e - (128 + 8));
-    return (float3)(r, g, b) * f;
+    return make_float3(r, g, b) * f;
 }
 
 void UnpackRoughnessMetalness(uint data, float* roughness, uint* roughness_idx,
     float* metalness, uint* metalness_idx)
 {
-    *roughness = (float)((data >> 0 ) & 0xFF) / 255.0f;
-    *roughness_idx =    ((data >> 8 ) & 0xFF);
-    *metalness = (float)((data >> 16) & 0xFF) / 255.0f;
-    *metalness_idx =    ((data >> 24) & 0xFF);
+    OUT(roughness) = (float)((data >> 0) & 0xFF) / 255.0f;
+    OUT(roughness_idx) = ((data >> 8) & 0xFF);
+    OUT(metalness) = (float)((data >> 16) & 0xFF) / 255.0f;
+    OUT(metalness_idx) = ((data >> 24) & 0xFF);
 }
 
 void UnpackIorEmissionIdxTransparency(uint data, float* ior, uint* emission_idx,
