@@ -85,6 +85,12 @@ private:
 
     // Scene buffers
     GLuint triangle_buffer_;
+    GLuint material_buffer_;
+    GLuint texture_buffer_;
+    GLuint texture_data_buffer_;
+    GLuint emissive_buffer_;
+    GLuint analytic_light_buffer_;
+    GLuint scene_info_buffer_;
 
     // Acceleration structure
     GLuint rt_triangle_buffer_;

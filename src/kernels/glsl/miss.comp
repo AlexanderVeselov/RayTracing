@@ -70,7 +70,7 @@ float3 SampleSky(float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return float3(coords.x, coords.y, 0.0f);//read_imagef(tex, smp, coords).xyz;
+    return dir * 0.5f + float3(0.5f);//read_imagef(tex, smp, coords).xyz;
 }
 
 void main()
@@ -81,7 +81,7 @@ void main()
 
     if (ray_idx >= num_rays)
     {
-    //    return;
+        return;
     }
 
     Ray ray = rays[ray_idx];

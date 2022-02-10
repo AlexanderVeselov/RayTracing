@@ -21,27 +21,27 @@ set(INTEGRATOR_SOURCES
 )
 
 set(COMMON_KERNELS_SOURCES
+    kernels/bxdf.h
     kernels/constants.h
+    kernels/material.h
+    kernels/sampling.h
     kernels/shared_structures.h
+    kernels/utils.h
 )
 
 set(CL_KERNELS_SOURCES
     kernels/cl/accumulate_direct_samples.cl
     kernels/cl/aov.cl
-    kernels/cl/bxdf.h
     kernels/cl/clear_counter.cl
     kernels/cl/denoiser.cl
     kernels/cl/hit_surface.cl
     kernels/cl/increment_counter.cl
     kernels/cl/light.h
-    kernels/cl/material.h
     kernels/cl/miss.cl
     kernels/cl/raygeneration.cl
     kernels/cl/reset_radiance.cl
     kernels/cl/resolve_radiance.cl
-    kernels/cl/sampling.h
     kernels/cl/trace_bvh.cl
-    kernels/cl/utils.h
 )
 
 set(GLSL_KERNELS_SOURCES
@@ -49,6 +49,7 @@ set(GLSL_KERNELS_SOURCES
     kernels/glsl/copy_image.comp
     kernels/glsl/fullscreen_quad.vert
     kernels/glsl/fullscreen_quad.frag
+    kernels/glsl/hit_surface.comp
     kernels/glsl/increment_counter.comp
     kernels/glsl/miss.comp
     kernels/glsl/raygeneration.comp

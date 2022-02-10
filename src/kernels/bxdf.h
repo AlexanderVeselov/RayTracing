@@ -25,20 +25,32 @@
 #ifndef BXDF_H
 #define BXDF_H
 
-#include "../constants.h"
+#include "src/kernels/constants.h"
+#include "src/kernels/utils.h"
 
 // See http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
 
-float3 SampleHemisphereCosine(float2 s, float* pdf)
+float3 SampleHemisphereCosine(float2 s,
+#ifdef GLSL
+    out float pdf
+#else
+    float* pdf
+#endif
+)
 {
     float phi = TWO_PI * s.x;
     float sin_theta_sqr = s.y;
     float sin_theta = sqrt(sin_theta_sqr);
 
     float cos_theta = sqrt(1.0f - sin_theta_sqr);
-    *pdf = cos_theta * INV_PI;
 
-    return (float3)(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
+#ifdef GLSL
+    pdf = cos_theta * INV_PI;
+#else
+    *pdf = cos_theta * INV_PI;
+#endif
+
+    return make_float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 }
 
 // See https://en.wikipedia.org/wiki/Schlick%27s_approximation
@@ -148,7 +160,7 @@ float3 GGX_Sample(float2 s, float3 n, float alpha)
     float cos_theta = 1.0f / sqrt(1.0 + (alpha * alpha * s.y) / (1.0 - s.y));
     float sin_theta = sqrt(max(0.0f, 1.0f - cos_theta * cos_theta));
 
-    float3 axis = fabs(n.x) > 0.001f ? (float3)(0.0f, 1.0f, 0.0f) : (float3)(1.0f, 0.0f, 0.0f);
+    float3 axis = fabs(n.x) > 0.001f ? make_float3(0.0f, 1.0f, 0.0f) : make_float3(1.0f, 0.0f, 0.0f);
     float3 t = normalize(cross(axis, n));
     float3 b = cross(n, t);
 
@@ -160,10 +172,10 @@ float3 GGX_Sample(float2 s, float3 n, float alpha)
 float3 GGXVNDF_Sample(float2 u, float3 n, float alpha, float3 incoming)
 {
     // Section 3.2: transforming the view direction to the hemisphere configuration
-    float3 Vh = normalize((float3)(alpha * incoming.x, alpha * incoming.y, incoming.z));
+    float3 Vh = normalize(make_float3(alpha * incoming.x, alpha * incoming.y, incoming.z));
     // Section 4.1: orthonormal basis (with special case if cross product is zero)
     float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
-    float3 T1 = lensq > 0 ? (float3)(-Vh.y, Vh.x, 0) / sqrt(lensq) : (float3)(1, 0, 0);
+    float3 T1 = lensq > 0 ? make_float3(-Vh.y, Vh.x, 0) / sqrt(lensq) : make_float3(1, 0, 0);
     float3 T2 = cross(Vh, T1);
     // Section 4.2: parameterization of the projected area
     float r = sqrt(u.y);
@@ -175,7 +187,7 @@ float3 GGXVNDF_Sample(float2 u, float3 n, float alpha, float3 incoming)
     // Section 4.3: reprojection onto hemisphere
     float3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * Vh;
     // Section 3.4: transforming the normal back to the ellipsoid configuration
-    float3 Ne = normalize((float3)(alpha * Nh.x, alpha * Nh.y, max(0.0f, Nh.z)));
+    float3 Ne = normalize(make_float3(alpha * Nh.x, alpha * Nh.y, max(0.0f, Nh.z)));
     return Ne;
 }
 
