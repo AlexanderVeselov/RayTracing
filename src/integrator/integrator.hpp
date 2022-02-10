@@ -87,7 +87,7 @@ protected:
     Camera camera_ = {};
     Camera prev_camera_ = {};
 
-    std::uint32_t max_bounces_ = 5u;
+    std::uint32_t max_bounces_ = 3u;
     SamplerType sampler_type_ = SamplerType::kRandom;
     AOV aov_ = AOV::kShadedColor;
 

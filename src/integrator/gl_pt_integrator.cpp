@@ -296,7 +296,8 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
     hit_surface_pipeline_->Use();
-    //hit_surface_pipeline_->BindConstant("width", width_);
+    hit_surface_pipeline_->BindConstant("bounce", bounce);
+    hit_surface_pipeline_->BindConstant("width", width_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rays_buffer_[incoming_idx]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ray_counter_buffer_[incoming_idx]);

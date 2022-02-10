@@ -30,7 +30,6 @@ layout (local_size_x = 32) in;
 
 uniform uint bounce;
 uniform uint width;
-uniform uint height;
 
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
 
@@ -79,6 +78,7 @@ layout(std430, binding = 9) buffer Triangles
     Triangle triangles[];
 };
 
+/*
 layout(std430, binding = 10) buffer AnalyticLights
 {
     Light analytic_lights[];
@@ -93,7 +93,7 @@ layout(std430, binding = 12) buffer Materials
 {
     PackedMaterial materials[];
 };
-
+*/
 layout(std430, binding = 13) buffer SampleCounter
 {
     uint sample_counter[];
@@ -139,8 +139,8 @@ void main()
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
-    // ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
+    //PackedMaterial packed_material = materials[triangle.mtlIndex];
+    //ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     Material material;
     material.diffuse_albedo = float3(0.5f);
@@ -149,9 +149,7 @@ void main()
     material.metalness = 0.0f;
     material.emission = float3(0.0f);
     material.ior = 1.0f;
-    material.transparency = 0.0f;
-
-    float3 hit_throughput = throughputs[pixel_idx];
+    material.transparency = 1.0f;
 
     // Indirect lighting
     {
@@ -166,7 +164,6 @@ void main()
         float3 outgoing;
         float offset;
         float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
-        outgoing = reflect(-incoming, normal);
 
         if (pdf > 0.0)
         {
@@ -175,7 +172,7 @@ void main()
 
         throughputs[pixel_idx] *= throughput;
 
-        bool spawn_outgoing_ray = true;//(pdf > 0.0f);
+        bool spawn_outgoing_ray = (pdf > 0.0f);
 
         if (spawn_outgoing_ray)
         {
@@ -192,4 +189,5 @@ void main()
             outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
         }
     }
+
 }
