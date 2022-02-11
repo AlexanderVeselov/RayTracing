@@ -1,5 +1,6 @@
 # Realtime GPU Path Tracing engine based on OpenCL
 
+[**Watch on YouTube**](https://youtu.be/UIjra1T7ilI)
 [![Bistro scene](screenshots/Bistro.png)](https://youtu.be/UIjra1T7ilI)
 ![](screenshots/SanMiguel.png)
 
