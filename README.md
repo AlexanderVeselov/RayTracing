@@ -1,11 +1,13 @@
-# Realtime GPU Path Tracing engine based on OpenCL
+# Realtime GPU Path Tracing engine based on OpenCL and OpenGL
 
 [**Watch on YouTube**](https://youtu.be/UIjra1T7ilI)
 [![Bistro scene](screenshots/Bistro.png)](https://youtu.be/UIjra1T7ilI)
 ![](screenshots/SanMiguel.png)
 
 ## Features
-* Unidirectional wavefront path tracer, OpenCL implementation
+* Unidirectional wavefront path tracer
+* OpenCL backend
+* OpenGL backend (WIP)
 * Lambert diffuse, GGX reflection BRDF
 * Explicit point, directional light sampling
 * Simple temporal reprojection filter
