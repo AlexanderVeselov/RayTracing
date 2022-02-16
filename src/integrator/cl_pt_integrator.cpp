@@ -359,19 +359,6 @@ void CLPathTraceIntegrator::CreateKernels()
         temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
         temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
     }
-
-}
-
-void CLPathTraceIntegrator::EnableWhiteFurnace(bool enable)
-{
-    if (enable == enable_white_furnace_)
-    {
-        return;
-    }
-
-    enable_white_furnace_ = enable;
-    CreateKernels();
-    RequestReset();
 }
 
 void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
@@ -465,12 +452,6 @@ void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     {
         throw CLException("Failed to create BVH node buffer", status);
     }
-}
-
-void CLPathTraceIntegrator::SetMaxBounces(std::uint32_t max_bounces)
-{
-    max_bounces_ = max_bounces;
-    RequestReset();
 }
 
 void CLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type)

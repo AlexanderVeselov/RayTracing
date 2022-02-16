@@ -183,8 +183,8 @@ void main()
                         ray.direction.w = hit.t;
 
 #ifdef SHADOW_RAYS
-                        shadow_hit = 0;
-                        goto endtrace;
+                        shadow_hits[ray_idx] = 0;
+                        return;
 #endif
                     }
                 }
@@ -224,8 +224,8 @@ void main()
 
     // Write the result to the output buffer
 #ifdef SHADOW_RAYS
-endtrace:
-    shadow_hits[ray_idx] = shadow_hit;
+    // If we reach here, then there's no hit
+    shadow_hits[ray_idx] = INVALID_ID;
 #else
     hits[ray_idx] = hit;
 #endif

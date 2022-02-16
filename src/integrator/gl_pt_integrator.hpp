@@ -37,13 +37,12 @@ public:
         AccelerationStructure& acc_structure, std::uint32_t out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
-    void EnableWhiteFurnace(bool enable) override;
-    void SetMaxBounces(std::uint32_t max_bounces) override;
     void SetSamplerType(SamplerType sampler_type) override;
     void SetAOV(AOV aov) override;
     void EnableDenoiser(bool enable) override;
 
 protected:
+    void CreateKernels() override;
     void Reset() override;
     void AdvanceSampleCount() override;
     void GenerateRays() override;
@@ -60,8 +59,6 @@ protected:
     void ResolveRadiance() override;
 
 private:
-    void CreateKernels();
-
     GLFramebuffer framebuffer_;
     GraphicsPipeline graphics_pipeline_;
     ComputePipeline copy_pipeline_;
@@ -70,6 +67,7 @@ private:
     std::unique_ptr<ComputePipeline> reset_pipeline_;
     std::unique_ptr<ComputePipeline> raygen_pipeline_;
     std::unique_ptr<ComputePipeline> intersect_pipeline_;
+    std::unique_ptr<ComputePipeline> intersect_shadow_pipeline_;
     std::unique_ptr<ComputePipeline> miss_pipeline_;
     std::unique_ptr<ComputePipeline> aov_pipeline_;
     std::unique_ptr<ComputePipeline> hit_surface_pipeline_;
@@ -91,17 +89,26 @@ private:
     GLuint emissive_buffer_;
     GLuint analytic_light_buffer_;
     GLuint scene_info_buffer_;
+    std::vector<GLuint> textures_;
+    std::vector<std::uint64_t> texture_handles_;
+    GLuint texture_handle_buffer_;
+
+    SceneInfo scene_info_ = {};
+    GLuint env_image_;
 
     // Acceleration structure
     GLuint rt_triangle_buffer_;
     GLuint nodes_buffer_;
 
+    // Indirect rays
     GLuint rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
-    GLuint shadow_rays_buffer_;
-    GLuint pixel_indices_buffer_[2];
-    GLuint shadow_pixel_indices_buffer_;
     GLuint ray_counter_buffer_[2];
+    GLuint pixel_indices_buffer_[2];
+    // Shadow rays
+    GLuint shadow_rays_buffer_;
     GLuint shadow_ray_counter_buffer_;
+    GLuint shadow_pixel_indices_buffer_;
+    // Hits
     GLuint hits_buffer_;
     GLuint shadow_hits_buffer_;
     GLuint throughputs_buffer_;

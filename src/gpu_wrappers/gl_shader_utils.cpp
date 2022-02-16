@@ -61,7 +61,7 @@ std::string ReadHeader(char const* filename)
     return source;
 }
 
-std::string ReadShader(char const* filename)
+std::string ReadShader(char const* filename, std::vector<std::string> const& definitions)
 {
     std::ifstream file(filename);
     if (!file)
@@ -79,6 +79,11 @@ std::string ReadShader(char const* filename)
     source += "#define uint4 uvec4\n";
     source += "#define uint3 uvec3\n";
     source += "#define uint2 uvec2\n";
+
+    for (auto const& definition : definitions)
+    {
+        source += "#define " + definition + "\n";
+    }
 
     std::string line;
     while (std::getline(file, line))
@@ -103,10 +108,10 @@ std::string ReadShader(char const* filename)
     return source;
 }
 
-GLuint CreateShader(char const* filename, GLenum shader_type)
+GLuint CreateShader(char const* filename, GLenum shader_type, std::vector<std::string> const& definitions)
 {
     std::string shader_folder = "src/kernels/glsl/";
-    std::string source = ReadShader((shader_folder + filename).c_str());
+    std::string source = ReadShader((shader_folder + filename).c_str(), definitions);
     char const* source_c_str = source.c_str();
 
     // Create shader

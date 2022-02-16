@@ -55,13 +55,14 @@ public:
     virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
-    virtual void EnableWhiteFurnace(bool enable) = 0;
-    virtual void SetMaxBounces(std::uint32_t max_bounces) = 0;
+    void EnableWhiteFurnace(bool enable);
+    void SetMaxBounces(std::uint32_t max_bounces);
     virtual void SetSamplerType(SamplerType sampler_type) = 0;
     virtual void SetAOV(AOV aov) = 0;
     virtual void EnableDenoiser(bool enable) = 0;
 
 protected:
+    virtual void CreateKernels() = 0;
     virtual void Reset() = 0;
     virtual void AdvanceSampleCount() = 0;
     virtual void GenerateRays() = 0;

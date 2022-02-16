@@ -57,3 +57,21 @@ void Integrator::Integrate()
     }
     ResolveRadiance();
 }
+
+void Integrator::SetMaxBounces(std::uint32_t max_bounces)
+{
+    max_bounces_ = max_bounces;
+    RequestReset();
+}
+
+void Integrator::EnableWhiteFurnace(bool enable)
+{
+    if (enable == enable_white_furnace_)
+    {
+        return;
+    }
+
+    enable_white_furnace_ = enable;
+    CreateKernels();
+    RequestReset();
+}

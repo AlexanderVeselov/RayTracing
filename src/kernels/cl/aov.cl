@@ -25,7 +25,7 @@
 #include "../shared_structures.h"
 #include "../material.h"
 #include "../sampling.h"
-#include "light.h"
+#include "../light.h"
 
 float2 ProjectScreen(float3 position, Camera camera)
 {
