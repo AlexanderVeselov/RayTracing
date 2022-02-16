@@ -66,7 +66,7 @@ Render::Render(Window& window, RenderBackend backend)
     bool flip_yz = false;
 #else
 
-    char const* scene_path = "../Scenes/SponzaPBR/sponzaPBR.obj";
+    char const* scene_path = "../Scenes/sponza/sponza.obj";
     float scene_scale = 0.005f;
     bool flip_yz = true;
 #endif

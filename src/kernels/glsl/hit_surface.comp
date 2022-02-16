@@ -22,82 +22,113 @@
  SOFTWARE.
  *****************************************************************************/
 
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_ARB_bindless_texture : enable
+
 layout (local_size_x = 32) in;
 
+#include "src/kernels/constants.h"
 #include "src/kernels/shared_structures.h"
-#include "src/kernels/material.h"
 #include "src/kernels/sampling.h"
 
 uniform uint bounce;
 uniform uint width;
+uniform SceneInfo scene_info;
 
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
 
-layout(std430, binding = 1) buffer IncomingRays
+layout(std140, binding = 0) uniform SampleCounter
+{
+    uint sample_counter;
+};
+
+layout(std140, binding = 1) uniform TextureHandles
+{
+    uint64_t texture_handles[MAX_TEXTURES];
+};
+
+layout(std430, binding = 0) buffer IncomingRays
 {
     Ray incoming_rays[];
 };
 
-layout(std430, binding = 2) buffer IncomingRayCounter
+layout(std430, binding = 1) buffer IncomingRayCounter
 {
     uint incoming_ray_counter[];
 };
 
-layout(std430, binding = 3) buffer IncomingPixelIndices
+layout(std430, binding = 2) buffer IncomingPixelIndices
 {
     uint incoming_pixel_indices[];
 };
 
-layout(std430, binding = 4) buffer OutgoingRays
+layout(std430, binding = 3) buffer OutgoingRays
 {
     Ray outgoing_rays[];
 };
 
-layout(std430, binding = 5) buffer OutgoingRayCounter
+layout(std430, binding = 4) buffer OutgoingRayCounter
 {
     uint outgoing_ray_counter[];
 };
 
-layout(std430, binding = 6) buffer OutgoingPixelIndices
+layout(std430, binding = 5) buffer OutgoingPixelIndices
 {
     uint outgoing_pixel_indices[];
 };
 
-layout(std430, binding = 7) buffer Hits
+layout(std430, binding = 6) buffer ShadowRays
+{
+    Ray shadow_rays[];
+};
+
+layout(std430, binding = 7) buffer ShadowRayCounter
+{
+    uint shadow_ray_counter[];
+};
+
+layout(std430, binding = 8) buffer ShadowPixelIndices
+{
+    uint shadow_pixel_indices[];
+};
+
+layout(std430, binding = 9) buffer DirectLightSamples
+{
+    float3 direct_light_samples[];
+};
+
+layout(std430, binding = 10) buffer Hits
 {
     Hit hits[];
 };
 
-layout(std430, binding = 8) buffer Throughputs
+layout(std430, binding = 11) buffer Throughputs
 {
-    vec3 throughputs[];
+    float3 throughputs[];
 };
 
-layout(std430, binding = 9) buffer Triangles
+layout(std430, binding = 12) buffer Triangles
 {
     Triangle triangles[];
 };
 
-/*
-layout(std430, binding = 10) buffer AnalyticLights
+layout(std430, binding = 13) buffer AnalyticLights
 {
     Light analytic_lights[];
 };
 
-layout(std430, binding = 11) buffer EmissiveIndices
+layout(std430, binding = 14) buffer EmissiveIndices
 {
     uint emissive_indices[];
 };
 
-layout(std430, binding = 12) buffer Materials
+layout(std430, binding = 15) buffer Materials
 {
     PackedMaterial materials[];
 };
-*/
-layout(std430, binding = 13) buffer SampleCounter
-{
-    uint sample_counter[];
-};
+
+#include "src/kernels/material.h"
+#include "src/kernels/light.h"
 
 void main()
 {
@@ -120,7 +151,7 @@ void main()
     float3 incoming = -incoming_ray.direction.xyz;
 
     uint pixel_idx = incoming_pixel_indices[incoming_ray_idx];
-    uint sample_idx = sample_counter[0];
+    uint sample_idx = sample_counter;
 
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
@@ -139,17 +170,53 @@ void main()
     float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
         triangle.v2.normal, triangle.v3.normal, hit.bc));
 
-    //PackedMaterial packed_material = materials[triangle.mtlIndex];
-    //ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
-
+    PackedMaterial packed_material = materials[triangle.mtlIndex];
     Material material;
-    material.diffuse_albedo = float3(0.5f);
-    material.roughness = 0.0f;
-    material.specular_albedo = float3(0.0f);
-    material.metalness = 0.0f;
-    material.emission = float3(0.0f);
-    material.ior = 1.0f;
-    material.transparency = 1.0f;
+    ApplyTextures(packed_material, material, texcoord);
+
+    float3 hit_throughput = throughputs[pixel_idx];
+
+#ifndef ENABLE_WHITE_FURNACE
+    if (dot(material.emission.xyz, float3(1.0f, 1.0f, 1.0f)) > 0.0f)
+    {
+        vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
+        radiance.xyz += hit_throughput * material.emission.xyz;
+        imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
+    }
+#endif // ENABLE_WHITE_FURNACE
+
+    // Direct lighting
+    {
+        float s_light = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_LIGHT);
+        float3 outgoing;
+        float pdf;
+        float3 light_radiance = Light_Sample(scene_info, position, normal, s_light, outgoing, pdf);
+
+        float distance_to_light = length(outgoing);
+        outgoing = normalize(outgoing);
+
+        float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
+        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
+
+        bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
+
+        if (spawn_shadow_ray)
+        {
+            Ray shadow_ray;
+            shadow_ray.origin.xyz = position + normal * EPS;
+            shadow_ray.origin.w = 0.0f;
+            shadow_ray.direction.xyz = outgoing;
+            shadow_ray.direction.w = distance_to_light;
+
+            ///@TODO: use LDS
+            uint shadow_ray_idx = atomicAdd(shadow_ray_counter[0], 1);
+
+            // Store to the memory
+            shadow_rays[shadow_ray_idx] = shadow_ray;
+            shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
+            direct_light_samples[shadow_ray_idx] = light_sample;
+        }
+    }
 
     // Indirect lighting
     {

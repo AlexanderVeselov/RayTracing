@@ -25,11 +25,14 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
-#define SAMPLE_TYPE_BXDF_LAYER 0
-#define SAMPLE_TYPE_BXDF_U     1
-#define SAMPLE_TYPE_BXDF_V     2
-#define SAMPLE_TYPE_LIGHT      3
-#define SAMPLE_TYPE_MAX        4
+#include "src/kernels/utils.h"
+
+#define SAMPLE_TYPE_SUBPIXEL   0
+#define SAMPLE_TYPE_BXDF_LAYER 1
+#define SAMPLE_TYPE_BXDF_U     2
+#define SAMPLE_TYPE_BXDF_V     3
+#define SAMPLE_TYPE_LIGHT      4
+#define SAMPLE_TYPE_MAX        5
 
 #define BLUE_NOISE_BUFFERS sobol_256spp_256d, scramblingTile, rankingTile
 

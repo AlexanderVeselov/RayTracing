@@ -27,9 +27,9 @@
 #include <cstring>
 #include <stdexcept>
 
-ComputePipeline::ComputePipeline(char const* cs_source)
+ComputePipeline::ComputePipeline(char const* cs_source, std::vector<std::string> const& definitions)
 {
-    shader_ = CreateShader(cs_source, GL_COMPUTE_SHADER);
+    shader_ = CreateShader(cs_source, GL_COMPUTE_SHADER, definitions);
 
     shader_program_ = glCreateProgram();
     glAttachShader(shader_program_, shader_);
@@ -63,7 +63,8 @@ void ComputePipeline::BindConstant(char const* name, std::uint32_t value)
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)
     {
-        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+        std::cerr << "Can't find variable " << name << "\n";
+        return;
     }
     glUniform1ui(uniform_index, value);
 }
@@ -73,7 +74,9 @@ void ComputePipeline::BindConstant(char const* name, float value)
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)
     {
-        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+
+        std::cerr << "Can't find variable " << name << "\n";
+        return;
     }
     glUniform1f(uniform_index, value);
 }
@@ -83,7 +86,8 @@ void ComputePipeline::BindConstant(char const* name, float3 value)
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)
     {
-        throw std::runtime_error(("Can't find variable " + std::string(name)).c_str());
+        std::cerr << "Can't find variable " << name << "\n";
+        return;
     }
     glUniform3f(uniform_index, value.x, value.y, value.z);
 }

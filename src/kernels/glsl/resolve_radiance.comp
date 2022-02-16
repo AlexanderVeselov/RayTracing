@@ -30,9 +30,9 @@ uniform uint height;
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
 layout(binding = 1, rgba32f) uniform image2D output_image;
 
-layout(std430, binding = 2) buffer SampleCounter
+layout(std140, binding = 0) uniform SampleCounter
 {
-    uint sample_counter[];
+    uint sample_counter;
 };
 
 void main()
@@ -44,6 +44,8 @@ void main()
         return;
     }
 
-    vec4 current_radiance = imageLoad(radiance_image, ivec2(pixel_pos));
-    imageStore(output_image, ivec2(pixel_pos), current_radiance / float(sample_counter[0]));
+    float3 hdr = imageLoad(radiance_image, ivec2(pixel_pos)).xyz / float(sample_counter);
+    float3 ldr = hdr / (hdr + 1.0f);
+
+    imageStore(output_image, ivec2(pixel_pos), float4(ldr, 1.0f));
 }

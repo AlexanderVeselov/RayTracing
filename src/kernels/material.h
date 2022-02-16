@@ -74,7 +74,7 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha,
 {
     if (alpha <= 1e-4f)
     {
-        OUT(outgoing) = reflect(incoming, normal);
+        OUT(outgoing) = reflect(-incoming, normal);
         OUT(pdf) = 1.0;
         float n_dot_o = dot(OUT(outgoing), normal);
         // Don't apply fresnel here, it's applied in the external function
@@ -83,7 +83,7 @@ float3 SampleSpecular(float2 s, float3 f0, float alpha,
     else
     {
         float3 wh = GGX_Sample(s, normal, alpha);
-        OUT(outgoing) = reflect(incoming, wh);
+        OUT(outgoing) = reflect(-incoming, wh);
 
         float n_dot_o = dot(normal, OUT(outgoing));
         float n_dot_h = dot(normal, wh);
@@ -178,8 +178,8 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 )
 {
 #ifdef ENABLE_WHITE_FURNACE
-    material.diffuse_albedo.xyz = 1.0f;
-    material.specular_albedo.xyz = 1.0f;
+    material.diffuse_albedo.xyz = to_float3(1.0f);
+    material.specular_albedo.xyz = to_float3(1.0f);
 #endif // ENABLE_WHITE_FURNACE
 
     // Perceptual roughness remapping
@@ -240,7 +240,13 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
     return bxdf;
 }
 
-#ifndef GLSL
+#ifdef GLSL
+float3 SampleTexture(uint texture_index, float2 uv)
+{
+    sampler2D tex_sampler = sampler2D(texture_handles[texture_index]);
+    return textureLod(tex_sampler, uv, 0.0f).xyz;
+}
+#else
 float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
 {
     // Wrap coords
@@ -255,7 +261,60 @@ float3 SampleTexture(Texture texture, float2 uv, __global uint* texture_data)
 
     return clamp(color.xyz, 0.0f, 1.0f);
 }
+#endif // #ifndef GLSL
 
+#ifdef GLSL
+void ApplyTextures(PackedMaterial in_material, out Material out_material, float2 uv)
+{
+    uint diffuse_albedo_idx;
+    out_material.diffuse_albedo = UnpackRGBTex(in_material.diffuse_albedo, diffuse_albedo_idx);
+
+    if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.diffuse_albedo = pow(SampleTexture(diffuse_albedo_idx, uv), to_float3(2.2f));
+    }
+
+    uint specular_albedo_idx;
+    out_material.specular_albedo = UnpackRGBTex(in_material.specular_albedo, specular_albedo_idx);
+
+    if (specular_albedo_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.specular_albedo = pow(SampleTexture(specular_albedo_idx, uv), to_float3(2.2f));
+    }
+
+    out_material.emission = UnpackRGBE(in_material.emission);
+
+    uint roughness_idx;
+    uint metalness_idx;
+    UnpackRoughnessMetalness(in_material.roughness_metalness, out_material.roughness, roughness_idx,
+        out_material.metalness, metalness_idx);
+
+    if (roughness_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.roughness = SampleTexture(roughness_idx, uv).x;
+    }
+
+    if (metalness_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.metalness = SampleTexture(metalness_idx, uv).x;
+    }
+
+    uint emission_idx;
+    uint transparency_idx;
+    UnpackIorEmissionIdxTransparency(in_material.ior_emission_idx_transparency,
+        out_material.ior, emission_idx, out_material.transparency, transparency_idx);
+
+    if (emission_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.emission *= pow(SampleTexture(emission_idx, uv), to_float3(2.2f));
+    }
+
+    if (transparency_idx != INVALID_TEXTURE_IDX)
+    {
+        out_material.transparency *= SampleTexture(transparency_idx, uv).x;
+    }
+}
+#else
 void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv,
     __global Texture* textures, __global uint* texture_data)
 {
@@ -307,6 +366,6 @@ void ApplyTextures(PackedMaterial in_material, Material* out_material, float2 uv
         out_material->transparency *= SampleTexture(textures[transparency_idx], uv, texture_data).x;
     }
 }
-#endif
+#endif // #ifdef GLSL
 
 #endif // MATERIAL_H

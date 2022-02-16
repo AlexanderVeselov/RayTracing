@@ -26,32 +26,33 @@ layout (local_size_x = 256) in;
 
 #include "src/kernels/shared_structures.h"
 #include "src/kernels/constants.h"
+#include "src/kernels/sampling.h"
 
 uniform uint width;
 uniform uint height;
 uniform Camera camera;
 
-layout(std430, binding = 0) buffer SampleCounter 
+layout(std140, binding = 0) uniform SampleCounter
 {
-    uint sample_counter[];
+    uint sample_counter;
 };
 
-layout(std430, binding = 1) buffer Rays 
+layout(std430, binding = 0) buffer Rays 
 {
     Ray rays[];
 };
 
-layout(std430, binding = 2) buffer RayCounter 
+layout(std430, binding = 1) buffer RayCounter 
 {
     uint ray_counter[];
 };
 
-layout(std430, binding = 3) buffer PixelIndices 
+layout(std430, binding = 2) buffer PixelIndices 
 {
     uint pixel_indices[];
 };
 
-layout(std430, binding = 4) buffer Throughputs 
+layout(std430, binding = 3) buffer Throughputs 
 {
     vec3 throughputs[];
 };
@@ -72,11 +73,12 @@ void main()
     float inv_width = 1.0f / float(width);
     float inv_height = 1.0f / float(height);
 
-    uint sample_idx = sample_counter[0];
+    uint sample_idx = sample_counter;
 
-#if 0
-    float x = (pixel_x + GetRandomFloat(&seed)) * inv_width;
-    float y = (pixel_y + GetRandomFloat(&seed)) * inv_height;
+#if 1
+    float subpixel_offset = SampleRandom(pixel_x, pixel_y, sample_idx, 0, SAMPLE_TYPE_SUBPIXEL);
+    float x = (pixel_x + subpixel_offset) * inv_width;
+    float y = (pixel_y + subpixel_offset) * inv_height;
 #else
     float x = (pixel_x + 0.5f) * inv_width;
     float y = (pixel_y + 0.5f) * inv_height;

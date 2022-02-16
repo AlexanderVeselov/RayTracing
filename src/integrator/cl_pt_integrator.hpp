@@ -34,13 +34,12 @@ public:
         AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
-    void EnableWhiteFurnace(bool enable) override;
-    void SetMaxBounces(std::uint32_t max_bounces) override;
     void SetSamplerType(SamplerType sampler_type) override;
     void SetAOV(AOV aov) override;
     void EnableDenoiser(bool enable) override;
 
 protected:
+    void CreateKernels() override;
     void Reset() override;
     void AdvanceSampleCount() override;
     void GenerateRays() override;
@@ -57,7 +56,6 @@ protected:
     void ResolveRadiance() override;
 
 private:
-    void CreateKernels();
     cl::Buffer CreateBuffer(std::size_t size);
 
     CLContext& cl_context_;
