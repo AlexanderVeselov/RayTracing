@@ -61,11 +61,13 @@ Render::Render(Window& window, RenderBackend backend)
 
 #ifndef NDEBUG
     //char const* scene_path = "assets/CornellBox_Dragon.obj";
-    char const* scene_path = "assets/ShaderBalls.obj";
-    float scene_scale = 1.0f;
-    bool flip_yz = false;
+    //char const* scene_path = "../Scenes/MtlTest/gi.obj";
+    char const* scene_path = "../Scenes/MtlTest/mtltest.obj";
+    //char const* scene_path = "assets/ShaderBalls.obj";
+    //float scene_scale = 1.0f;
+    float scene_scale = 0.01f;
+    bool flip_yz = true;
 #else
-
     char const* scene_path = "../Scenes/sponza/sponza.obj";
     float scene_scale = 0.005f;
     bool flip_yz = true;

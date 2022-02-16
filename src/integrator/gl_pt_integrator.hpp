@@ -90,7 +90,7 @@ private:
     GLuint analytic_light_buffer_;
     GLuint scene_info_buffer_;
     std::vector<GLuint> textures_;
-    std::vector<GLuint64> texture_handles_;
+    std::vector<std::uint64_t> texture_handles_;
     GLuint texture_handle_buffer_;
 
     SceneInfo scene_info_ = {};

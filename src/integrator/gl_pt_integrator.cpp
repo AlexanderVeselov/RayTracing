@@ -131,7 +131,8 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &textures_[i]);
         glTextureStorage2D(textures_[i], 1, GL_RGBA8, textures[i].width, textures[i].height);
-        glTextureSubImage2D(textures_[i], 0, 0, 0, textures[i].width, textures[i].height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data.data());
+        glTextureSubImage2D(textures_[i], 0, 0, 0, textures[i].width, textures[i].height,
+            GL_RGBA, GL_UNSIGNED_BYTE, &texture_data[textures[i].data_start]);
         texture_handles_[i] = glGetTextureHandleARB(textures_[i]);
         glMakeTextureHandleResidentARB(texture_handles_[i]);
     }
@@ -144,7 +145,7 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
 
     // Create texture handle buffer
     glCreateBuffers(1, &texture_handle_buffer_);
-    glNamedBufferData(texture_handle_buffer_, texture_handles_.size() * sizeof(GLuint64),
+    glNamedBufferData(texture_handle_buffer_, texture_handles_.size() * sizeof(std::uint64_t),
         texture_handles_.data(), GL_STATIC_DRAW);
 
     // Scene info

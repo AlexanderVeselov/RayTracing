@@ -42,7 +42,7 @@ layout(std140, binding = 0) uniform SampleCounter
     uint sample_counter;
 };
 
-layout(std140, binding = 1) uniform TextureHandles
+layout(binding = 1) uniform TextureHandles
 {
     uint64_t texture_handles[MAX_TEXTURES];
 };
@@ -134,6 +134,11 @@ void main()
 {
     uint incoming_ray_idx = gl_GlobalInvocationID.x;
     uint num_incoming_rays = incoming_ray_counter[0];
+
+    //if (texture_handles1 != texture_handles2)
+    {
+    //    return;
+    }
 
     if (incoming_ray_idx >= num_incoming_rays)
     {
