@@ -135,11 +135,6 @@ void main()
     uint incoming_ray_idx = gl_GlobalInvocationID.x;
     uint num_incoming_rays = incoming_ray_counter[0];
 
-    //if (texture_handles1 != texture_handles2)
-    {
-    //    return;
-    }
-
     if (incoming_ray_idx >= num_incoming_rays)
     {
         return;
