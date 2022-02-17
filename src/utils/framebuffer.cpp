@@ -29,7 +29,6 @@
 Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     : width_(width)
     , height_(height)
-    , draw_pipeline_("fullscreen_quad.vert", "fullscreen_quad.frag")
 {
     // Enable SRGB framebuffer
     glEnable(GL_FRAMEBUFFER_SRGB);
@@ -37,12 +36,20 @@ Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height)
     // Create framebuffer texture
     glCreateTextures(GL_TEXTURE_2D, 1, &render_texture_);
     glTextureStorage2D(render_texture_, 1, GL_RGBA32F, width_, height_);
+
+    GraphicsPipeline::GraphicsPipelineDesc pipeline_desc;
+    pipeline_desc.width = width_;
+    pipeline_desc.height = height_;
+    pipeline_desc.vs_filename = "fullscreen_quad.vert";
+    pipeline_desc.fs_filename = "fullscreen_quad.frag";
+    draw_pipeline_ = std::make_unique<GraphicsPipeline>(pipeline_desc);
 }
 
 void Framebuffer::Present()
 {
     // Draw screen-aligned triangle
+    draw_pipeline_->Bind();
     glBindTextureUnit(0, render_texture_);
-    draw_pipeline_.Use();
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    draw_pipeline_->Unbind();
 }

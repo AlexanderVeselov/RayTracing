@@ -32,7 +32,7 @@ class ComputePipeline
 {
 public:
     ComputePipeline(char const* vs_source, std::vector<std::string> const& definitions = std::vector<std::string>());
-    void Use() const { glUseProgram(shader_program_); }
+    void Bind() const { glUseProgram(shader_program_); }
     GLuint GetProgram() const { return shader_program_; }
     void BindConstant(char const* name, std::uint32_t value);
     void BindConstant(char const* name, float value);

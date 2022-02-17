@@ -27,11 +27,13 @@
 #include <cstring>
 #include <stdexcept>
 #include <fstream>
+#include <cassert>
 
-GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filename)
+GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc const& pipeline_desc)
+    : desc_(pipeline_desc)
 {
-    vertex_shader_ = CreateShader(vs_filename, GL_VERTEX_SHADER);
-    fragment_shader_ = CreateShader(fs_filename, GL_FRAGMENT_SHADER);
+    vertex_shader_ = CreateShader(desc_.vs_filename, GL_VERTEX_SHADER);
+    fragment_shader_ = CreateShader(desc_.fs_filename, GL_FRAGMENT_SHADER);
 
     shader_program_ = glCreateProgram();
     glAttachShader(shader_program_, vertex_shader_);
@@ -54,6 +56,75 @@ GraphicsPipeline::GraphicsPipeline(char const* vs_filename, char const* fs_filen
         throw std::runtime_error(info_log);
     }
 
+    // Create the framebuffer
+    if (HasColorAttachments() || HasDepthAttachment())
+    {
+        glCreateFramebuffers(1, &framebuffer_);
+        assert(desc_.color_attachments.size() <= 16);
+
+        // Bind color attachments
+        for (auto i = 0; i < desc_.color_attachments.size(); ++i)
+        {
+            auto const& attachment = desc_.color_attachments[i];
+            glNamedFramebufferTexture(framebuffer_, GL_COLOR_ATTACHMENT0 + i, attachment, 0);
+        }
+
+        if (desc_.depth_attachment != 0)
+        {
+            // Bind depth attachments
+            glNamedFramebufferTexture(framebuffer_, GL_DEPTH_ATTACHMENT, desc_.depth_attachment, 0);
+        }
+    }
+}
+
+void GraphicsPipeline::Bind() const
+{
+    // If we have a framebuffer, bind it
+    if (framebuffer_ != 0)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+    }
+
+    // Enable depth test
+    if (desc_.depth_test_enabled)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    if (desc_.clear_color)
+    {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+
+    // Clear color and/or depth
+    if (desc_.clear_color || desc_.clear_depth)
+    {
+        GLbitfield clear_mask = 0;
+        clear_mask |= desc_.clear_color ? GL_COLOR_BUFFER_BIT : 0;
+        clear_mask |= desc_.clear_depth ? GL_DEPTH_BUFFER_BIT : 0;
+        glClear(clear_mask);
+    }
+
+    // Use the shader program
+    glUseProgram(shader_program_);
+}
+
+void GraphicsPipeline::Unbind() const
+{
+    // Unbind the shader program
+    glUseProgram(0);
+
+    // Disable depth test
+    if (desc_.depth_test_enabled)
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    // If we have a framebuffer, unbind it
+    if (framebuffer_ != 0)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -61,4 +132,8 @@ GraphicsPipeline::~GraphicsPipeline()
     glDeleteProgram(shader_program_);
     glDeleteShader(fragment_shader_);
     glDeleteShader(vertex_shader_);
+    if (framebuffer_ != 0)
+    {
+        glDeleteFramebuffers(1, &framebuffer_);
+    }
 }

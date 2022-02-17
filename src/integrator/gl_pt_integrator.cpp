@@ -50,15 +50,24 @@ GLuint CreateBuffer(std::size_t size)
 GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
     AccelerationStructure& acc_structure, std::uint32_t out_image)
     : Integrator(width, height, acc_structure)
-    , framebuffer_(width, height)
-    , visibility_pipeline_("visibility_buffer.vert", "visibility_buffer.frag")
-    , copy_pipeline_("copy_image.comp")
     , out_image_(out_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
     glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
     glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
+
+    // Create a visibility buffer
+    glCreateTextures(GL_TEXTURE_2D, 1, &visibility_image_);
+    glTextureStorage2D(visibility_image_, 1, GL_R32UI, width_, height_);
+    glTextureParameteri(visibility_image_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(visibility_image_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    // Create a depth buffer
+    glCreateTextures(GL_TEXTURE_2D, 1, &depth_image_);
+    glTextureStorage2D(depth_image_, 1, GL_DEPTH_COMPONENT32F, width_, height_);
+    glTextureParameteri(depth_image_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(depth_image_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
     for (int i = 0; i < 2; ++i)
     {
@@ -191,6 +200,18 @@ void GLPathTraceIntegrator::CreateKernels()
         definitions.push_back("ENABLE_DENOISER");
     }
 
+    GraphicsPipeline::GraphicsPipelineDesc pipeline_desc;
+    pipeline_desc.vs_filename = "visibility_buffer.vert";
+    pipeline_desc.fs_filename = "visibility_buffer.frag";
+    pipeline_desc.width = width_;
+    pipeline_desc.height = height_;
+    pipeline_desc.color_attachments.push_back(visibility_image_);
+    pipeline_desc.depth_attachment = depth_image_;
+    pipeline_desc.clear_color = true;
+    pipeline_desc.clear_depth = true;
+    pipeline_desc.depth_test_enabled = true;
+    visibility_pipeline_ = std::make_unique<GraphicsPipeline>(pipeline_desc);
+
     accumulate_direct_samples_pipeline_ = std::make_unique<ComputePipeline>("accumulate_direct_samples.comp");
     clear_counter_pipeline_ = std::make_unique<ComputePipeline>("clear_counter.comp");
     hit_surface_pipeline_ = std::make_unique<ComputePipeline>("hit_surface.comp", definitions);
@@ -226,13 +247,13 @@ void GLPathTraceIntegrator::Reset()
     if (!enable_denoiser_)
     {
         // Reset frame index
-        clear_counter_pipeline_->Use();
+        clear_counter_pipeline_->Bind();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, sample_counter_buffer_);
         glDispatchCompute(1, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
-    reset_pipeline_->Use();
+    reset_pipeline_->Bind();
     reset_pipeline_->BindConstant("width", width_);
     reset_pipeline_->BindConstant("height", height_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
@@ -244,7 +265,7 @@ void GLPathTraceIntegrator::Reset()
 
 void GLPathTraceIntegrator::AdvanceSampleCount()
 {
-    increment_counter_pipeline_->Use();
+    increment_counter_pipeline_->Bind();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, sample_counter_buffer_);
     glDispatchCompute(1, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -252,7 +273,7 @@ void GLPathTraceIntegrator::AdvanceSampleCount()
 
 void GLPathTraceIntegrator::GenerateRays()
 {
-    raygen_pipeline_->Use();
+    raygen_pipeline_->Bind();
 
     raygen_pipeline_->BindConstant("width", width_);
     raygen_pipeline_->BindConstant("height", height_);
@@ -278,34 +299,24 @@ void GLPathTraceIntegrator::RasterizePrimaryBounce()
 {
     // Rasterize the geometry
     {
-        glViewport(0, 0, width_, height_);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
+        visibility_pipeline_->Bind();
 
-        glEnable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        visibility_pipeline_.Use();
-
-        GLuint uniform_index = glGetUniformLocation(visibility_pipeline_.GetProgram(), "g_ViewProjection");
+        GLuint uniform_index = glGetUniformLocation(visibility_pipeline_->GetProgram(), "g_ViewProjection");
         assert(uniform_index != GL_INVALID_INDEX);
         glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangle_buffer_);
 
         // Draw the geometry
         glDrawArrays(GL_TRIANGLES, 0, num_triangles_ * 3);
-        glDisable(GL_DEPTH_TEST);
-        glFinish();
-
-        // Unbind the framebuffer
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        visibility_pipeline_->Unbind();
     }
 
     // Convert the visibility buffer to primary hits
     {
-        initialize_hits_pipeline_->Use();
+        initialize_hits_pipeline_->Bind();
         initialize_hits_pipeline_->BindConstant("width", width_);
         initialize_hits_pipeline_->BindConstant("height", height_);
-        glBindTextureUnit(0, framebuffer_.GetNativeTexture());
+        glBindTextureUnit(0, visibility_image_);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[0]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rt_triangle_buffer_);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, hits_buffer_);
@@ -327,7 +338,7 @@ void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
 
-    intersect_pipeline_->Use();
+    intersect_pipeline_->Bind();
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[incoming_idx]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ray_counter_buffer_[incoming_idx]);
@@ -350,7 +361,7 @@ void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
 
-    miss_pipeline_->Use();
+    miss_pipeline_->Bind();
     miss_pipeline_->BindConstant("width", width_);
 
     glBindTextureUnit(0, env_image_);
@@ -372,7 +383,7 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     std::uint32_t incoming_idx = bounce & 1;
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
-    hit_surface_pipeline_->Use();
+    hit_surface_pipeline_->Bind();
     hit_surface_pipeline_->BindConstant("bounce", bounce);
     hit_surface_pipeline_->BindConstant("width", width_);
     hit_surface_pipeline_->BindConstant("scene_info.analytic_light_count", scene_info_.analytic_light_count);
@@ -407,7 +418,7 @@ void GLPathTraceIntegrator::IntersectShadowRays()
 {
     std::uint32_t max_num_rays = width_ * height_;
 
-    intersect_shadow_pipeline_->Use();
+    intersect_shadow_pipeline_->Bind();
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shadow_rays_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shadow_ray_counter_buffer_);
@@ -424,7 +435,7 @@ void GLPathTraceIntegrator::AccumulateDirectSamples()
 {
     std::uint32_t max_num_rays = width_ * height_;
 
-    accumulate_direct_samples_pipeline_->Use();
+    accumulate_direct_samples_pipeline_->Bind();
     accumulate_direct_samples_pipeline_->BindConstant("width", width_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shadow_hits_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shadow_ray_counter_buffer_);
@@ -440,14 +451,14 @@ void GLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
-    clear_counter_pipeline_->Use();
+    clear_counter_pipeline_->Bind();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ray_counter_buffer_[outgoing_idx]);
     glDispatchCompute(1, 1, 1);
 }
 
 void GLPathTraceIntegrator::ClearShadowRayCounter()
 {
-    clear_counter_pipeline_->Use();
+    clear_counter_pipeline_->Bind();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shadow_ray_counter_buffer_);
     glDispatchCompute(1, 1, 1);
 }
@@ -464,7 +475,7 @@ void GLPathTraceIntegrator::CopyHistoryBuffers()
 
 void GLPathTraceIntegrator::ResolveRadiance()
 {
-    resolve_pipeline_->Use();
+    resolve_pipeline_->Bind();
     resolve_pipeline_->BindConstant("width", width_);
     resolve_pipeline_->BindConstant("height", height_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);

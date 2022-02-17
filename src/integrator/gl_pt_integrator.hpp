@@ -25,7 +25,6 @@
 #pragma once
 
 #include "integrator.hpp"
-#include "gpu_wrappers/gl_framebuffer.hpp"
 #include "gpu_wrappers/gl_graphics_pipeline.hpp"
 #include "gpu_wrappers/gl_compute_pipeline.hpp"
 #include "glm/matrix.hpp"
@@ -61,11 +60,8 @@ protected:
 private:
     void RasterizePrimaryBounce();
 
-    GLFramebuffer framebuffer_;
-    GraphicsPipeline visibility_pipeline_;
-    ComputePipeline copy_pipeline_;
-
     // Pipelines
+    std::unique_ptr<GraphicsPipeline> visibility_pipeline_;
     std::unique_ptr<ComputePipeline> reset_pipeline_;
     std::unique_ptr<ComputePipeline> raygen_pipeline_;
     std::unique_ptr<ComputePipeline> intersect_pipeline_;
@@ -80,8 +76,11 @@ private:
     std::unique_ptr<ComputePipeline> temporal_accumulation_pipeline_;
     std::unique_ptr<ComputePipeline> resolve_pipeline_;
 
-    GLuint radiance_image_;
+    // Framebuffer
+    GLuint visibility_image_;
+    GLuint depth_image_;
 
+    GLuint radiance_image_;
     GLuint out_image_;
 
     // Scene buffers

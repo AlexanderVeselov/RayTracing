@@ -26,6 +26,7 @@
 
 #include "mathlib/mathlib.hpp"
 #include "gpu_wrappers/gl_graphics_pipeline.hpp"
+#include <memory>
 
 class Framebuffer
 {
@@ -39,6 +40,6 @@ public:
 private:
     std::uint32_t width_;
     std::uint32_t height_;
-    GraphicsPipeline draw_pipeline_;
+    std::unique_ptr<GraphicsPipeline> draw_pipeline_;
     GLuint render_texture_;
 };
