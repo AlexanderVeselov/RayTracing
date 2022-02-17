@@ -39,7 +39,7 @@ void GLFramebuffer::CreateFramebuffer()
 {
     // Create a framebuffer texture
     glCreateTextures(GL_TEXTURE_2D, 1, &framebuffer_texture_);
-    glTextureStorage2D(framebuffer_texture_, 1, GL_RGBA32F, width_, height_);
+    glTextureStorage2D(framebuffer_texture_, 1, GL_R32UI, width_, height_);
     glTextureParameteri(framebuffer_texture_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTextureParameteri(framebuffer_texture_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 

@@ -51,7 +51,7 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     AccelerationStructure& acc_structure, std::uint32_t out_image)
     : Integrator(width, height, acc_structure)
     , framebuffer_(width, height)
-    , graphics_pipeline_("visibility_buffer.vert", "visibility_buffer.frag")
+    , visibility_pipeline_("visibility_buffer.vert", "visibility_buffer.frag")
     , copy_pipeline_("copy_image.comp")
     , out_image_(out_image)
 {
@@ -195,6 +195,7 @@ void GLPathTraceIntegrator::CreateKernels()
     clear_counter_pipeline_ = std::make_unique<ComputePipeline>("clear_counter.comp");
     hit_surface_pipeline_ = std::make_unique<ComputePipeline>("hit_surface.comp", definitions);
     increment_counter_pipeline_ = std::make_unique<ComputePipeline>("increment_counter.comp");
+    initialize_hits_pipeline_ = std::make_unique<ComputePipeline>("initialize_hits.comp");
     miss_pipeline_ = std::make_unique<ComputePipeline>("miss.comp", definitions);
     raygen_pipeline_ = std::make_unique<ComputePipeline>("raygeneration.comp");
     reset_pipeline_ = std::make_unique<ComputePipeline>("reset_radiance.comp");
@@ -271,46 +272,58 @@ void GLPathTraceIntegrator::GenerateRays()
 
     std::uint32_t num_groups = (width_ * height_ + kRayGenerationGroupSize - 1) / kRayGenerationGroupSize;
     glDispatchCompute(num_groups, 1, 1);
+}
 
-    /*
-    glViewport(0, 0, width_, height_);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
+void GLPathTraceIntegrator::RasterizePrimaryBounce()
+{
+    // Rasterize the geometry
+    {
+        glViewport(0, 0, width_, height_);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.GetFramebuffer());
 
-    glEnable(GL_DEPTH_TEST);
-    glClearColor(0.5f, 0.5f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    graphics_pipeline_.Use();
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        visibility_pipeline_.Use();
 
-    GLuint uniform_index = glGetUniformLocation(graphics_pipeline_.GetProgram(), "g_ViewProjection");
-    assert(uniform_index != GL_INVALID_INDEX);
-    glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
+        GLuint uniform_index = glGetUniformLocation(visibility_pipeline_.GetProgram(), "g_ViewProjection");
+        assert(uniform_index != GL_INVALID_INDEX);
+        glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangle_buffer_);
 
-    //GLuint storage_index = glGetProgramResourceIndex(graphics_pipeline_.GetProgram(),
-    //    GL_SHADER_STORAGE_BLOCK, "TriangleBuffer");
-    //assert(storage_index != GL_INVALID_INDEX);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangle_buffer_);
+        // Draw the geometry
+        glDrawArrays(GL_TRIANGLES, 0, num_triangles_ * 3);
+        glDisable(GL_DEPTH_TEST);
+        glFinish();
 
-    glDrawArrays(GL_TRIANGLES, 0, num_triangles_ * 3);
-    glDisable(GL_DEPTH_TEST);
+        // Unbind the framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 
-    glFinish();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    copy_pipeline_.Use();
-    std::uint32_t num_groups_x = (width_ + 31) / 32;
-    std::uint32_t num_groups_y = (height_ + 31) / 32;
-    glBindImageTexture(0, framebuffer_.GetNativeTexture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, out_image_, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glDispatchCompute(num_groups_x, num_groups_y, 1);
-
-    //glCopyImageSubData(framebuffer_.GetNativeTexture(), GL_TEXTURE_2D, 0, 0, 0, 0,
-    //    out_image_, GL_TEXTURE_2D, 0, 0, 0, 0, width_, height_, 1);
-    */
+    // Convert the visibility buffer to primary hits
+    {
+        initialize_hits_pipeline_->Use();
+        initialize_hits_pipeline_->BindConstant("width", width_);
+        initialize_hits_pipeline_->BindConstant("height", height_);
+        glBindTextureUnit(0, framebuffer_.GetNativeTexture());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[0]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rt_triangle_buffer_);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, hits_buffer_);
+        std::uint32_t num_groups_x = (width_ + 31) / 32;
+        std::uint32_t num_groups_y = (height_ + 31) / 32;
+        glDispatchCompute(num_groups_x, num_groups_y, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
 }
 
 void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 {
+    if (bounce == 0)
+    {
+        RasterizePrimaryBounce();
+        return;
+    }
+
     std::uint32_t max_num_rays = width_ * height_;
     std::uint32_t incoming_idx = bounce & 1;
 

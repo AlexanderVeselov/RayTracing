@@ -75,7 +75,7 @@ void main()
 
     uint sample_idx = sample_counter;
 
-#if 1
+#if 0
     float subpixel_offset = SampleRandom(pixel_x, pixel_y, sample_idx, 0, SAMPLE_TYPE_SUBPIXEL);
     float x = (pixel_x + subpixel_offset) * inv_width;
     float y = (pixel_y + subpixel_offset) * inv_height;

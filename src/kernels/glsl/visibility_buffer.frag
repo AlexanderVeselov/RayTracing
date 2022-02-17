@@ -22,9 +22,10 @@
  SOFTWARE.
  *****************************************************************************/
 
-varying vec2 vTexcoord;
+layout(location = 0) in flat uint in_geometry_info;
+layout(location = 0) out uint geometry_info;
 
 void main()
 {
-    gl_FragColor = vec4(vTexcoord, 0.0f, 1.0f);
+    geometry_info = in_geometry_info + 1;
 }
