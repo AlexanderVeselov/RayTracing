@@ -243,6 +243,7 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal,
 #ifdef GLSL
 float3 SampleTexture(uint texture_index, float2 uv)
 {
+    uv.y = 1.f - uv.y;
     sampler2D tex_sampler = sampler2D(texture_handles[texture_index]);
     return textureLod(tex_sampler, uv, 0.0f).xyz;
 }
