@@ -59,8 +59,10 @@ protected:
     void ResolveRadiance() override;
 
 private:
+    void RasterizePrimaryBounce();
+
     GLFramebuffer framebuffer_;
-    GraphicsPipeline graphics_pipeline_;
+    GraphicsPipeline visibility_pipeline_;
     ComputePipeline copy_pipeline_;
 
     // Pipelines
@@ -74,6 +76,7 @@ private:
     std::unique_ptr<ComputePipeline> accumulate_direct_samples_pipeline_;
     std::unique_ptr<ComputePipeline> clear_counter_pipeline_;
     std::unique_ptr<ComputePipeline> increment_counter_pipeline_;
+    std::unique_ptr<ComputePipeline> initialize_hits_pipeline_;
     std::unique_ptr<ComputePipeline> temporal_accumulation_pipeline_;
     std::unique_ptr<ComputePipeline> resolve_pipeline_;
 

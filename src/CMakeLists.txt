@@ -52,6 +52,7 @@ set(GLSL_KERNELS_SOURCES
     kernels/glsl/fullscreen_quad.frag
     kernels/glsl/hit_surface.comp
     kernels/glsl/increment_counter.comp
+    kernels/glsl/initialize_hits.comp
     kernels/glsl/miss.comp
     kernels/glsl/raygeneration.comp
     kernels/glsl/reset_radiance.comp
