@@ -8,6 +8,7 @@
 * Unidirectional wavefront path tracer
 * OpenCL backend
 * OpenGL backend (WIP)
+* Hybrid path tracing (rasterization of the primary visibility) in OpenGL mode
 * Lambert diffuse, GGX reflection BRDF
 * Explicit point, directional light sampling
 * Simple temporal reprojection filter
