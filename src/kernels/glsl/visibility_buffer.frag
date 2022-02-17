@@ -28,5 +28,4 @@ layout(location = 0) out uint geometry_info;
 void main()
 {
     geometry_info = in_geometry_info + 1;
-    //gl_FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 }

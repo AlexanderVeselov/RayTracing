@@ -72,7 +72,7 @@ float3 SampleSky(float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return textureLod(env_texture, coords, 0.0f).xyz * 10.0f;
+    return textureLod(env_texture, coords, 0.0f).xyz;
 }
 
 void main()
