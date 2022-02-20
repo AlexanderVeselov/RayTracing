@@ -5,7 +5,7 @@
 ![](screenshots/SanMiguel.png)
 
 ## Features
-* Unidirectional wavefront path tracer
+* Unidirectional wavefront path tracer done entirely on GPU using compute shaders
 * OpenCL backend
 * OpenGL backend (WIP)
 * Hybrid path tracing (rasterization of the primary visibility) in OpenGL mode
