@@ -29,9 +29,9 @@ int main()
 {
     try
     {
-        Window window(1280, 720, "RayTracing");
+        Window window(1920, 1080, "RayTracing");
         Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
-        backend = Render::RenderBackend::kOpenGL;
+        //backend = Render::RenderBackend::kOpenGL;
         Render render(window, backend);
 
         while (!window.ShouldClose())

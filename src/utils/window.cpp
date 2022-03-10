@@ -171,6 +171,8 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     }
 
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
     // Create the main window
     window_.reset(glfwCreateWindow(width, height, title, nullptr, nullptr));
 
