@@ -329,7 +329,7 @@ void GLPathTraceIntegrator::RasterizePrimaryBounce()
 
 void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 {
-    if (false)//bounce == 0)
+    if (bounce == 0)
     {
         RasterizePrimaryBounce();
         return;
