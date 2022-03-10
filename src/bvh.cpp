@@ -230,13 +230,13 @@ unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
         assert(!node->children[0] && !node->children[1]);
         assert(node->nPrimitives < 65536);
         linearNode->offset = node->firstPrimOffset;
-        linearNode->nPrimitives = node->nPrimitives;
+        linearNode->num_primitives_axis = node->nPrimitives << 16;
     }
     else
     {
         // Create interior flattened BVH node
-        linearNode->axis = node->splitAxis;
-        linearNode->nPrimitives = 0;
+        linearNode->num_primitives_axis = node->splitAxis;
+        //linearNode->nPrimitives = 0;
         FlattenBVHTree(node->children[0], offset);
         linearNode->offset = FlattenBVHTree(node->children[1], offset);
     }

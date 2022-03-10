@@ -82,10 +82,10 @@ float min3(float3 val)
     return min(min(val.x, val.y), val.z);
 }
 
-bool RayBounds(const __global Bounds3* bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
 {
-    float3 aabb_min = bounds->pos[0];
-    float3 aabb_max = bounds->pos[1];
+    float3 aabb_min = bounds.pos[0];
+    float3 aabb_max = bounds.pos[1];
 
     float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
     float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
@@ -143,19 +143,20 @@ __kernel void TraceBvh
 
     while (true)
     {
-        __global LinearBVHNode* node = &nodes[currentNodeIndex];
+        LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(&node->bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
+            int num_primitives = node.num_primitives_axis >> 16;
             // Leaf node
-            if (node->nPrimitives > 0)
+            if (num_primitives > 0)
             {
                 // Intersect ray with primitives in leaf BVH node
-                for (int i = 0; i < node->nPrimitives; ++i)
+                for (int i = 0; i < num_primitives; ++i)
                 {
-                    if (RayTriangle(ray, &triangles[node->offset + i], &hit.bc, &hit.t))
+                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.bc, &hit.t))
                     {
-                        hit.primitive_id = node->offset + i;
+                        hit.primitive_id = node.offset + i;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;
@@ -177,14 +178,14 @@ __kernel void TraceBvh
             else
             {
                 // Put far BVH node on _nodesToVisit_ stack, advance to near node
-                if (ray_sign[node->axis])
+                if (ray_sign[node.num_primitives_axis & 0xFFFF])
                 {
                     nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
-                    currentNodeIndex = node->offset;
+                    currentNodeIndex = node.offset;
                 }
                 else
                 {
-                    nodesToVisit[toVisitOffset++] = node->offset;
+                    nodesToVisit[toVisitOffset++] = node.offset;
                     currentNodeIndex = currentNodeIndex + 1;
                 }
             }

@@ -177,7 +177,7 @@ void CLKernel::Reload()
     cl::Program program(context_.GetContext(), source, false, &status);
     ThrowIfFailed(status, ("Failed to create program from file " + std::string(filename_)).c_str());
 
-    std::string build_options = "-I src/kernels/cl/";
+    std::string build_options = "-I . -I src/kernels/cl/";
 
     for (auto const& definition : definitions_)
     {
