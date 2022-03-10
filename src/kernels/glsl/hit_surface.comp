@@ -44,7 +44,7 @@ layout(std140, binding = 0) uniform SampleCounter
 
 layout(binding = 1) uniform TextureHandles
 {
-    uint64_t texture_handles[MAX_TEXTURES];
+    uvec2 texture_handles[MAX_TEXTURES];
 };
 
 layout(std430, binding = 0) buffer IncomingRays

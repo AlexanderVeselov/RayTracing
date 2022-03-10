@@ -25,6 +25,7 @@
 #pragma once
 
 #include "scene/scene.hpp"
+#include <GL/glew.h>
 #include <CL/cl.hpp>
 #include <memory>
 #include <vector>
@@ -36,7 +37,7 @@ class CLKernel;
 class CLContext
 {
 public:
-    CLContext(const cl::Platform& platform, void* display_context, void* gl_context);
+    CLContext(const cl::Platform& platform);
     std::shared_ptr<CLKernel> CreateKernel(const char* filename, char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
 
@@ -52,7 +53,6 @@ public:
     const cl::Context& GetContext() const { return context_; }
     std::vector<cl::Device> const& GetDevices() const { return devices_; }
     void ReloadKernels();
-
 
 private:
     cl::Platform platform_;

@@ -1,18 +1,14 @@
 /*****************************************************************************
  MIT License
-
- Copyright(c) 2022 Alexander Veselov
-
+ Copyright(c) 2021 Alexander Veselov
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions :
-
  The above copyright noticeand this permission notice shall be included in all
  copies or substantial portions of the Software.
-
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
@@ -24,45 +20,155 @@
 
 #pragma once
 
+#include <GLFW/glfw3.h>
 #include <cstdint>
+#include <memory>
+#include <vector>
+#include <functional>
+
+enum class KeyCode
+{
+    kUnknown = -1,
+    kSpace,
+    kApostrophe,
+    kComma,
+    kMinus,
+    kPeriod,
+    kSlash,
+    k0,
+    k1,
+    k2,
+    k3,
+    k4,
+    k5,
+    k6,
+    k7,
+    k8,
+    k9,
+    kSemicolon,
+    kEqual,
+    kA,
+    kB,
+    kC,
+    kD,
+    kE,
+    kF,
+    kG,
+    kH,
+    kI,
+    kJ,
+    kK,
+    kL,
+    kM,
+    kN,
+    kO,
+    kP,
+    kQ,
+    kR,
+    kS,
+    kT,
+    kU,
+    kV,
+    kW,
+    kX,
+    kY,
+    kZ,
+    kLeftBracket,
+    kBackslash,
+    kRightBracket,
+    kGraceAccent,
+    kEscape,
+    kEnter,
+    kTab,
+    kBackspace,
+    kInsert,
+    kDelete,
+    kRight,
+    kLeft,
+    kDown,
+    kUp,
+    kPageUp,
+    kPageDown,
+    kHome,
+    kEnd,
+    kCapsLock,
+    kScrollLock,
+    kNumLock,
+    kPrintScreen,
+    kPause,
+    kF1,
+    kF2,
+    kF3,
+    kF4,
+    kF5,
+    kF6,
+    kF7,
+    kF8,
+    kF9,
+    kF10,
+    kF11,
+    kF12,
+    kKeypad0,
+    kKeypad1,
+    kKeypad2,
+    kKeypad3,
+    kKeypad4,
+    kKeypad5,
+    kKeypad6,
+    kKeypad7,
+    kKeypad8,
+    kKeypad9,
+    kKeypadDecimal,
+    kKeypadDivide,
+    kKeypadMultiply,
+    kKeypadSubtract,
+    kKeypadAdd,
+    kKeypadEnter,
+    kKeypadEqual,
+    kLeftShift,
+    kLeftControl,
+    kLeftAlt,
+    kRightShift,
+    kRightControl,
+    kRightAlt,
+};
+
+enum class MouseButton
+{
+    kLeft,
+    kRight,
+    kMiddle,
+};
 
 class Window
 {
 public:
-    Window(char const* title, std::uint32_t width, std::uint32_t height);
+    Window(Window const&) = delete;
+    Window& operator=(Window const&) = delete;
 
-    // Native handles
-    void* GetNativeHandle() const { return handle_; }
-    void* GetDisplayContext() const { return display_context_; }
-    void* GetGLContext() const { return gl_context_; }
-
-    std::uint32_t GetWidth() const { return width_; }
-    std::uint32_t GetHeight() const { return height_; }
-    bool ShouldClose() const { return should_close_; }
-    void PollEvents();
-    void SwapBuffers();
-    void OnKeyPressed(int key);
-    void OnKeyReleased(int key);
-    void OnMousePressed(unsigned int button);
-    void OnMouseReleased(unsigned int button);
-    bool IsKeyPressed(int key) const;
-    bool IsLeftMouseButtonPressed() const;
-    bool IsRightMouseButtonPressed() const;
-    void GetMousePos(int* x, int* y) const;
-    void SetMousePos(int x, int y) const;
-
+    Window(std::uint32_t width, std::uint32_t height, char const* title, bool no_api = false);
     ~Window();
 
+    // Returns HWND in the case of WIN32 platform
+    void* GetNativeHandle() const;
+    std::uint32_t GetWidth() const { return width_; }
+    std::uint32_t GetHeight() const { return height_; }
+
+    void GetMousePos(int& x, int& y) const;
+    void SetMousePos(int x, int y) const;
+
+    void PollEvents();
+    bool ShouldClose() const;
+    bool GetKey(KeyCode code) const;
+    bool GetMouseButton(MouseButton button) const;
+    void SwapBuffers();
+    void AddScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
+
 private:
-    void InitGL();
+    static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-    void* handle_;
-    void* display_context_;
-    void* gl_context_;
-
-    std::uint32_t width_;
-    std::uint32_t height_;
-    bool should_close_ = false;
-    bool keys_[256];
-    unsigned int mouse_ = 0;
+    std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> window_;
+    std::vector<std::function<void(float)>> scroll_callbacks_;
+    std::uint32_t width_ = ~0u;
+    std::uint32_t height_ = ~0u;
 };

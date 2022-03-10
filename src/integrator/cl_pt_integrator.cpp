@@ -22,12 +22,13 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include <GL/glew.h>
+
 #include "cl_pt_integrator.hpp"
 #include "utils/cl_exception.hpp"
 #include "Scene/scene.hpp"
 #include "acceleration_structure.hpp"
 #include "Utils/blue_noise_sampler.hpp"
-#include <GL/glew.h>
 
 namespace args
 {

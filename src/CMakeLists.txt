@@ -125,7 +125,7 @@ add_executable(RayTracingApp ${SOURCES})
 target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader ${CMAKE_SOURCE_DIR}/3rdparty/glm)
 
-target_link_libraries(RayTracingApp PUBLIC OpenCL::OpenCL OpenGL::GL GLEW::GLEW OpenGL::GLU imgui)
+target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL::OpenCL OpenGL::GL GLEW::GLEW OpenGL::GLU imgui)
 set_target_properties(RayTracingApp PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 )

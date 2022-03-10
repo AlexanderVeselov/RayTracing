@@ -24,7 +24,7 @@
 
 #include "camera_controller.hpp"
 #include "render.hpp"
-#include "Utils/window.hpp"
+#include "utils/window.hpp"
 #include <iostream>
 
 CameraController::CameraController(Window& window)
@@ -44,9 +44,9 @@ void CameraController::Update(float dt)
 {
     static int prev_x = 0, prev_y = 0;
     int x, y;
-    window_.GetMousePos(&x, &y);
+    window_.GetMousePos(x, y);
 
-    if (window_.IsRightMouseButtonPressed())
+    if (window_.GetMouseButton(MouseButton::kRight))
     {
         float sensivity = 0.00075f;
         yaw_ -= (x - prev_x) * sensivity;
@@ -62,8 +62,8 @@ void CameraController::Update(float dt)
         prev_y = y;
     }
 
-    int frontback = window_.IsKeyPressed('W') - window_.IsKeyPressed('S');
-    int strafe = window_.IsKeyPressed('A') - window_.IsKeyPressed('D');
+    int frontback = window_.GetKey(KeyCode::kW) - window_.GetKey(KeyCode::kS);
+    int strafe = window_.GetKey(KeyCode::kA) - window_.GetKey(KeyCode::kD);
 
     if (frontback != 0 || strafe != 0)
     {

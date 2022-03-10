@@ -41,11 +41,6 @@ Render::Render(Window& window, RenderBackend backend)
     , width_(window.GetWidth())
     , height_(window.GetHeight())
 {
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    ImGui_ImplOpenGL3_Init();
-    ImGui_ImplWin32_Init(window_.GetNativeHandle());
-
     if (render_backend_ == RenderBackend::kOpenCL)
     {
         std::vector<cl::Platform> all_platforms;
@@ -55,8 +50,7 @@ Render::Render(Window& window, RenderBackend backend)
             throw std::runtime_error("No OpenCL platforms found");
         }
 
-        cl_context_ = std::make_shared<CLContext>(all_platforms[0],
-            window_.GetDisplayContext(), window_.GetGLContext());
+        cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
 #ifndef NDEBUG
@@ -118,13 +112,6 @@ Render::Render(Window& window, RenderBackend backend)
     integrator_->UploadGPUData(*scene_, *acc_structure_);
 }
 
-Render::~Render()
-{
-    ImGui_ImplWin32_Shutdown();
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui::DestroyContext();
-}
-
 double Render::GetCurtime() const
 {
     return (double)clock() / (double)CLOCKS_PER_SEC;
@@ -138,9 +125,6 @@ double Render::GetDeltaTime() const
 void Render::FrameBegin()
 {
     start_frame_time_ = GetCurtime();
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
 }
 
 void Render::FrameEnd()
@@ -213,9 +197,6 @@ void Render::DrawGUI()
         }
     }
     ImGui::End();
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Render::RenderFrame()
@@ -227,7 +208,7 @@ void Render::RenderFrame()
 
     bool need_to_reset = false;
 
-    if (window_.IsKeyPressed('R'))
+    if (window_.GetKey(KeyCode::kR))
     {
         ReloadKernels();
         need_to_reset = true;

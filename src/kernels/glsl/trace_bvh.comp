@@ -170,10 +170,10 @@ void main()
         if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
             // Leaf node
-            if (int(node.nPrimitives) > 0)
+            if (int(node.num_primitives_axis >> 16) > 0)
             {
                 // Intersect ray with primitives in leaf BVH node
-                for (int i = 0; i < int(node.nPrimitives); ++i)
+                for (int i = 0; i < int(node.num_primitives_axis >> 16); ++i)
                 {
                     if (RayTriangle(ray, triangles[node.offset + i], hit.bc, hit.t))
                     {
@@ -199,7 +199,7 @@ void main()
             else
             {
                 // Put far BVH node on _nodesToVisit_ stack, advance to near node
-                if (ray_sign[node.axis] != 0)
+                if (ray_sign[node.num_primitives_axis & 0xFFFF] != 0)
                 {
                     nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
                     currentNodeIndex = int(node.offset);

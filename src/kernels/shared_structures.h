@@ -165,11 +165,9 @@ STRUCT_BEGIN(LinearBVHNode)
     Bounds3 bounds;
     // 4 bytes
     unsigned int offset; // primitives (leaf) or second child (interior) offset
-    // 2 bytes
-    unsigned short nPrimitives;  // 0 -> interior node
-    // 1 byte
-    unsigned char axis;          // interior node: xyz
-    unsigned char pad[9];        // ensure 48 byte total size
+    // 4 bytes
+    unsigned int num_primitives_axis;  // 0 -> interior node
+    unsigned int padding[2]; // ensure 48 byte total size
 STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)

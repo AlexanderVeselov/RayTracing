@@ -27,9 +27,9 @@
 #include "integrator/integrator.hpp"
 #include "acceleration_structure.hpp"
 #include "scene/scene.hpp"
-#include "gpu_wrappers/cl_context.hpp"
 #include "utils/camera_controller.hpp"
 #include "utils/framebuffer.hpp"
+#include "gpu_wrappers/cl_context.hpp"
 #include <memory>
 #include <ctime>
 
@@ -44,7 +44,7 @@ public:
     };
 
     Render(Window& window, RenderBackend backend);
-    ~Render();
+    ~Render() = default;
 
     void    RenderFrame();
     double  GetCurtime()   const;
