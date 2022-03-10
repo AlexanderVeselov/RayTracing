@@ -43,7 +43,7 @@ public:
         kOpenGL
     };
 
-    Render(Window& window, RenderBackend backend);
+    Render(Window& window, RenderBackend backend, Scene& scene);
     ~Render() = default;
 
     void    RenderFrame();
@@ -63,6 +63,7 @@ private:
     // Window
     Window& window_;
     RenderBackend render_backend_;
+    Scene& scene_;
 
     // Render size
     std::uint32_t width_;
@@ -76,9 +77,8 @@ private:
     std::unique_ptr<Integrator> integrator_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
-    // Scene
+
     std::unique_ptr<CameraController> camera_controller_;
-    std::unique_ptr<Scene>            scene_;
     std::unique_ptr<Framebuffer>      framebuffer_;
 
     struct GuiParams

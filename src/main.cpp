@@ -24,16 +24,47 @@
 
 #include "render.hpp"
 #include "utils/window.hpp"
+#include "CLI/CLI.hpp"
 
-int main()
+int main(int argc, char** argv)
 {
     try
     {
-        Window window(1920, 1080, "RayTracing");
-        Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
-        //backend = Render::RenderBackend::kOpenGL;
-        Render render(window, backend);
+        // Default parameters
+        std::uint32_t window_width = 1280;
+        std::uint32_t window_height = 720;
+        bool use_opengl = false;
+        std::string scene_path = "assets/ShaderBalls.obj";
+        float scene_scale = 1.0f;
+        bool flip_yz = false;
 
+        // Parse the command line
+        CLI::App cli_app("RayTracing");
+        cli_app.allow_extras(true);
+
+        cli_app.set_help_flag("--help", "Print this help");
+        cli_app.add_option("-w", window_width, "Window width");
+        cli_app.add_option("-h", window_height, "Window height");
+        cli_app.add_option("--scene", scene_path, "Scene path");
+        cli_app.add_option("--scale", scene_scale, "Scene scale");
+        cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
+        cli_app.add_option("--opengl", use_opengl, "Use OpenGL");
+
+        cli_app.parse(argc, argv);
+
+        // Load the scene
+        Scene scene(scene_path.c_str(), scene_scale, flip_yz);
+        // Add a directional light since obj format doesn't support lights
+        scene.AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
+
+        // Create the window
+        Window window(window_width, window_height, "RayTracing");
+
+        // Create the renderer
+        Render::RenderBackend backend = use_opengl ? Render::RenderBackend::kOpenGL : Render::RenderBackend::kOpenCL;
+        Render render(window, backend, scene);
+
+        // Render loop
         while (!window.ShouldClose())
         {
             window.PollEvents();

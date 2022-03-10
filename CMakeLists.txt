@@ -36,3 +36,4 @@ target_compile_definitions(imgui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLEW)
 target_link_libraries(imgui PRIVATE GLEW::GLEW glfw3::glfw3)
 
 add_subdirectory(src)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/CLI11)
