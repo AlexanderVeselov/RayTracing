@@ -53,7 +53,6 @@ public:
     std::vector<cl::Device> const& GetDevices() const { return devices_; }
     void ReloadKernels();
 
-
 private:
     cl::Platform platform_;
     std::vector<cl::Device> devices_;

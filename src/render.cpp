@@ -227,7 +227,7 @@ void Render::RenderFrame()
 
     bool need_to_reset = false;
 
-    if (window_.IsKeyPressed('R'))
+    if (window_.GetKey(KeyCode::kR))
     {
         ReloadKernels();
         need_to_reset = true;
