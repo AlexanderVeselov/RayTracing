@@ -6,6 +6,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+find_package(glfw3 REQUIRED)
 find_package(OpenCL REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
