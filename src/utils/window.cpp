@@ -18,8 +18,10 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "window.hpp"
 
+#include <GL/glew.h>
+
+#include "window.hpp"
 #include <imgui.h>
 
 #ifdef WIN32
@@ -180,6 +182,15 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
     glfwMakeContextCurrent(window_.get());
     glfwSetWindowUserPointer(window_.get(), this);
     glfwSetScrollCallback(window_.get(), ScrollCallback);
+
+    GLenum glew_status = glewInit();
+
+    if (glew_status != GLEW_OK)
+    {
+        fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
+
+        throw std::runtime_error("Failed to init GLEW");
+    }
 
     ImGui::CreateContext();
 

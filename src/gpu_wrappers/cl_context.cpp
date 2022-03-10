@@ -30,7 +30,13 @@
 #include <string>
 #include <fstream>
 
-CLContext::CLContext(const cl::Platform& platform, void* display_context, void* gl_context)
+#ifdef WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
+CLContext::CLContext(const cl::Platform& platform)
     : platform_(platform)
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
@@ -40,9 +46,9 @@ CLContext::CLContext(const cl::Platform& platform, void* display_context, void* 
         // OpenCL platform
         CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
         // OpenGL context
-        CL_GL_CONTEXT_KHR, (cl_context_properties)gl_context,
+        CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
         // HDC used to create the OpenGL context
-        CL_WGL_HDC_KHR, (cl_context_properties)display_context,
+        CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
         0
     };
 

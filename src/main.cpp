@@ -22,14 +22,14 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "Utils/window.hpp"
 #include "render.hpp"
+#include "utils/window.hpp"
 
 int main()
 {
     try
     {
-        Window window("RayTracing", 1280, 720);
+        Window window(1280, 720, "RayTracing");
         Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
         //backend = Render::RenderBackend::kOpenGL;
         Render render(window, backend);

@@ -22,6 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include <GL/glew.h>
+
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
@@ -37,7 +39,6 @@
 #include <sstream>
 #include <ctime>
 #include <cctype>
-#include <GL/glew.h>
 
 Scene::Scene(const char* filename, float scale, bool flip_yz)
 {
