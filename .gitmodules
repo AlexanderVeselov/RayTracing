@@ -4,3 +4,6 @@
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
 	url = https://github.com/g-truc/glm
+[submodule "3rdparty/CLI11"]
+	path = 3rdparty/CLI11
+	url = https://github.com/CLIUtils/CLI11
