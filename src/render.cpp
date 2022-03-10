@@ -35,9 +35,10 @@
 #include <fstream>
 #include <sstream>
 
-Render::Render(Window& window, RenderBackend backend)
+Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window)
     , render_backend_(backend)
+    , scene_(scene)
     , width_(window.GetWidth())
     , height_(window.GetHeight())
 {
@@ -53,48 +54,17 @@ Render::Render(Window& window, RenderBackend backend)
         cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
-#ifndef NDEBUG
-    //char const* scene_path = "assets/CornellBox_Dragon.obj";
-    //char const* scene_path = "../Scenes/MtlTest/gi.obj";
-    //char const* scene_path = "../Scenes/MtlTest/mtltest.obj";
-    char const* scene_path = "assets/ShaderBalls.obj";
-    float scene_scale = 1.0f;
-    //float scene_scale = 0.01f;
-    bool flip_yz = false;
-#else
-    char const* scene_path = "../Scenes/sponza/sponza.obj";
-    float scene_scale = 0.01f;
-    bool flip_yz = true;
-#endif
-
-    scene_ = std::make_unique<Scene>(scene_path, scene_scale, flip_yz);
-
-    auto get_rand = [](float min, float max)
-    {
-        return min + (float)rand() / RAND_MAX * (max - min);
-    };
-
-    scene_->AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
-
-    //scene_->AddPointLight({ 0.0f, 0.0f, 1.5f }, { 2.0f, 2.0f, 2.0f });
-
-    //for (int i = 0; i < 10; ++i)
-    //{
-    //    scene_->AddPointLight({ i - 5.0f, 0.0f, 2.0f },
-    //        { get_rand(0.0f, 10.0f), get_rand(0.0f, 50.0f), get_rand(0.0f, 50.0f) });
-    //}
-
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
-    acc_structure_->BuildCPU(scene_->GetTriangles());
+    acc_structure_->BuildCPU(scene_.GetTriangles());
 
     // TODO, NOTE: this is done after building the acc structure because it reorders triangles
     // Need to get rid of reordering
-    scene_->Finalize();
+    scene_.Finalize();
 
     // Create integrator
     if (render_backend_ == RenderBackend::kOpenCL)
@@ -109,7 +79,7 @@ Render::Render(Window& window, RenderBackend backend)
     }
 
     // Upload scene data to the GPU
-    integrator_->UploadGPUData(*scene_, *acc_structure_);
+    integrator_->UploadGPUData(scene_, *acc_structure_);
 }
 
 double Render::GetCurtime() const
