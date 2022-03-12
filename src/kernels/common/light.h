@@ -25,7 +25,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "src/kernels/constants.h"
+#include "src/kernels/common/constants.h"
 
 float3 Light_Sample(
 #ifdef GLSL

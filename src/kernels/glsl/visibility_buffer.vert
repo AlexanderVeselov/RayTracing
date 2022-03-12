@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "src/kernels/shared_structures.h"
+#include "src/kernels/common/shared_structures.h"
 
 layout (location = 0) uniform mat4 g_ViewProjection;
 layout (location = 0) out flat uint out_geometry_info;

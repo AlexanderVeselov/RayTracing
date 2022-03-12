@@ -22,8 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../constants.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/constants.h"
 
 float3 SampleSky(float3 dir, __read_only image2d_t tex)
 {

@@ -25,9 +25,9 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-#include "src/kernels/bxdf.h"
-#include "src/kernels/utils.h"
-#include "src/kernels/shared_structures.h"
+#include "src/kernels/common/bxdf.h"
+#include "src/kernels/common/utils.h"
+#include "src/kernels/common/shared_structures.h"
 
 #ifdef GLSL
 struct Material

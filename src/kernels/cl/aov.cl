@@ -22,10 +22,10 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../material.h"
-#include "../sampling.h"
-#include "../light.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/material.h"
+#include "src/kernels/common/sampling.h"
+#include "src/kernels/common/light.h"
 
 float2 ProjectScreen(float3 position, Camera camera)
 {

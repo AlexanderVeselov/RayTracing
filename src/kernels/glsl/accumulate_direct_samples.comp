@@ -24,7 +24,7 @@
 
 layout (local_size_x = 256) in;
 
-#include "src/kernels/constants.h"
+#include "src/kernels/common/constants.h"
 
 uniform uint width;
 

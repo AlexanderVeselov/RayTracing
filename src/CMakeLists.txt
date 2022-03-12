@@ -19,13 +19,13 @@ set(INTEGRATOR_SOURCES
 )
 
 set(COMMON_KERNELS_SOURCES
-    kernels/bxdf.h
-    kernels/constants.h
-    kernels/light.h
-    kernels/material.h
-    kernels/sampling.h
-    kernels/shared_structures.h
-    kernels/utils.h
+    kernels/common/bxdf.h
+    kernels/common/constants.h
+    kernels/common/light.h
+    kernels/common/material.h
+    kernels/common/sampling.h
+    kernels/common/shared_structures.h
+    kernels/common/utils.h
 )
 
 set(CL_KERNELS_SOURCES
@@ -112,7 +112,7 @@ set(SOURCES
 
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("kernels" FILES ${COMMON_KERNELS_SOURCES})
+source_group("kernels\\common" FILES ${COMMON_KERNELS_SOURCES})
 source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
 source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})

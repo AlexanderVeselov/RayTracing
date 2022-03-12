@@ -27,9 +27,9 @@
 
 layout (local_size_x = 32) in;
 
-#include "src/kernels/constants.h"
-#include "src/kernels/shared_structures.h"
-#include "src/kernels/sampling.h"
+#include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/sampling.h"
 
 uniform uint bounce;
 uniform uint width;
@@ -127,8 +127,8 @@ layout(std430, binding = 15) buffer Materials
     PackedMaterial materials[];
 };
 
-#include "src/kernels/material.h"
-#include "src/kernels/light.h"
+#include "src/kernels/common/material.h"
+#include "src/kernels/common/light.h"
 
 void main()
 {

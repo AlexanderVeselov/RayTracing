@@ -25,7 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
-#include "kernels/shared_structures.h"
+#include "kernels/common/shared_structures.h"
 #include "loaders/image_loader.hpp"
 #include <vector>
 #include <unordered_map>

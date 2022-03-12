@@ -24,8 +24,8 @@
 
 layout (local_size_x = 32, local_size_y = 32) in;
 
-#include "src/kernels/constants.h"
-#include "src/kernels/shared_structures.h"
+#include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
 
 uniform uint width;
 uniform uint height;

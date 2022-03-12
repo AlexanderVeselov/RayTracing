@@ -25,7 +25,7 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
-#include "src/kernels/utils.h"
+#include "src/kernels/common/utils.h"
 
 #define SAMPLE_TYPE_SUBPIXEL   0
 #define SAMPLE_TYPE_BXDF_LAYER 1

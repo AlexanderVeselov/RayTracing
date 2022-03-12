@@ -22,8 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../constants.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/constants.h"
 
 bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
 {

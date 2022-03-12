@@ -22,8 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../shared_structures.h"
-#include "../constants.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/constants.h"
 
 float GetRandomFloat(unsigned int* seed)
 {

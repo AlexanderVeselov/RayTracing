@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "../constants.h"
+#include "src/kernels/common/constants.h"
 
 __kernel void TemporalAccumulation
 (
