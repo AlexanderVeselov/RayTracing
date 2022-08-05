@@ -40,6 +40,8 @@
 #include <ctime>
 #include <cctype>
 
+#undef max
+
 Scene::Scene(const char* filename, float scale, bool flip_yz)
 {
     Load(filename, scale, flip_yz);
