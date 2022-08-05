@@ -195,7 +195,7 @@ void CLKernel::Reload()
     {
         bool is_buffer = arg.second.arg_type == KernelArg::ArgType::kBuffer;
         // For cl_mem, this function takes a reference
-        cl_int status = kernel_.setArg(arg.first, arg.second.size, is_buffer ? &arg.second.data : arg.second.data);
+        cl_int status = kernel_.setArg(arg.first, arg.second.size, (void*)(is_buffer ? &arg.second.data : arg.second.data));
         ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg.first)).c_str());
     }
 }
@@ -203,7 +203,7 @@ void CLKernel::Reload()
 void CLKernel::SetArgument(std::uint32_t arg_index, void const* data, std::size_t size)
 {
     kernel_args_[arg_index] = KernelArg{ data, size, KernelArg::ArgType::kConstant };
-    cl_int status = kernel_.setArg(arg_index, size, data);
+    cl_int status = kernel_.setArg(arg_index, size, (void*)data);
     ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
