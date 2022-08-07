@@ -24,8 +24,9 @@
 
 uniform sampler2D input_sampler;
 layout(location = 0) in vec2 vTexcoord;
+layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    gl_FragColor = texture(input_sampler, vTexcoord);
+    outColor = texture(input_sampler, vTexcoord);
 }
