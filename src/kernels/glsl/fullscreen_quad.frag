@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 uniform sampler2D input_sampler;
-varying vec2 vTexcoord;
+layout(location = 0) in vec2 vTexcoord;
 
 void main()
 {

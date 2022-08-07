@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-varying vec2 vTexcoord;
+layout(location = 0) out vec2 vTexcoord;
 
 void main()
 {
