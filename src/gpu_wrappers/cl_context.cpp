@@ -34,6 +34,14 @@
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+
+ // Use discrete GPU by default.
+extern "C" {
+    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 #endif
 
 CLContext::CLContext(const cl::Platform& platform)
