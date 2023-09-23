@@ -60,6 +60,7 @@ private:
     cl::Context context_;
     cl::CommandQueue queue_;
     std::vector<std::weak_ptr<CLKernel>> kernels_;
+    std::string kernels_path_;
 
 };
 

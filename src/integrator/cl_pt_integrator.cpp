@@ -261,8 +261,8 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 void CLPathTraceIntegrator::CreateKernels()
 {
     // Create kernels
-    reset_kernel_ = cl_context_.CreateKernel("src/kernels/cl/reset_radiance.cl", "ResetRadiance");
-    raygen_kernel_ = cl_context_.CreateKernel("src/kernels/cl/raygeneration.cl", "RayGeneration");
+    reset_kernel_ = cl_context_.CreateKernel("reset_radiance.cl", "ResetRadiance");
+    raygen_kernel_ = cl_context_.CreateKernel("raygeneration.cl", "RayGeneration");
 
     std::vector<std::string> definitions;
     if (enable_white_furnace_)
@@ -280,21 +280,21 @@ void CLPathTraceIntegrator::CreateKernels()
         definitions.push_back("ENABLE_DENOISER");
     }
 
-    miss_kernel_ = cl_context_.CreateKernel("src/kernels/cl/miss.cl", "Miss", definitions);
-    aov_kernel_ = cl_context_.CreateKernel("src/kernels/cl/aov.cl", "GenerateAOV");
-    hit_surface_kernel_ = cl_context_.CreateKernel("src/kernels/cl/hit_surface.cl", "HitSurface", definitions);
-    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel("src/kernels/cl/accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
-    clear_counter_kernel_ = cl_context_.CreateKernel("src/kernels/cl/clear_counter.cl", "ClearCounter");
-    increment_counter_kernel_ = cl_context_.CreateKernel("src/kernels/cl/increment_counter.cl", "IncrementCounter");
-    resolve_kernel_ = cl_context_.CreateKernel("src/kernels/cl/resolve_radiance.cl", "ResolveRadiance", definitions);
+    miss_kernel_ = cl_context_.CreateKernel("miss.cl", "Miss", definitions);
+    aov_kernel_ = cl_context_.CreateKernel("aov.cl", "GenerateAOV");
+    hit_surface_kernel_ = cl_context_.CreateKernel("hit_surface.cl", "HitSurface", definitions);
+    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel("accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
+    clear_counter_kernel_ = cl_context_.CreateKernel("clear_counter.cl", "ClearCounter");
+    increment_counter_kernel_ = cl_context_.CreateKernel("increment_counter.cl", "IncrementCounter");
+    resolve_kernel_ = cl_context_.CreateKernel("resolve_radiance.cl", "ResolveRadiance", definitions);
 
     if (enable_denoiser_)
     {
-        temporal_accumulation_kernel_ = cl_context_.CreateKernel("src/kernels/cl/denoiser.cl", "TemporalAccumulation");
+        temporal_accumulation_kernel_ = cl_context_.CreateKernel("denoiser.cl", "TemporalAccumulation");
     }
 
-    intersect_kernel_ = cl_context_.CreateKernel("src/kernels/cl/trace_bvh.cl", "TraceBvh");
-    intersect_shadow_kernel_ = cl_context_.CreateKernel("src/kernels/cl/trace_bvh.cl", "TraceBvh", { "SHADOW_RAYS" });
+    intersect_kernel_ = cl_context_.CreateKernel("trace_bvh.cl", "TraceBvh");
+    intersect_shadow_kernel_ = cl_context_.CreateKernel("trace_bvh.cl", "TraceBvh", { "SHADOW_RAYS" });
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();

@@ -38,6 +38,7 @@
 
 CLContext::CLContext(const cl::Platform& platform)
     : platform_(platform)
+    , kernels_path_("src/kernels/cl/")
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
@@ -124,7 +125,7 @@ void CLContext::ReleaseGLObject(cl_mem mem)
 std::shared_ptr<CLKernel> CLContext::CreateKernel(const char* filename, char const* kernel_name,
     std::vector<std::string> const& definitions)
 {
-    std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(*this, filename, kernel_name, definitions);
+    std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(*this, (kernels_path_ + filename).c_str(), kernel_name, definitions);
     kernels_.push_back(kernel);
     return kernel;
 }
