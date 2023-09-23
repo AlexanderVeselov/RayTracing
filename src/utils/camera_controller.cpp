@@ -63,18 +63,22 @@ void CameraController::Update(float dt)
     }
 
     int frontback = window_.GetKey(KeyCode::kW) - window_.GetKey(KeyCode::kS);
-    int strafe = window_.GetKey(KeyCode::kA) - window_.GetKey(KeyCode::kD);
+    int strafe = window_.GetKey(KeyCode::kD) - window_.GetKey(KeyCode::kA);
+    int updown = window_.GetKey(KeyCode::kE) - window_.GetKey(KeyCode::kQ);
 
-    if (frontback != 0 || strafe != 0)
+    if (frontback != 0 || strafe != 0 || updown != 0)
     {
         is_changed_ = true;
     }
 
-    camera_data_.position += float3(std::cosf(yaw_) * std::sinf(pitch_) * frontback - std::cosf(yaw_ - MATH_PIDIV2) * strafe,
-        std::sinf(yaw_) * std::sinf(pitch_) * frontback - std::sinf(yaw_ - MATH_PIDIV2) * strafe, std::cosf(pitch_) * frontback) * speed_ * dt;
-    camera_data_.front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
+    float speed = speed_ * (window_.GetKey(KeyCode::kLeftShift) ? 5.0f : 1.0f);
 
-    // Compute the actual up vector
+    // Compute new camera vectors
+    camera_data_.front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
     float3 right = Cross(camera_data_.front, up_).Normalize();
+    // Compute the actual up vector
     camera_data_.up = Cross(right, camera_data_.front);
+    // Move the camera
+    camera_data_.position += (camera_data_.front * (float)frontback
+        + right * (float)strafe + camera_data_.up * (float)updown) * dt * speed;
 }
