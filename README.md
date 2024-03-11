@@ -1,6 +1,9 @@
 # Realtime GPU Path Tracing engine based on OpenCL and OpenGL
 
-[**Watch on YouTube**](https://youtu.be/UIjra1T7ilI)
+Join my telegram channel, where I post everything related to graphics!
+https://t.me/cg_lib
+
+[**Watch demo on YouTube**](https://youtu.be/UIjra1T7ilI)
 [![Bistro scene](screenshots/Bistro.png)](https://youtu.be/UIjra1T7ilI)
 ![](screenshots/SanMiguel.png)
 
