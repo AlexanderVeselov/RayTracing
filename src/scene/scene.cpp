@@ -39,6 +39,7 @@
 #include <sstream>
 #include <ctime>
 #include <cctype>
+#include <filesystem>
 
 #undef max
 
@@ -127,7 +128,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
     std::cout << "Loading object file " << filename << std::endl;
 
-    std::string path_to_folder = std::string(filename, std::string(filename).rfind('/') + 1);
+    std::string path_to_folder = std::filesystem::path(filename).parent_path().string();
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -157,30 +158,30 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             pow(in_material.diffuse[1], kGamma), // G
             pow(in_material.diffuse[2], kGamma), // B
             in_material.diffuse_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.diffuse_texname).c_str()));
+            LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
 
         out_material.specular_albedo = PackAlbedo(
             pow(in_material.specular[0], kGamma), // R
             pow(in_material.specular[1], kGamma), // G
             pow(in_material.specular[2], kGamma), // B
             in_material.specular_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.specular_texname).c_str()));
+            LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
 
         out_material.emission = PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
 
         out_material.roughness_metalness = PackRoughnessMetalness(
             in_material.roughness,
             in_material.roughness_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.roughness_texname).c_str()),
+            LoadTexture((path_to_folder + "/" + in_material.roughness_texname).c_str()),
             in_material.metallic,
             in_material.metallic_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.metallic_texname).c_str()));
+            LoadTexture((path_to_folder + "/" + in_material.metallic_texname).c_str()));
 
         out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(
             in_material.ior, in_material.emissive_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.emissive_texname).c_str()),
+            LoadTexture((path_to_folder + "/" + in_material.emissive_texname).c_str()),
             in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + in_material.alpha_texname).c_str()));
+            LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
 
     }
 
