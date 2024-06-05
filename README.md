@@ -32,3 +32,4 @@ https://t.me/cg_lib
     * `--scale <scale>` scale of the imported scene
     * `--flip_yz 0/1` flip Y and Z axis of the scene (some scenes have Y up and some have Z up)
     * `--opengl 0/1` use OpenGL-only mode
+ * You can also run `run_bistro.bat`, it will download Amazon Lumberyard Bistro content to `assets` folder, build the project and run it with the scene.
