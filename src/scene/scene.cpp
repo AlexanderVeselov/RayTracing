@@ -133,37 +133,33 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
-    std::string warn;
-    std::string err;
-    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
+    std::string warn, err;
 
-    if (!success)
-    {
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
+    if (!success) {
         throw std::runtime_error("Failed to load the scene!");
     }
 
+    // Collect materials
     materials_.resize(materials.size());
-
     const float kGamma = 2.2f;
     const std::uint32_t kInvalidTextureIndex = 0xFF;
 
-    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
-    {
+    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx) {
         auto& out_material = materials_[material_idx];
         auto const& in_material = materials[material_idx];
 
-        // Convert from sRGB to linear
         out_material.diffuse_albedo = PackAlbedo(
-            pow(in_material.diffuse[0], kGamma), // R
-            pow(in_material.diffuse[1], kGamma), // G
-            pow(in_material.diffuse[2], kGamma), // B
+            pow(in_material.diffuse[0], kGamma),
+            pow(in_material.diffuse[1], kGamma),
+            pow(in_material.diffuse[2], kGamma),
             in_material.diffuse_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
 
         out_material.specular_albedo = PackAlbedo(
-            pow(in_material.specular[0], kGamma), // R
-            pow(in_material.specular[1], kGamma), // G
-            pow(in_material.specular[2], kGamma), // B
+            pow(in_material.specular[0], kGamma),
+            pow(in_material.specular[1], kGamma),
+            pow(in_material.specular[2], kGamma),
             in_material.specular_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
 
@@ -178,26 +174,32 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             LoadTexture((path_to_folder + "/" + in_material.metallic_texname).c_str()));
 
         out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(
-            in_material.ior, in_material.emissive_texname.empty() ? kInvalidTextureIndex :
+            in_material.ior,
+            in_material.emissive_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.emissive_texname).c_str()),
-            in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
+            in_material.transmittance[0],
+            in_material.alpha_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
-
     }
 
-    auto flip_vector = [](float3& vec, bool do_flip)
-    {
-        if (do_flip)
-        {
-            std::swap(vec.y, vec.z);
-            vec.y = -vec.y;
+    auto flip_vector = [](float3& v, bool do_flip) {
+        if (do_flip) {
+            std::swap(v.y, v.z);
+            v.y = -v.y;
         }
-    };
+        };
 
+    // Reserve memory (approx count) to reduce re-allocations
+    size_t approx_triangles = 0;
+    for (auto const& s : shapes) approx_triangles += s.mesh.indices.size() / 3;
+    vertices_.reserve(vertices_.size() + approx_triangles * 3);
+    indices_.reserve(indices_.size() + approx_triangles * 3);
+    material_ids_.reserve(material_ids_.size() + approx_triangles);
+
+    // Build VB/IB
     for (auto const& shape : shapes)
     {
-        auto const& indices = shape.mesh.indices;
-        // The mesh is triangular
+        const auto& indices = shape.mesh.indices;
         assert(indices.size() % 3 == 0);
 
         for (std::uint32_t face = 0; face < indices.size() / 3; ++face)
@@ -214,64 +216,97 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             auto texcoord_idx_2 = indices[face * 3 + 1].texcoord_index;
             auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
 
-            Vertex v1;
-            v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0] * scale;
-            v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1] * scale;
-            v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2] * scale;
+            Vertex v1{}, v2{}, v3{};
 
-            v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
-            v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
-            v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+            // positions
+            v1.position = float3(
+                attrib.vertices[pos_idx_1 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_1 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_1 * 3 + 2] * scale);
+            v2.position = float3(
+                attrib.vertices[pos_idx_2 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_2 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_2 * 3 + 2] * scale);
+            v3.position = float3(
+                attrib.vertices[pos_idx_3 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_3 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_3 * 3 + 2] * scale);
 
-            v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
-            v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
+            // normals (fallback to face normal if there are no normals in OBJ)
+            auto compute_face_normal = [](const float3& a, const float3& b, const float3& c) {
+                return (Cross(b - a, c - a)).Normalize();
+                };
+            bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
 
-            Vertex v2;
-            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
-            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
-            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
+            if (has_n) {
+                v1.normal = float3(
+                    attrib.normals[normal_idx_1 * 3 + 0],
+                    attrib.normals[normal_idx_1 * 3 + 1],
+                    attrib.normals[normal_idx_1 * 3 + 2]);
+                v2.normal = float3(
+                    attrib.normals[normal_idx_2 * 3 + 0],
+                    attrib.normals[normal_idx_2 * 3 + 1],
+                    attrib.normals[normal_idx_2 * 3 + 2]);
+                v3.normal = float3(
+                    attrib.normals[normal_idx_3 * 3 + 0],
+                    attrib.normals[normal_idx_3 * 3 + 1],
+                    attrib.normals[normal_idx_3 * 3 + 2]);
+            }
+            else {
+                float3 n = compute_face_normal(v1.position, v2.position, v3.position);
+                v1.normal = v2.normal = v3.normal = n;
+            }
 
-            v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
-            v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
-            v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
+            // texcoords
+            v1.texcoord = (texcoord_idx_1 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_1 * 2 + 0], attrib.texcoords[texcoord_idx_1 * 2 + 1]);
+            v2.texcoord = (texcoord_idx_2 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_2 * 2 + 0], attrib.texcoords[texcoord_idx_2 * 2 + 1]);
+            v3.texcoord = (texcoord_idx_3 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_3 * 2 + 0], attrib.texcoords[texcoord_idx_3 * 2 + 1]);
 
-            v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
-            v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
-
-            Vertex v3;
-            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
-            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
-            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
-
-            v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
-            v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
-            v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
-
-            v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
-            v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
-
+            // YZ flip (позиции и нормали)
             flip_vector(v1.position, flip_yz);
-            flip_vector(v1.normal, flip_yz);
             flip_vector(v2.position, flip_yz);
-            flip_vector(v2.normal, flip_yz);
             flip_vector(v3.position, flip_yz);
+            flip_vector(v1.normal, flip_yz);
+            flip_vector(v2.normal, flip_yz);
             flip_vector(v3.normal, flip_yz);
 
-            if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
-            {
-                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
+            // пишем 3 вершины подряд
+            const std::uint32_t base = static_cast<std::uint32_t>(vertices_.size());
+            vertices_.push_back(v1);
+            vertices_.push_back(v2);
+            vertices_.push_back(v3);
+
+            // и 3 индекса на них
+            indices_.push_back(base + 0);
+            indices_.push_back(base + 1);
+            indices_.push_back(base + 2);
+
+            // материал для этого треугольника
+            std::uint32_t mtl = 0;
+            if (face < shape.mesh.material_ids.size()) {
+                int mid = shape.mesh.material_ids[face];
+                if (mid >= 0 && static_cast<size_t>(mid) < materials_.size()) mtl = static_cast<std::uint32_t>(mid);
             }
-            else
-            {
-                // Use the default material
-                triangles_.emplace_back(v1, v2, v3, 0);
-            }
+            material_ids_.push_back(mtl);
         }
     }
 
-    std::cout << "Load successful (" << triangles_.size() << " triangles)" << std::endl;
+    const auto tri_count = static_cast<std::uint32_t>(indices_.size() / 3);
+    assert(material_ids_.size() == (std::size_t)tri_count);
 
+    for (std::uint32_t material_id : material_ids_)
+    {
+        assert(material_id < materials_.size());
+    }
+
+    std::cout << "Load successful (" << tri_count << " triangles, "
+        << vertices_.size() << " vertices, "
+        << indices_.size() << " indices)" << std::endl;
 }
+
 
 std::size_t Scene::LoadTexture(char const* filename)
 {
@@ -323,19 +358,19 @@ std::size_t Scene::LoadTexture(char const* filename)
 
 void Scene::CollectEmissiveTriangles()
 {
-    for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
-    {
-        auto const& triangle = triangles_[triangle_idx];
-        float3 emission = UnpackRGBE(materials_[triangle.mtlIndex].emission);
+    emissive_indices_.clear();
+    emissive_indices_.reserve(material_ids_.size());
 
-        if (emission.x + emission.y + emission.z > 0.0f)
+    for (std::uint32_t t = 0; t < material_ids_.size(); ++t)
+    {
+        std::uint32_t mid = material_ids_[t];
+        if (mid < materials_.size())
         {
-            // The triangle is emissive
-            emissive_indices_.push_back(triangle_idx);
+            float3 e = UnpackRGBE(materials_[mid].emission);
+            if ((e.x + e.y + e.z) > 0.0f) emissive_indices_.push_back(t);
         }
     }
-
-    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
+    scene_info_.emissive_count = static_cast<std::uint32_t>(emissive_indices_.size());
 }
 
 void Scene::AddPointLight(float3 origin, float3 radiance)

@@ -34,7 +34,9 @@ __kernel void HitSurface
     __global uint*           incoming_ray_counter,
     __global uint*           incoming_pixel_indices,
     __global Hit*            hits,
-    __global Triangle*       triangles,
+    __global Vertex*         vertices,
+    __global uint*           indices,
+    __global uint*           material_ids,
     __global Light*          analytic_lights,
     __global uint*           emissive_indices,
     __global PackedMaterial* materials,
@@ -85,20 +87,30 @@ __kernel void HitSurface
     int x = pixel_idx % width;
     int y = pixel_idx / width;
 
-    Triangle triangle = triangles[hit.primitive_id];
+    const uint prim = hit.primitive_id;
+    const uint i0 = indices[prim * 3u + 0u];
+    const uint i1 = indices[prim * 3u + 1u];
+    const uint i2 = indices[prim * 3u + 2u];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    const Vertex v0 = vertices[i0];
+    const Vertex v1 = vertices[i1];
+    const Vertex v2 = vertices[i2];
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position, triangle.v3.position - triangle.v1.position));
+    // Interpolated hit position
+    float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, hit.bc);
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    // Geometric (non-interpolated) normal
+    float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    // Interpolated texcoord and shading normal
+    const float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, hit.bc);
+    const float3 normal = normalize(InterpolateAttributes(v0.normal, v1.normal, v2.normal, hit.bc));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    // Get packed material
+    const uint material_id = material_ids[prim];
+    const PackedMaterial packed_material = materials[material_id];
+
+    // Unpack material
     Material material;
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 

@@ -25,7 +25,7 @@
 #include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
 
-bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
+bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t, uint* prim_id)
 {
     float3 e1 = triangle->position2 - triangle->position1;
     float3 e2 = triangle->position3 - triangle->position1;
@@ -68,6 +68,7 @@ bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float
     // Intersection is found
     *bc = (float2)(u, v);
     *out_t = t;
+    *prim_id = triangle->prim_id;
 
     return true;
 }
@@ -154,9 +155,8 @@ __kernel void TraceBvh
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < num_primitives; ++i)
                 {
-                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.bc, &hit.t))
+                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.bc, &hit.t, &hit.primitive_id))
                     {
-                        hit.primitive_id = node.offset + i;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;

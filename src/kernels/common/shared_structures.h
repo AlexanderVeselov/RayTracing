@@ -95,72 +95,19 @@ STRUCT_BEGIN(Texture)
 STRUCT_END(Texture)
 
 STRUCT_BEGIN(Vertex)
-#ifdef __cplusplus
-    Vertex() {}
-    Vertex(const float3& position, const float2& texcoord, const float3& normal)
-        : position(position), texcoord(texcoord.x, texcoord.y, 0), 
-        normal(normal)
-    {}
-#endif
-
     float3 position;
-    float3 texcoord;
     float3 normal;
+    float2 texcoord;
 STRUCT_END(Vertex)
 
-STRUCT_BEGIN(Triangle)
-#ifdef __cplusplus
-    Triangle(Vertex v1, Vertex v2, Vertex v3, unsigned int mtlIndex)
-        : v1(v1), v2(v2), v3(v3), mtlIndex(mtlIndex)
-    {}
-
-    void Project(float3 axis, float& min, float& max) const
-    {
-        min = std::numeric_limits<float>::max();
-        max = std::numeric_limits<float>::lowest();
-
-        float3 points[3] = { v1.position, v2.position, v3.position };
-
-        for (size_t i = 0; i < 3; ++i)
-        {
-            float val = Dot(points[i], axis);
-            min = std::min(min, val);
-            max = std::max(max, val);
-        }
-    }
-
-    Bounds3 GetBounds() const
-    {
-        return Union(Bounds3(v1.position, v2.position), v3.position);
-    }
-#endif
-
-    Vertex v1, v2, v3;
-    unsigned int mtlIndex;
-    unsigned int padding[3];
-STRUCT_END(Triangle)
-
 STRUCT_BEGIN(RTTriangle)
-#ifdef __cplusplus
-    RTTriangle(float3 v1, float3 v2, float3 v3)
-        : position1(v1), position2(v2), position3(v3)
-    {}
-#endif
-
     float3 position1;
     float3 position2;
     float3 position3;
+    unsigned int prim_id;
 STRUCT_END(RTTriangle)
 
-STRUCT_BEGIN(CellData)
-    unsigned int start_index;
-    unsigned int count;
-STRUCT_END(CellData)
-
 STRUCT_BEGIN(LinearBVHNode)
-#ifdef __cplusplus
-    LinearBVHNode() {}
-#endif
     // 32 bytes
     Bounds3 bounds;
     // 4 bytes

@@ -37,7 +37,7 @@ const float MATH_1DIV2PI = 0.159154943f;
 const float MATH_PIDIV2 = 1.570796327f;
 const float MATH_PIDIV4 = 0.785398163f;
 
-class float3
+struct alignas(16) float3
 {
 public:
     float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
@@ -68,18 +68,18 @@ public:
     const float& operator[] (size_t i) const { return (i == 0) ? x : (i == 1 ? y : z); }
 
     friend std::ostream& operator<< (std::ostream &os, const float3 &vec) { return os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")"; }
-    
+
 public:
     float x, y, z;
-private:
+//private:
     // Used for align to 4 bytes
-    std::uint32_t padding;
+    //std::uint32_t padding;
 };
 
 ///@TODO: fix it
 typedef float3 float4;
 
-class float2
+struct float2
 {
 public:
     float2(float x, float y) : x(x), y(y) {}
@@ -204,7 +204,6 @@ public:
         return o;
     }
 
-    bool Intersects(const Triangle &triangle) const;
     void Project(float3 axis, float &mins, float &maxs) const;
 
 public:

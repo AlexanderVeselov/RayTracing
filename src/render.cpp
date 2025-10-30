@@ -31,9 +31,6 @@
 #include "Utils/window.hpp"
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_win32.h>
-#include <iostream>
-#include <fstream>
-#include <sstream>
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window)
@@ -51,7 +48,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
             throw std::runtime_error("No OpenCL platforms found");
         }
 
-        cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
+        cl_context_ = std::make_unique<CLContext>(all_platforms[0]);
     }
 
     framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
@@ -59,8 +56,8 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>();
-    // Build it right here
-    acc_structure_->BuildCPU(scene_.GetTriangles());
+    // Build it
+    acc_structure_->BuildCPU(scene_.GetVertices(), scene_.GetIndices());
 
     // TODO, NOTE: this is done after building the acc structure because it reorders triangles
     // Need to get rid of reordering
@@ -100,7 +97,6 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    glFinish();
     window_.SwapBuffers();
     prev_frame_time_ = start_frame_time_;
 }

@@ -30,29 +30,20 @@
 class Bvh : public AccelerationStructure
 {
 public:
-    Bvh();
+    Bvh() = default;
 
-    // TODO: USE CONSTANT REF
-    void BuildCPU(std::vector<Triangle> & triangles) override;
+    void BuildCPU(std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) override;
     std::vector<LinearBVHNode> const& GetNodes() const override { return nodes_; }
+    std::vector<RTTriangle> const& GetTriangles() const override { return rt_triangles_; }
 
     //void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
     //    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit = true) override;
 
-
-
     struct BVHPrimitiveInfo
     {
-        BVHPrimitiveInfo() {}
-        BVHPrimitiveInfo(unsigned int primitiveNumber, const Bounds3& bounds)
-            : primitiveNumber(primitiveNumber), bounds(bounds),
-            centroid(bounds.min * 0.5f + bounds.max * 0.5f)
-        {}
-
-        unsigned int primitiveNumber = 0;
-        Bounds3 bounds;
-        float3 centroid;
-
+        unsigned int primitiveNumber; // = triId (0..triCount-1)
+        Bounds3      bounds;
+        float3       centroid;
     };
 
     struct BVHBuildNode
@@ -90,14 +81,17 @@ public:
 
 private:
     BVHBuildNode* RecursiveBuild(
-        std::vector<Triangle> const& triangles,
+        const std::vector<Vertex>& vertices,
+        const std::vector<std::uint32_t>& src_indices,
         std::vector<BVHPrimitiveInfo>& primitiveInfo,
-        unsigned int start,
-        unsigned int end, unsigned int* totalNodes,
-        std::vector<Triangle>& orderedTriangles);
+        unsigned int start, unsigned int end,
+        unsigned int* totalNodes,
+        std::vector<RTTriangle>& orderedTris);
+
     unsigned int FlattenBVHTree(BVHBuildNode* node, unsigned int* offset);
 
     std::vector<LinearBVHNode> nodes_;
+    std::vector<RTTriangle> rt_triangles_;
     BVHBuildNode* root_node_;
     std::uint32_t max_prims_in_node_;
 };
