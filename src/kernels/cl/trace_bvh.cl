@@ -25,76 +25,47 @@
 #include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
 
-bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t, uint* prim_id)
+bool RayTriangle(Ray ray, const __global RTTriangle* __restrict tri, float2* bc, float* out_t, uint* prim_id)
 {
-    float3 e1 = triangle->position2 - triangle->position1;
-    float3 e2 = triangle->position3 - triangle->position1;
-    // Calculate planes normal vector
+    float3 e1 = tri->position2 - tri->position1;
+    float3 e2 = tri->position3 - tri->position1;
+
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
-
-    // Ray is parallel to plane
-    if (det < 1e-8f || -det > 1e-8f)
-    {
-        return false;
-    }
+    if (fabs(det) < 1e-8f) return false;
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle->position1;
-    float u = dot(tvec, pvec) * inv_det;
 
-    if (u < 0.0f || u > 1.0f)
-    {
-        return false;
-    }
+    float3 tvec = ray.origin.xyz - tri->position1;
+    float  u = dot(tvec, pvec) * inv_det;
+    if ((u < 0.0f) | (u > 1.0f)) return false;
 
     float3 qvec = cross(tvec, e1);
-    float v = dot(ray.direction.xyz, qvec) * inv_det;
-
-    if (v < 0.0f || u + v > 1.0f)
-    {
-        return false;
-    }
+    float  v = dot(ray.direction.xyz, qvec) * inv_det;
+    if ((v < 0.0f) | ((u + v) > 1.0f)) return false;
 
     float t = dot(e2, qvec) * inv_det;
     float t_min = ray.origin.w;
     float t_max = ray.direction.w;
+    if ((t < t_min) | (t > t_max)) return false;
 
-    if (t < t_min || t > t_max)
-    {
-        return false;
-    }
-
-    // Intersection is found
     *bc = (float2)(u, v);
     *out_t = t;
-    *prim_id = triangle->prim_id;
-
+    *prim_id = tri->prim_id;
     return true;
 }
 
-float max3(float3 val)
+bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float tmin_in, float tmax_in)
 {
-    return max(max(val.x, val.y), val.z);
-}
+    float3 t0 = (bounds.pos[0] - ray_origin) * ray_inv_dir;
+    float3 t1 = (bounds.pos[1] - ray_origin) * ray_inv_dir;
 
-float min3(float3 val)
-{
-    return min(min(val.x, val.y), val.z);
-}
+    float3 tmin3 = fmin(t0, t1);
+    float3 tmax3 = fmax(t0, t1);
 
-bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
-{
-    float3 aabb_min = bounds.pos[0];
-    float3 aabb_max = bounds.pos[1];
-
-    float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
-    float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
-
-    float tmin = max(max3(min(t0, t1)), t_min);
-    float tmax = min(min3(max(t0, t1)), t_max);
-
-    return (tmax >= tmin);
+    float tmin = fmax(fmax(tmin3.x, tmin3.y), fmax(tmin3.z, tmin_in));
+    float tmax = fmin(fmin(tmax3.x, tmax3.y), fmin(tmax3.z, tmax_in));
+    return tmax >= tmin;
 }
 
 __kernel void TraceBvh
@@ -102,8 +73,8 @@ __kernel void TraceBvh
     // Input
     __global Ray* rays,
     __global uint* ray_counter,
-    __global RTTriangle* triangles,
-    __global LinearBVHNode* nodes,
+    __global RTTriangle* __restrict triangles,
+    __global LinearBVHNode* __restrict nodes,
     // Output
 #ifdef SHADOW_RAYS
     __global uint* shadow_hits

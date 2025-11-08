@@ -96,7 +96,7 @@ STRUCT_END(Texture)
 
 STRUCT_BEGIN(Vertex)
     float3 position;
-    float3 normal;
+    unsigned int normal;
     float2 texcoord;
 STRUCT_END(Vertex)
 

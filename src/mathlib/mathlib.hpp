@@ -98,6 +98,8 @@ public:
     // Vector operators
     float2 operator+ (const float2 &other) { return float2(x + other.x, y + other.y); }
     float2 operator- (const float2 &other) { return float2(x - other.x, y - other.y); }
+    float2 operator* (const float2 &other) { return float2(x * other.x, y * other.y); }
+    float2 operator/ (const float2 &other) { return float2(x / other.x, y / other.y); }
     friend float2 operator+ (const float2 &lhs, const float2 &rhs) { return float2(lhs.x + rhs.x, lhs.y + rhs.y); }
     friend float2 operator- (const float2 &lhs, const float2 &rhs) { return float2(lhs.x - rhs.x, lhs.y - rhs.y); }
 

@@ -40,6 +40,9 @@
 #include <ctime>
 #include <cctype>
 #include <filesystem>
+#include <unordered_map>
+#include <cmath>
+#include <cstring>
 
 #undef max
 
@@ -50,6 +53,46 @@ Scene::Scene(const char* filename, float scale, bool flip_yz)
 
 namespace
 {
+// Simple FNV-1a hash combiner for 32-bit values
+inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
+{
+    h ^= v;
+    h *= 16777619u; // FNV prime
+    return h;
+}
+
+struct VertexHasher
+{
+    std::size_t operator()(Vertex const& v) const noexcept
+    {
+        std::size_t h = 2166136261u; // FNV offset basis
+        auto hash_float = [&](float f)
+        {
+            std::uint32_t bits;
+            static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
+            std::memcpy(&bits, &f, sizeof(f));
+            h = hash_combine_u32(h, bits);
+        };
+        hash_float(v.position.x);
+        hash_float(v.position.y);
+        hash_float(v.position.z);
+        h = hash_combine_u32(h, v.normal);
+        hash_float(v.texcoord.x);
+        hash_float(v.texcoord.y);
+        return h;
+    }
+};
+
+struct VertexEqual
+{
+    bool operator()(Vertex const& a, Vertex const& b) const noexcept
+    {
+        return a.normal == b.normal &&
+            a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+            a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
+    }
+};
+
 unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
 {
     assert(texture_index < 256);
@@ -122,6 +165,36 @@ unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_id
     return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
         | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
 }
+
+inline float2 SignNotZero(const float2& v)
+{
+    return float2(v.x >= 0.0f ? 1.0f : -1.0f,
+                    v.y >= 0.0f ? 1.0f : -1.0f);
+}
+
+// Octahedral normal encoding. Output range is [-1, 1]
+// https://jcgt.org/published/0003/02/01/paper.pdf
+inline float2 OctahedronEncode(const float3& n_in)
+{
+    // Assume n_in may not be normalized.
+    float3 v = n_in.Normalize();
+    float2 p = float2(v.x, v.y) / (std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z));
+    if (v.z <= 0.0f)
+    {
+        return (float2(1.0f - std::fabs(p.y), 1.0f - std::fabs(p.x))) * SignNotZero(p); // (1 - abs(p.yx)) * SignNotZero(p)
+    }
+    return p;
+}
+
+// Pack into 32-bit unsigned int
+inline std::uint32_t PackNormal(const float3& n)
+{
+    float2 enc = OctahedronEncode(n);
+    std::uint32_t packed_x = static_cast<std::uint32_t>(clamp((enc.x * 0.5f + 0.5f) * 65535.0f, 0.0f, 65535.0f));
+    std::uint32_t packed_y = static_cast<std::uint32_t>(clamp((enc.y * 0.5f + 0.5f) * 65535.0f, 0.0f, 65535.0f));
+    return (packed_x) | (packed_y << 16);
+
+}
 }
 
 void Scene::Load(const char* filename, float scale, bool flip_yz)
@@ -182,11 +255,13 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
     }
 
-    auto flip_vector = [](float3& v, bool do_flip) {
-        if (do_flip) {
-            std::swap(v.y, v.z);
-            v.y = -v.y;
-        }
+    auto flip_vector = [](float3& v, bool do_flip)
+        {
+            if (do_flip)
+            {
+                std::swap(v.y, v.z);
+                v.y = -v.y;
+            }
         };
 
     // Reserve memory (approx count) to reduce re-allocations
@@ -195,6 +270,9 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     vertices_.reserve(vertices_.size() + approx_triangles * 3);
     indices_.reserve(indices_.size() + approx_triangles * 3);
     material_ids_.reserve(material_ids_.size() + approx_triangles);
+
+    // Cache for vertex deduplication (position+normal+texcoord)
+    std::unordered_map<Vertex, std::uint32_t, VertexHasher, VertexEqual> vertex_cache;
 
     // Build VB/IB
     for (auto const& shape : shapes)
@@ -238,23 +316,25 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
                 };
             bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
 
-            if (has_n) {
-                v1.normal = float3(
+            float3 n1, n2, n3;
+            if (has_n)
+            {
+                n1 = float3(
                     attrib.normals[normal_idx_1 * 3 + 0],
                     attrib.normals[normal_idx_1 * 3 + 1],
                     attrib.normals[normal_idx_1 * 3 + 2]);
-                v2.normal = float3(
+                n2 = float3(
                     attrib.normals[normal_idx_2 * 3 + 0],
                     attrib.normals[normal_idx_2 * 3 + 1],
                     attrib.normals[normal_idx_2 * 3 + 2]);
-                v3.normal = float3(
+                n3 = float3(
                     attrib.normals[normal_idx_3 * 3 + 0],
                     attrib.normals[normal_idx_3 * 3 + 1],
                     attrib.normals[normal_idx_3 * 3 + 2]);
             }
             else {
                 float3 n = compute_face_normal(v1.position, v2.position, v3.position);
-                v1.normal = v2.normal = v3.normal = n;
+                n1 = n2 = n3 = n;
             }
 
             // texcoords
@@ -265,28 +345,42 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             v3.texcoord = (texcoord_idx_3 < 0) ? float2(0.0f) :
                 float2(attrib.texcoords[texcoord_idx_3 * 2 + 0], attrib.texcoords[texcoord_idx_3 * 2 + 1]);
 
-            // YZ flip (позиции и нормали)
+            // YZ flip
             flip_vector(v1.position, flip_yz);
             flip_vector(v2.position, flip_yz);
             flip_vector(v3.position, flip_yz);
-            flip_vector(v1.normal, flip_yz);
-            flip_vector(v2.normal, flip_yz);
-            flip_vector(v3.normal, flip_yz);
+            flip_vector(n1, flip_yz);
+            flip_vector(n2, flip_yz);
+            flip_vector(n3, flip_yz);
 
-            // пишем 3 вершины подряд
-            const std::uint32_t base = static_cast<std::uint32_t>(vertices_.size());
-            vertices_.push_back(v1);
-            vertices_.push_back(v2);
-            vertices_.push_back(v3);
+            // Pack normals
+            v1.normal = PackNormal(n1);
+            v2.normal = PackNormal(n2);
+            v3.normal = PackNormal(n3);
 
-            // и 3 индекса на них
-            indices_.push_back(base + 0);
-            indices_.push_back(base + 1);
-            indices_.push_back(base + 2);
+            // Vertex deduplication: reuse vertices with identical attributes
+            auto find_or_add = [&](Vertex const& v) -> std::uint32_t
+                {
+                    auto it = vertex_cache.find(v);
+                    if (it != vertex_cache.end()) return it->second;
+                    std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                    vertices_.push_back(v);
+                    vertex_cache.emplace(v, idx);
+                    return idx;
+                };
 
-            // материал для этого треугольника
+            std::uint32_t i1 = find_or_add(v1);
+            std::uint32_t i2 = find_or_add(v2);
+            std::uint32_t i3 = find_or_add(v3);
+
+            indices_.push_back(i1);
+            indices_.push_back(i2);
+            indices_.push_back(i3);
+
+            // Collect material IDs
             std::uint32_t mtl = 0;
-            if (face < shape.mesh.material_ids.size()) {
+            if (face < shape.mesh.material_ids.size())
+            {
                 int mid = shape.mesh.material_ids[face];
                 if (mid >= 0 && static_cast<size_t>(mid) < materials_.size()) mtl = static_cast<std::uint32_t>(mid);
             }

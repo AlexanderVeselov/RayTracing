@@ -27,6 +27,30 @@
 #include "src/kernels/common/sampling.h"
 #include "src/kernels/common/light.h"
 
+inline float2 SignNotZero(float2 v) { return (float2)(v.x >= 0.0f ? 1.0f : -1.0f, v.y >= 0.0f ? 1.0f : -1.0f); }
+
+inline float3 OctahedronDecode(float2 e)
+{
+    float3 v = (float3)(e.x, e.y, 1.0f - fabs(e.x) - fabs(e.y));
+    if (v.z < 0.0f)
+    {
+        float2 folded = (float2)(1.0f - fabs(e.y), 1.0f - fabs(e.x)); // (1 - abs(e.yx))
+        float2 s = SignNotZero(e);
+        v.x = folded.x * s.x;
+        v.y = folded.y * s.y;
+    }
+    return normalize(v);
+}
+
+inline float3 DecodeOctNormal(uint packed)
+{
+    uint qx = packed & 0xFFFFu;
+    uint qy = (packed >> 16) & 0xFFFFu;
+    float x = ((float)qx / 65535.0f) * 2.0f - 1.0f;
+    float y = ((float)qy / 65535.0f) * 2.0f - 1.0f;
+    return OctahedronDecode((float2)(x, y));
+}
+
 float2 ProjectScreen(float3 position, Camera camera)
 {
     float3 d = normalize(position - camera.position);
@@ -103,9 +127,12 @@ __kernel void GenerateAOV
     // Geometric (non-interpolated) normal
     float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
 
-    // Interpolated texcoord and shading normal
+    // Interpolated texcoord and shading normal (decode packed normals first)
     const float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, hit.bc);
-    const float3 normal = normalize(InterpolateAttributes(v0.normal, v1.normal, v2.normal, hit.bc));
+    float3 n0 = DecodeOctNormal(v0.normal);
+    float3 n1 = DecodeOctNormal(v1.normal);
+    float3 n2 = DecodeOctNormal(v2.normal);
+    const float3 normal = normalize(InterpolateAttributes(n0, n1, n2, hit.bc));
 
     // Get packed material
     const uint material_id = material_ids[prim];
