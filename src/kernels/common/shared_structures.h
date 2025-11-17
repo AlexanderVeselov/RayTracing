@@ -59,10 +59,9 @@ STRUCT_BEGIN(Ray)
 STRUCT_END(Ray)
 
 STRUCT_BEGIN(Hit)
-    float2 bc;
     unsigned int primitive_id;
-    // TODO: remove t from hit structure
-    float t;
+    // Additional payload here
+    unsigned int padding;
 STRUCT_END(Hit)
 
 STRUCT_BEGIN(SceneInfo)
@@ -96,7 +95,7 @@ STRUCT_END(Texture)
 
 STRUCT_BEGIN(Vertex)
     float3 position;
-    unsigned int normal;
+    unsigned int normal; // Packed octahedral encoding
     float2 texcoord;
 STRUCT_END(Vertex)
 
@@ -108,13 +107,10 @@ STRUCT_BEGIN(RTTriangle)
 STRUCT_END(RTTriangle)
 
 STRUCT_BEGIN(LinearBVHNode)
-    // 32 bytes
-    Bounds3 bounds;
-    // 4 bytes
+    float3 bmin;
     unsigned int offset; // primitives (leaf) or second child (interior) offset
-    // 4 bytes
+    float3 bmax;
     unsigned int num_primitives_axis;  // 0 -> interior node
-    unsigned int padding[2]; // ensure 48 byte total size
 STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)

@@ -193,7 +193,8 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(
 unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
 {
     LinearBVHNode* linearNode = &nodes_[*offset];
-    linearNode->bounds = node->bounds;
+    linearNode->bmin = node->bounds.min;
+    linearNode->bmax = node->bounds.max;
     unsigned int myOffset = (*offset)++;
     if (node->nPrimitives > 0)
     {

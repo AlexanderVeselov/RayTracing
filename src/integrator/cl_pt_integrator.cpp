@@ -510,7 +510,7 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     kernel.SetArgument(4, hits_buffer_);
 
     ///@TODO: use indirect dispatch
-    cl_context_.ExecuteKernel(kernel, max_num_rays);
+    cl_context_.ExecuteKernel(kernel, max_num_rays, 64);
 
     //acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
     //    max_num_rays, hits_buffer_);
@@ -621,7 +621,7 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     // Output radiance
     hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer, radiance_buffer_);
 
-    cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
+    cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays, 128);
 }
 
 void CLPathTraceIntegrator::AccumulateDirectSamples()

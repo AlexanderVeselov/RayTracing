@@ -65,6 +65,28 @@ float2 ProjectScreen(float3 position, Camera camera)
     return (float2)(u, v) * 0.5f + 0.5f;
 }
 
+float2 CalcBarycentrics(Ray ray, float3 p0, float3 p1, float3 p2)
+{
+    float3 e1 = p1 - p0;
+    float3 e2 = p2 - p0;
+
+    float3 pvec = cross(ray.direction.xyz, e2);
+    float det = dot(e1, pvec);
+    if (fabs(det) < 1e-8f) return (float2)(0, 0);
+
+    float inv_det = 1.0f / det;
+
+    float3 tvec = ray.origin.xyz - p0;
+    float  u = dot(tvec, pvec) * inv_det;
+    if ((u < 0.0f) | (u > 1.0f)) return (float2)(0, 0);
+
+    float3 qvec = cross(tvec, e1);
+    float  v = dot(ray.direction.xyz, qvec) * inv_det;
+    if ((v < 0.0f) | ((u + v) > 1.0f)) return (float2)(0, 0);
+
+    return (float2)(u, v);
+}
+
 __kernel void GenerateAOV
 (
     // Input
@@ -121,18 +143,21 @@ __kernel void GenerateAOV
     const Vertex v1 = vertices[i1];
     const Vertex v2 = vertices[i2];
 
+    // Compute barycentric coordinates
+    float2 bc = CalcBarycentrics(ray, v0.position, v1.position, v2.position);
+
     // Interpolated hit position
-    float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, hit.bc);
+    float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, bc);
 
     // Geometric (non-interpolated) normal
     float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
 
     // Interpolated texcoord and shading normal (decode packed normals first)
-    const float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, hit.bc);
+    const float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
     float3 n0 = DecodeOctNormal(v0.normal);
     float3 n1 = DecodeOctNormal(v1.normal);
     float3 n2 = DecodeOctNormal(v2.normal);
-    const float3 normal = normalize(InterpolateAttributes(n0, n1, n2, hit.bc));
+    const float3 normal = normalize(InterpolateAttributes(n0, n1, n2, bc));
 
     // Get packed material
     const uint material_id = material_ids[prim];
@@ -143,7 +168,7 @@ __kernel void GenerateAOV
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     diffuse_albedo[pixel_idx] = material.diffuse_albedo;
-    depth_buffer[pixel_idx] = length(ray.origin.xyz - position);
+    depth_buffer[pixel_idx] = (float)hit.padding * 0.01f;//length(ray.origin.xyz - position);
     normal_buffer[pixel_idx] = normal;
     velocity_buffer[pixel_idx] = ProjectScreen(position, camera) - ProjectScreen(position, prev_camera);
 }

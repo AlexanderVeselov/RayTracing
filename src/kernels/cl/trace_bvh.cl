@@ -25,7 +25,7 @@
 #include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
 
-bool RayTriangle(Ray ray, const __global RTTriangle* __restrict tri, float2* bc, float* out_t, uint* prim_id)
+bool RayTriangle(Ray ray, const __global RTTriangle* __restrict tri, uint* prim_id, float* out_t)
 {
     float3 e1 = tri->position2 - tri->position1;
     float3 e2 = tri->position3 - tri->position1;
@@ -49,16 +49,15 @@ bool RayTriangle(Ray ray, const __global RTTriangle* __restrict tri, float2* bc,
     float t_max = ray.direction.w;
     if ((t < t_min) | (t > t_max)) return false;
 
-    *bc = (float2)(u, v);
-    *out_t = t;
     *prim_id = tri->prim_id;
+    *out_t = t;
     return true;
 }
 
-bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float tmin_in, float tmax_in)
+bool RayBounds(float3 bmin, float3 bmax, float3 ray_origin, float3 ray_inv_dir, float tmin_in, float tmax_in)
 {
-    float3 t0 = (bounds.pos[0] - ray_origin) * ray_inv_dir;
-    float3 t1 = (bounds.pos[1] - ray_origin) * ray_inv_dir;
+    float3 t0 = (bmin - ray_origin) * ray_inv_dir;
+    float3 t1 = (bmax - ray_origin) * ray_inv_dir;
 
     float3 tmin3 = fmin(t0, t1);
     float3 tmax3 = fmax(t0, t1);
@@ -112,12 +111,13 @@ __kernel void TraceBvh
     int toVisitOffset = 0;
     int currentNodeIndex = 0;
     int nodesToVisit[64];
+    unsigned int iter_count = 0;
 
     while (true)
     {
         LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bmin, node.bmax, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
             int num_primitives = node.num_primitives_axis >> 16;
             // Leaf node
@@ -126,11 +126,11 @@ __kernel void TraceBvh
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < num_primitives; ++i)
                 {
-                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.bc, &hit.t, &hit.primitive_id))
+                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.primitive_id, &t))
                     {
                         // Set ray t_max
-                        // TODO: remove t from hit structure
-                        ray.direction.w = hit.t;
+                        ray.direction.w = t;
+                        hit.padding = iter_count;
 
 #ifdef SHADOW_RAYS
                         shadow_hit = 0;
@@ -170,6 +170,8 @@ __kernel void TraceBvh
 
             currentNodeIndex = nodesToVisit[--toVisitOffset];
         }
+
+        ++iter_count;
     }
 
 endtrace:
