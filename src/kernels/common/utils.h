@@ -38,6 +38,10 @@ float3 to_float3(float x)
 {
     return float3(x, x, x);
 }
+float2 make_float2(float x, float y)
+{
+    return float2(x, y);
+}
 float3 make_float3(float x, float y, float z)
 {
     return float3(x, y, z);
@@ -59,6 +63,10 @@ int to_int(uint x)
 float3 to_float3(float x)
 {
     return (float3)(x, x, x);
+}
+float2 make_float2(float x, float y)
+{
+    return (float2)(x, y);
 }
 float3 make_float3(float x, float y, float z)
 {
@@ -187,6 +195,52 @@ void UnpackIorEmissionIdxTransparency(uint data,
     OUT(emission_idx) = ((data >> 8) & 0xFF);
     OUT(transparency) = to_float((data >> 16) & 0xFF) / 255.0f;
     OUT(transparency_idx) = ((data >> 24) & 0xFF);
+}
+
+float2 SignNotZero2(float2 v) { return make_float2(v.x >= 0.0f ? 1.0f : -1.0f, v.y >= 0.0f ? 1.0f : -1.0f); }
+
+float3 OctahedronDecode(float2 e)
+{
+    float3 v = make_float3(e.x, e.y, 1.0f - fabs(e.x) - fabs(e.y));
+    if (v.z < 0.0f)
+    {
+        float2 folded = (float2)(1.0f - fabs(e.y), 1.0f - fabs(e.x));
+        float2 s = SignNotZero2(e);
+        v.x = folded.x * s.x;
+        v.y = folded.y * s.y;
+    }
+    return normalize(v);
+}
+
+float3 DecodeOctNormal(uint packed)
+{
+    uint qx = packed & 0xFFFFu;
+    uint qy = (packed >> 16) & 0xFFFFu;
+    float x = ((float)qx / 65535.0f) * 2.0f - 1.0f;
+    float y = ((float)qy / 65535.0f) * 2.0f - 1.0f;
+    return OctahedronDecode(make_float2(x, y));
+}
+
+float2 CalcBarycentrics(Ray ray, float3 p0, float3 p1, float3 p2)
+{
+    float3 e1 = p1 - p0;
+    float3 e2 = p2 - p0;
+
+    float3 pvec = cross(ray.direction.xyz, e2);
+    float det = dot(e1, pvec);
+    if (fabs(det) < 1e-8f) return make_float2(0, 0);
+
+    float inv_det = 1.0f / det;
+
+    float3 tvec = ray.origin.xyz - p0;
+    float  u = dot(tvec, pvec) * inv_det;
+    if ((u < 0.0f) | (u > 1.0f)) return make_float2(0, 0);
+
+    float3 qvec = cross(tvec, e1);
+    float  v = dot(ray.direction.xyz, qvec) * inv_det;
+    if ((v < 0.0f) | ((u + v) > 1.0f)) return make_float2(0, 0);
+
+    return make_float2(u, v);
 }
 
 #endif // UTILS_H

@@ -27,30 +27,6 @@
 #include "src/kernels/common/sampling.h"
 #include "src/kernels/common/light.h"
 
-inline float2 SignNotZero(float2 v) { return (float2)(v.x >= 0.0f ? 1.0f : -1.0f, v.y >= 0.0f ? 1.0f : -1.0f); }
-
-inline float3 OctahedronDecode(float2 e)
-{
-    float3 v = (float3)(e.x, e.y, 1.0f - fabs(e.x) - fabs(e.y));
-    if (v.z < 0.0f)
-    {
-        float2 folded = (float2)(1.0f - fabs(e.y), 1.0f - fabs(e.x)); // (1 - abs(e.yx))
-        float2 s = SignNotZero(e);
-        v.x = folded.x * s.x;
-        v.y = folded.y * s.y;
-    }
-    return normalize(v);
-}
-
-inline float3 DecodeOctNormal(uint packed)
-{
-    uint qx = packed & 0xFFFFu;
-    uint qy = (packed >> 16) & 0xFFFFu;
-    float x = ((float)qx / 65535.0f) * 2.0f - 1.0f;
-    float y = ((float)qy / 65535.0f) * 2.0f - 1.0f;
-    return OctahedronDecode((float2)(x, y));
-}
-
 float2 ProjectScreen(float3 position, Camera camera)
 {
     float3 d = normalize(position - camera.position);
@@ -63,28 +39,6 @@ float2 ProjectScreen(float3 position, Camera camera)
     float v = dot(camera.up, ipd) / (angle);
 
     return (float2)(u, v) * 0.5f + 0.5f;
-}
-
-float2 CalcBarycentrics(Ray ray, float3 p0, float3 p1, float3 p2)
-{
-    float3 e1 = p1 - p0;
-    float3 e2 = p2 - p0;
-
-    float3 pvec = cross(ray.direction.xyz, e2);
-    float det = dot(e1, pvec);
-    if (fabs(det) < 1e-8f) return (float2)(0, 0);
-
-    float inv_det = 1.0f / det;
-
-    float3 tvec = ray.origin.xyz - p0;
-    float  u = dot(tvec, pvec) * inv_det;
-    if ((u < 0.0f) | (u > 1.0f)) return (float2)(0, 0);
-
-    float3 qvec = cross(tvec, e1);
-    float  v = dot(ray.direction.xyz, qvec) * inv_det;
-    if ((v < 0.0f) | ((u + v) > 1.0f)) return (float2)(0, 0);
-
-    return (float2)(u, v);
 }
 
 __kernel void GenerateAOV
@@ -168,7 +122,7 @@ __kernel void GenerateAOV
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     diffuse_albedo[pixel_idx] = material.diffuse_albedo;
-    depth_buffer[pixel_idx] = (float)hit.padding * 0.01f;//length(ray.origin.xyz - position);
+    depth_buffer[pixel_idx] = length(ray.origin.xyz - position);
     normal_buffer[pixel_idx] = normal;
     velocity_buffer[pixel_idx] = ProjectScreen(position, camera) - ProjectScreen(position, prev_camera);
 }

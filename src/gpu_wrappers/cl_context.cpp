@@ -106,7 +106,7 @@ void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_b
 
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t global_size, std::size_t local_size) const
 {
-	if (local_size == 0)
+    if (local_size == 0)
     {
         // Let OpenCL decide
         cl_int status = queue_.enqueueNDRangeKernel(
