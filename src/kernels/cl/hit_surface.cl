@@ -106,15 +106,15 @@ __kernel void HitSurface
     float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
 
     // Interpolated texcoord and shading normal (decode packed normals first)
-    const float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
+    float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
     float3 n0 = DecodeOctNormal(v0.normal);
     float3 n1 = DecodeOctNormal(v1.normal);
     float3 n2 = DecodeOctNormal(v2.normal);
-    const float3 normal = normalize(InterpolateAttributes(n0, n1, n2, bc));
+    float3 normal = normalize(InterpolateAttributes(n0, n1, n2, bc));
 
     // Get packed material
-    const uint material_id = material_ids[prim];
-    const PackedMaterial packed_material = materials[material_id];
+    uint material_id = material_ids[prim];
+    PackedMaterial packed_material = materials[material_id];
 
     // Unpack material
     Material material;

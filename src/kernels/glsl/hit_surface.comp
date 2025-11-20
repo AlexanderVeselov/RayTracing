@@ -47,82 +47,92 @@ layout(binding = 1) uniform TextureHandles
     uvec2 texture_handles[MAX_TEXTURES];
 };
 
+layout(binding = 2) uniform IncomingRayCounter
+{
+    uint incoming_ray_counter;
+};
+
 layout(std430, binding = 0) buffer IncomingRays
 {
     Ray incoming_rays[];
 };
 
-layout(std430, binding = 1) buffer IncomingRayCounter
-{
-    uint incoming_ray_counter[];
-};
-
-layout(std430, binding = 2) buffer IncomingPixelIndices
+layout(std430, binding = 1) buffer IncomingPixelIndices
 {
     uint incoming_pixel_indices[];
 };
 
-layout(std430, binding = 3) buffer OutgoingRays
+layout(std430, binding = 2) buffer OutgoingRays
 {
     Ray outgoing_rays[];
 };
 
-layout(std430, binding = 4) buffer OutgoingRayCounter
+layout(std430, binding = 3) buffer OutgoingRayCounter
 {
     uint outgoing_ray_counter[];
 };
 
-layout(std430, binding = 5) buffer OutgoingPixelIndices
+layout(std430, binding = 4) buffer OutgoingPixelIndices
 {
     uint outgoing_pixel_indices[];
 };
 
-layout(std430, binding = 6) buffer ShadowRays
+layout(std430, binding = 5) buffer ShadowRays
 {
     Ray shadow_rays[];
 };
 
-layout(std430, binding = 7) buffer ShadowRayCounter
+layout(std430, binding = 6) buffer ShadowRayCounter
 {
     uint shadow_ray_counter[];
 };
 
-layout(std430, binding = 8) buffer ShadowPixelIndices
+layout(std430, binding = 7) buffer ShadowPixelIndices
 {
     uint shadow_pixel_indices[];
 };
 
-layout(std430, binding = 9) buffer DirectLightSamples
+layout(std430, binding = 8) buffer DirectLightSamples
 {
     float3 direct_light_samples[];
 };
 
-layout(std430, binding = 10) buffer Hits
+layout(std430, binding = 9) buffer Hits
 {
     Hit hits[];
 };
 
-layout(std430, binding = 11) buffer Throughputs
+layout(std430, binding = 10) buffer Throughputs
 {
     float3 throughputs[];
 };
 
-layout(std430, binding = 12) buffer Triangles
+layout(std430, binding = 11) buffer Vertices
 {
-    Triangle triangles[];
+    Vertex vertices[];
 };
 
-layout(std430, binding = 13) buffer AnalyticLights
+layout(std430, binding = 12) buffer Indices
+{
+    uint indices[];
+};
+
+layout(std430, binding = 13) buffer MaterialIDs
+{
+    uint material_ids[];
+};
+
+layout(std430, binding = 14) buffer AnalyticLights
 {
     Light analytic_lights[];
 };
 
-layout(std430, binding = 14) buffer EmissiveIndices
+layout(std430, binding = 15) buffer EmissiveIndices
 {
     uint emissive_indices[];
 };
 
-layout(std430, binding = 15) buffer Materials
+layout(std430, binding = 16) buffer Materials
 {
     PackedMaterial materials[];
 };
@@ -133,7 +143,7 @@ layout(std430, binding = 15) buffer Materials
 void main()
 {
     uint incoming_ray_idx = gl_GlobalInvocationID.x;
-    uint num_incoming_rays = incoming_ray_counter[0];
+    uint num_incoming_rays = incoming_ray_counter;
 
     if (incoming_ray_idx >= num_incoming_rays)
     {
@@ -156,21 +166,36 @@ void main()
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
 
-    Triangle triangle = triangles[hit.primitive_id];
+    uint prim = hit.primitive_id;
+    uint i0 = indices[prim * 3u + 0u];
+    uint i1 = indices[prim * 3u + 1u];
+    uint i2 = indices[prim * 3u + 2u];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    Vertex v0 = vertices[i0];
+    Vertex v1 = vertices[i1];
+    Vertex v2 = vertices[i2];
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position,
-        triangle.v3.position - triangle.v1.position));
+    // Compute barycentric coordinates
+    float2 bc = CalcBarycentrics(incoming_ray, v0.position, v1.position, v2.position);
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    // Interpolated hit position
+    float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, bc);
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    // Geometric (non-interpolated) normal
+    float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    // Interpolated texcoord and shading normal (decode packed normals first)
+    float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
+    float3 n0 = DecodeOctNormal(v0.normal);
+    float3 n1 = DecodeOctNormal(v1.normal);
+    float3 n2 = DecodeOctNormal(v2.normal);
+    float3 normal = normalize(InterpolateAttributes(n0, n1, n2, bc));
+
+    // Get packed material
+    uint material_id = material_ids[prim];
+    PackedMaterial packed_material = materials[material_id];
+
+    // Unpack material
     Material material;
     ApplyTextures(packed_material, material, texcoord);
 

@@ -201,10 +201,10 @@ float2 SignNotZero2(float2 v) { return make_float2(v.x >= 0.0f ? 1.0f : -1.0f, v
 
 float3 OctahedronDecode(float2 e)
 {
-    float3 v = make_float3(e.x, e.y, 1.0f - fabs(e.x) - fabs(e.y));
+    float3 v = make_float3(e.x, e.y, 1.0f - abs(e.x) - abs(e.y));
     if (v.z < 0.0f)
     {
-        float2 folded = (float2)(1.0f - fabs(e.y), 1.0f - fabs(e.x));
+        float2 folded = make_float2(1.0f - abs(e.y), 1.0f - abs(e.x));
         float2 s = SignNotZero2(e);
         v.x = folded.x * s.x;
         v.y = folded.y * s.y;
@@ -212,12 +212,12 @@ float3 OctahedronDecode(float2 e)
     return normalize(v);
 }
 
-float3 DecodeOctNormal(uint packed)
+float3 DecodeOctNormal(uint oct_normal)
 {
-    uint qx = packed & 0xFFFFu;
-    uint qy = (packed >> 16) & 0xFFFFu;
-    float x = ((float)qx / 65535.0f) * 2.0f - 1.0f;
-    float y = ((float)qy / 65535.0f) * 2.0f - 1.0f;
+    uint qx = (oct_normal & 0xFFFFu);
+    uint qy = ((oct_normal >> 16) & 0xFFFFu);
+    float x = (to_float(qx) / 65535.0f) * 2.0f - 1.0f;
+    float y = (to_float(qy) / 65535.0f) * 2.0f - 1.0f;
     return OctahedronDecode(make_float2(x, y));
 }
 
@@ -234,11 +234,11 @@ float2 CalcBarycentrics(Ray ray, float3 p0, float3 p1, float3 p2)
 
     float3 tvec = ray.origin.xyz - p0;
     float  u = dot(tvec, pvec) * inv_det;
-    if ((u < 0.0f) | (u > 1.0f)) return make_float2(0, 0);
+    if ((u < 0.0f) || (u > 1.0f)) return make_float2(0, 0);
 
     float3 qvec = cross(tvec, e1);
     float  v = dot(ray.direction.xyz, qvec) * inv_det;
-    if ((v < 0.0f) | ((u + v) > 1.0f)) return make_float2(0, 0);
+    if ((v < 0.0f) || ((u + v) > 1.0f)) return make_float2(0, 0);
 
     return make_float2(u, v);
 }

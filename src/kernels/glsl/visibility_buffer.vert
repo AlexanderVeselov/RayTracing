@@ -27,21 +27,22 @@
 layout (location = 0) uniform mat4 g_ViewProjection;
 layout (location = 0) out flat uint out_geometry_info;
 
-layout (binding = 1, std430) buffer TriangleBuffer
+layout (binding = 1, std430) buffer VertexBuffer
 {
-    Triangle triangles[];
+    Vertex vertices[];
+};
+
+layout (binding = 2, std430) buffer IndexBuffer
+{
+    uint indices[];
 };
 
 void main()
 {
+    uint vertex_index = indices[gl_VertexID];
     uint triangle_idx = gl_VertexID / 3;
-    Triangle triangle = triangles[triangle_idx];
+    Vertex vertex = vertices[vertex_index];
 
-    int vertex_idx = (gl_VertexID % 3);
-    vec3 pos[3] = { triangle.v1.position.xyz,
-                    triangle.v2.position.xyz,
-                    triangle.v3.position.xyz };
-
-    gl_Position = g_ViewProjection * vec4(pos[vertex_idx], 1.0);
+    gl_Position = g_ViewProjection * vec4(vertex.position, 1.0);
     out_geometry_info = triangle_idx;
 }

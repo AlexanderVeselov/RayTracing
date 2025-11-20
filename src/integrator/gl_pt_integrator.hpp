@@ -86,6 +86,7 @@ private:
     // Scene buffers
     GLuint vertex_buffer_;
     GLuint index_buffer_;
+    GLuint material_ids_buffer_;
     GLuint material_buffer_;
     GLuint texture_buffer_;
     GLuint texture_data_buffer_;
