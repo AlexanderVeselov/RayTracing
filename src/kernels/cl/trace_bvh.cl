@@ -54,7 +54,7 @@ bool RayTriangle(Ray ray, const __global RTTriangle* __restrict tri, uint* prim_
     return true;
 }
 
-bool RayBounds(float3 bmin, float3 bmax, float3 ray_origin, float3 ray_inv_dir, float tmin_in, float tmax_in)
+bool RayBounds(float3 bmin, float3 bmax, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
 {
     float3 t0 = (bmin - ray_origin) * ray_inv_dir;
     float3 t1 = (bmax - ray_origin) * ray_inv_dir;
@@ -62,8 +62,8 @@ bool RayBounds(float3 bmin, float3 bmax, float3 ray_origin, float3 ray_inv_dir, 
     float3 tmin3 = fmin(t0, t1);
     float3 tmax3 = fmax(t0, t1);
 
-    float tmin = fmax(fmax(tmin3.x, tmin3.y), fmax(tmin3.z, tmin_in));
-    float tmax = fmin(fmin(tmax3.x, tmax3.y), fmin(tmax3.z, tmax_in));
+    float tmin = fmax(fmax(tmin3.x, tmin3.y), fmax(tmin3.z, t_min));
+    float tmax = fmin(fmin(tmax3.x, tmax3.y), fmin(tmax3.z, t_max));
     return tmax >= tmin;
 }
 

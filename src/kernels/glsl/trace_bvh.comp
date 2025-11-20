@@ -59,7 +59,7 @@ layout(std430, binding = 4) buffer Hits
 };
 #endif // #ifdef SHADOW_RAYS
 
-bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
+bool RayTriangle(Ray ray, RTTriangle triangle, out float out_t)
 {
     float3 e1 = triangle.position2 - triangle.position1;
     float3 e2 = triangle.position3 - triangle.position1;
@@ -100,7 +100,6 @@ bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
     }
 
     // Intersection is found
-    bc = float2(u, v);
     out_t = t;
 
     return true;
@@ -116,13 +115,10 @@ float min3(float3 val)
     return min(min(val.x, val.y), val.z);
 }
 
-bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool RayBounds(float3 bmin, float3 bmax, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
 {
-    float3 aabb_min = bounds.pos[0];
-    float3 aabb_max = bounds.pos[1];
-
-    float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
-    float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
+    float3 t0 = (bmin - ray_origin) * ray_inv_dir;
+    float3 t1 = (bmax - ray_origin) * ray_inv_dir;
 
     float tmin = max(max3(min(t0, t1)), t_min);
     float tmax = min(min3(max(t0, t1)), t_max);
@@ -167,7 +163,7 @@ void main()
     {
         LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bmin, node.bmax, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
         {
             // Leaf node
             if (int(node.num_primitives_axis >> 16) > 0)
@@ -175,12 +171,12 @@ void main()
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < int(node.num_primitives_axis >> 16); ++i)
                 {
-                    if (RayTriangle(ray, triangles[node.offset + i], hit.bc, hit.t))
+                    if (RayTriangle(ray, triangles[node.offset + i], t))
                     {
                         hit.primitive_id = node.offset + i;
                         // Set ray t_max
                         // TODO: remove t from hit structure
-                        ray.direction.w = hit.t;
+                        ray.direction.w = t;
 
 #ifdef SHADOW_RAYS
                         shadow_hits[ray_idx] = 0;

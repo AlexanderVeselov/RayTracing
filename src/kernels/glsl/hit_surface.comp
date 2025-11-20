@@ -36,6 +36,7 @@ uniform uint width;
 uniform SceneInfo scene_info;
 
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
+layout(binding = 1, rgba32f) uniform image2D throughput_image;
 
 layout(std140, binding = 0) uniform SampleCounter
 {
@@ -102,37 +103,32 @@ layout(std430, binding = 9) buffer Hits
     Hit hits[];
 };
 
-layout(std430, binding = 10) buffer Throughputs
-{
-    float3 throughputs[];
-};
-
-layout(std430, binding = 11) buffer Vertices
+layout(std430, binding = 10) buffer Vertices
 {
     Vertex vertices[];
 };
 
-layout(std430, binding = 12) buffer Indices
+layout(std430, binding = 11) buffer Indices
 {
     uint indices[];
 };
 
-layout(std430, binding = 13) buffer MaterialIDs
+layout(std430, binding = 12) buffer MaterialIDs
 {
     uint material_ids[];
 };
 
-layout(std430, binding = 14) buffer AnalyticLights
+layout(std430, binding = 13) buffer AnalyticLights
 {
     Light analytic_lights[];
 };
 
-layout(std430, binding = 15) buffer EmissiveIndices
+layout(std430, binding = 14) buffer EmissiveIndices
 {
     uint emissive_indices[];
 };
 
-layout(std430, binding = 16) buffer Materials
+layout(std430, binding = 15) buffer Materials
 {
     PackedMaterial materials[];
 };
@@ -199,13 +195,13 @@ void main()
     Material material;
     ApplyTextures(packed_material, material, texcoord);
 
-    float3 hit_throughput = throughputs[pixel_idx];
+    float3 path_throughput = imageLoad(throughput_image, ivec2(pixel_x, pixel_y)).xyz;
 
 #ifndef ENABLE_WHITE_FURNACE
     if (dot(material.emission.xyz, float3(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
         vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
-        radiance.xyz += hit_throughput * material.emission.xyz;
+        radiance.xyz += path_throughput * material.emission.xyz;
         imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
     }
 #endif // ENABLE_WHITE_FURNACE
@@ -221,7 +217,7 @@ void main()
         outgoing = normalize(outgoing);
 
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
+        float3 light_sample = light_radiance * path_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
 
         bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
 
@@ -252,17 +248,13 @@ void main()
         float s1 = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER);
 
         float pdf = 0.0f;
-        float3 throughput = to_float3(0.0f);
         float3 outgoing;
         float offset;
         float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
 
-        if (pdf > 0.0)
-        {
-            throughput = bxdf / pdf;
-        }
-
-        throughputs[pixel_idx] *= throughput;
+        // Update path throughput
+        path_throughput *= (pdf > 0.0f) ? (bxdf / pdf) : to_float3(0.0f);
+        imageStore(throughput_image, ivec2(pixel_x, pixel_y), float4(path_throughput, 0.0f));
 
         bool spawn_outgoing_ray = (pdf > 0.0f);
 

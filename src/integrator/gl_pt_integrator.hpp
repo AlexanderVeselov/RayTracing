@@ -81,6 +81,7 @@ private:
     GLuint depth_image_;
 
     GLuint radiance_image_;
+    GLuint throughput_image_;
     GLuint out_image_;
 
     // Scene buffers
@@ -115,7 +116,6 @@ private:
     // Hits
     GLuint hits_buffer_;
     GLuint shadow_hits_buffer_;
-    GLuint throughputs_buffer_;
     GLuint sample_counter_buffer_;
     GLuint direct_light_samples_buffer_;
 

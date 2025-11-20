@@ -57,6 +57,9 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
     glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
 
+    glCreateTextures(GL_TEXTURE_2D, 1, &throughput_image_);
+    glTextureStorage2D(throughput_image_, 1, GL_RGBA32F, width_, height_);
+
     // Create a visibility buffer
     glCreateTextures(GL_TEXTURE_2D, 1, &visibility_image_);
     glTextureStorage2D(visibility_image_, 1, GL_R32UI, width_, height_);
@@ -81,7 +84,6 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
     hits_buffer_ = CreateBuffer(num_rays * sizeof(Hit));
     shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
-    throughputs_buffer_ = CreateBuffer(num_rays * sizeof(float) * 4);
     sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
     direct_light_samples_buffer_ = CreateBuffer(num_rays * sizeof(float) * 4);
 
@@ -285,11 +287,12 @@ void GLPathTraceIntegrator::GenerateRays()
     //raygen_pipeline_->BindConstant("camera.aperture", camera_.aperture);
     //raygen_pipeline_->BindConstant("camera.focus_distance", camera_.focus_distance);
 
+    glBindImageTexture(0, throughput_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, sample_counter_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[0]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ray_counter_buffer_[0]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, pixel_indices_buffer_[0]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, throughputs_buffer_);
+    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, throughputs_buffer_);
 
     std::uint32_t num_groups = (width_ * height_ + kRayGenerationGroupSize - 1) / kRayGenerationGroupSize;
     glDispatchCompute(num_groups, 1, 1);
@@ -366,12 +369,13 @@ void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     miss_pipeline_->BindConstant("width", width_);
 
     glBindTextureUnit(0, env_image_);
+    glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    glBindImageTexture(1, throughput_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rays_buffer_[incoming_idx]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ray_counter_buffer_[incoming_idx]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, hits_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, pixel_indices_buffer_[incoming_idx]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, throughputs_buffer_);
-    glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, throughputs_buffer_);
 
     std::uint32_t num_groups = (max_num_rays + kMissGroupSize - 1) / kMissGroupSize;
     glDispatchCompute(num_groups, 1, 1);
@@ -392,6 +396,7 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     //hit_surface_pipeline_->BindConstant("scene_info.environment_map_index", scene_info_.environment_map_index);
     //hit_surface_pipeline_->BindConstant("scene_info.padding", scene_info_.padding);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    glBindImageTexture(1, throughput_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, sample_counter_buffer_);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, texture_handle_buffer_);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, ray_counter_buffer_[incoming_idx]);
@@ -405,13 +410,12 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, shadow_pixel_indices_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8,  direct_light_samples_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, hits_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, throughputs_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, vertex_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, index_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, material_ids_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 14, analytic_light_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, emissive_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, material_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, vertex_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, index_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, material_ids_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, analytic_light_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 14, emissive_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, material_buffer_);
 
     std::uint32_t num_groups = (max_num_rays + kShadeGroupSize - 1) / kShadeGroupSize;
     glDispatchCompute(num_groups, 1, 1);
