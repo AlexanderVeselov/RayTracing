@@ -106,7 +106,6 @@ __kernel void TraceBvh
     Hit hit;
     hit.primitive_id = INVALID_ID;
 
-    float t;
     // Follow ray through BVH nodes to find primitive intersections
     int toVisitOffset = 0;
     int currentNodeIndex = 0;
@@ -126,10 +125,9 @@ __kernel void TraceBvh
                 // Intersect ray with primitives in leaf BVH node
                 for (int i = 0; i < num_primitives; ++i)
                 {
-                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.primitive_id, &t))
+                    if (RayTriangle(ray, &triangles[node.offset + i], &hit.primitive_id, &ray.direction.w))
                     {
                         // Set ray t_max
-                        ray.direction.w = t;
                         hit.padding = iter_count;
 
 #ifdef SHADOW_RAYS

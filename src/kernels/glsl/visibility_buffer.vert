@@ -43,6 +43,6 @@ void main()
     uint triangle_idx = gl_VertexID / 3;
     Vertex vertex = vertices[vertex_index];
 
-    gl_Position = g_ViewProjection * vec4(vertex.position, 1.0);
+    gl_Position = g_ViewProjection * vec4(vertex.position.xyz, 1.0);
     out_geometry_info = triangle_idx;
 }

@@ -47,12 +47,6 @@
 #define STRUCT_END(x) } x;
 #endif
 
-#ifndef __cplusplus
-STRUCT_BEGIN(Bounds3)
-    float3 pos[2];
-STRUCT_END(Bounds3)
-#endif
-
 STRUCT_BEGIN(Ray)
     float4 origin; // w - t_min
     float4 direction; // w - t_max
@@ -61,7 +55,7 @@ STRUCT_END(Ray)
 STRUCT_BEGIN(Hit)
     unsigned int primitive_id;
     // Additional payload here
-    unsigned int padding;
+    unsigned int padding[3];
 STRUCT_END(Hit)
 
 STRUCT_BEGIN(SceneInfo)
@@ -81,9 +75,9 @@ STRUCT_END(PackedMaterial)
 
 STRUCT_BEGIN(Light)
     float3 origin;
-    float3 radiance;
     unsigned int type;
-    unsigned int padding[3];
+    float3 radiance;
+    unsigned int padding;
 STRUCT_END(Light)
 
 STRUCT_BEGIN(Texture)
@@ -95,15 +89,18 @@ STRUCT_END(Texture)
 
 STRUCT_BEGIN(Vertex)
     float3 position;
-    unsigned int normal; // Packed octahedral encoding
+    unsigned int normal;
     float2 texcoord;
+    unsigned int padding[2];
 STRUCT_END(Vertex)
 
 STRUCT_BEGIN(RTTriangle)
     float3 position1;
-    float3 position2;
-    float3 position3;
     unsigned int prim_id;
+    float3 position2;
+    unsigned int padding1;
+    float3 position3;
+    unsigned int padding2;
 STRUCT_END(RTTriangle)
 
 STRUCT_BEGIN(LinearBVHNode)
@@ -115,12 +112,13 @@ STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)
     float3 position;
-    float3 front;
-    float3 up;
     float  fov;
+    float3 front;
     float  aspect_ratio;
+    float3 up;
     float  aperture;
     float  focus_distance;
+    unsigned int padding[3];
 STRUCT_END(Camera)
 
 #endif // SHARED_STRUCTURES_HPP

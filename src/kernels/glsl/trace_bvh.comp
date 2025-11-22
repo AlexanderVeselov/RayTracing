@@ -173,7 +173,7 @@ void main()
                 {
                     if (RayTriangle(ray, triangles[node.offset + i], t))
                     {
-                        hit.primitive_id = node.offset + i;
+                        hit.primitive_id = triangles[node.offset + i].prim_id;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = t;

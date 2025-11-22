@@ -91,7 +91,7 @@ void main()
         uint pixel_x = pixel_idx % width;
         uint pixel_y = pixel_idx / width;
 
-        float3 throughput = imageLoad(throughput_image, ivec2(pixel_x, pixel_y)).xyz;
+        float3 throughput = vec3(1.0f);//imageLoad(throughput_image, ivec2(pixel_x, pixel_y)).xyz;
 
 #ifdef ENABLE_WHITE_FURNACE
         float3 sky_radiance = float3(0.5f, 0.5f, 0.5f);

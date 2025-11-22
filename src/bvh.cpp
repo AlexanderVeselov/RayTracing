@@ -102,7 +102,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(
         const uint32_t i1 = src_indices[3 * primId + 1];
         const uint32_t i2 = src_indices[3 * primId + 2];
 
-        RTTriangle tri;
+        RTTriangle tri = {};
         tri.position1 = vertices[i0].position;
         tri.position2 = vertices[i1].position;
         tri.position3 = vertices[i2].position;

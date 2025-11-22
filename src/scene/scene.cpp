@@ -469,13 +469,13 @@ void Scene::CollectEmissiveTriangles()
 
 void Scene::AddPointLight(float3 origin, float3 radiance)
 {
-    Light light = { origin, radiance, LIGHT_TYPE_POINT };
+    Light light = { origin, LIGHT_TYPE_POINT, radiance };
     lights_.push_back(std::move(light));
 }
 
 void Scene::AddDirectionalLight(float3 direction, float3 radiance)
 {
-    Light light = { direction.Normalize(), radiance, LIGHT_TYPE_DIRECTIONAL };
+    Light light = { direction.Normalize(), LIGHT_TYPE_DIRECTIONAL, radiance };
     lights_.emplace_back(std::move(light));
 }
 

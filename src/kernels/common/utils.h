@@ -201,10 +201,10 @@ float2 SignNotZero2(float2 v) { return make_float2(v.x >= 0.0f ? 1.0f : -1.0f, v
 
 float3 OctahedronDecode(float2 e)
 {
-    float3 v = make_float3(e.x, e.y, 1.0f - abs(e.x) - abs(e.y));
+    float3 v = make_float3(e.x, e.y, 1.0f - fabs(e.x) - fabs(e.y));
     if (v.z < 0.0f)
     {
-        float2 folded = make_float2(1.0f - abs(e.y), 1.0f - abs(e.x));
+        float2 folded = make_float2(1.0f - fabs(e.y), 1.0f - fabs(e.x));
         float2 s = SignNotZero2(e);
         v.x = folded.x * s.x;
         v.y = folded.y * s.y;

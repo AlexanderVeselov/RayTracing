@@ -82,6 +82,7 @@ private:
 
     GLuint radiance_image_;
     GLuint throughput_image_;
+    GLuint direct_light_samples_image_;
     GLuint out_image_;
 
     // Scene buffers
@@ -117,7 +118,6 @@ private:
     GLuint hits_buffer_;
     GLuint shadow_hits_buffer_;
     GLuint sample_counter_buffer_;
-    GLuint direct_light_samples_buffer_;
 
     std::uint32_t num_indices_;
     Camera camera = {};

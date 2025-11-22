@@ -22,7 +22,6 @@
  SOFTWARE.
  *****************************************************************************/
 
-#extension GL_ARB_gpu_shader_int64 : enable
 #extension GL_ARB_bindless_texture : enable
 
 layout (local_size_x = 32) in;
@@ -37,6 +36,7 @@ uniform SceneInfo scene_info;
 
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
 layout(binding = 1, rgba32f) uniform image2D throughput_image;
+layout(binding = 2, rgba32f) uniform image2D direct_light_samples_image;
 
 layout(std140, binding = 0) uniform SampleCounter
 {
@@ -46,11 +46,6 @@ layout(std140, binding = 0) uniform SampleCounter
 layout(binding = 1) uniform TextureHandles
 {
     uvec2 texture_handles[MAX_TEXTURES];
-};
-
-layout(binding = 2) uniform IncomingRayCounter
-{
-    uint incoming_ray_counter;
 };
 
 layout(std430, binding = 0) buffer IncomingRays
@@ -63,39 +58,39 @@ layout(std430, binding = 1) buffer IncomingPixelIndices
     uint incoming_pixel_indices[];
 };
 
-layout(std430, binding = 2) buffer OutgoingRays
+layout(std430, binding = 2) buffer IncomingRayCounter
+{
+    uint incoming_ray_counter[];
+};
+
+layout(std430, binding = 3) buffer OutgoingRays
 {
     Ray outgoing_rays[];
 };
 
-layout(std430, binding = 3) buffer OutgoingRayCounter
+layout(std430, binding = 4) buffer OutgoingRayCounter
 {
     uint outgoing_ray_counter[];
 };
 
-layout(std430, binding = 4) buffer OutgoingPixelIndices
+layout(std430, binding = 5) buffer OutgoingPixelIndices
 {
     uint outgoing_pixel_indices[];
 };
 
-layout(std430, binding = 5) buffer ShadowRays
+layout(std430, binding = 6) buffer ShadowRays
 {
     Ray shadow_rays[];
 };
 
-layout(std430, binding = 6) buffer ShadowRayCounter
+layout(std430, binding = 7) buffer ShadowRayCounter
 {
     uint shadow_ray_counter[];
 };
 
-layout(std430, binding = 7) buffer ShadowPixelIndices
+layout(std430, binding = 8) buffer ShadowPixelIndices
 {
     uint shadow_pixel_indices[];
-};
-
-layout(std430, binding = 8) buffer DirectLightSamples
-{
-    float3 direct_light_samples[];
 };
 
 layout(std430, binding = 9) buffer Hits
@@ -139,7 +134,7 @@ layout(std430, binding = 15) buffer Materials
 void main()
 {
     uint incoming_ray_idx = gl_GlobalInvocationID.x;
-    uint num_incoming_rays = incoming_ray_counter;
+    uint num_incoming_rays = incoming_ray_counter[0];
 
     if (incoming_ray_idx >= num_incoming_rays)
     {
@@ -178,7 +173,8 @@ void main()
     float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, bc);
 
     // Geometric (non-interpolated) normal
-    float3 geometry_normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
+    float3 geometry_normal = normalize(cross(v1.position - v0.position,
+        v2.position - v0.position));
 
     // Interpolated texcoord and shading normal (decode packed normals first)
     float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
@@ -235,7 +231,7 @@ void main()
             // Store to the memory
             shadow_rays[shadow_ray_idx] = shadow_ray;
             shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
-            direct_light_samples[shadow_ray_idx] = light_sample;
+            imageStore(direct_light_samples_image, ivec2(pixel_x, pixel_y), float4(light_sample, 0.0f));
         }
     }
 
