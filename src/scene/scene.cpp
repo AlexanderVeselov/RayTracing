@@ -40,6 +40,9 @@
 #include <ctime>
 #include <cctype>
 #include <filesystem>
+#include <unordered_map>
+#include <cmath>
+#include <cstring>
 
 #undef max
 
@@ -50,6 +53,46 @@ Scene::Scene(const char* filename, float scale, bool flip_yz)
 
 namespace
 {
+// Simple FNV-1a hash combiner for 32-bit values
+inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
+{
+    h ^= v;
+    h *= 16777619u; // FNV prime
+    return h;
+}
+
+struct VertexHasher
+{
+    std::size_t operator()(Vertex const& v) const noexcept
+    {
+        std::size_t h = 2166136261u; // FNV offset basis
+        auto hash_float = [&](float f)
+        {
+            std::uint32_t bits;
+            static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
+            std::memcpy(&bits, &f, sizeof(f));
+            h = hash_combine_u32(h, bits);
+        };
+        hash_float(v.position.x);
+        hash_float(v.position.y);
+        hash_float(v.position.z);
+        h = hash_combine_u32(h, v.normal);
+        hash_float(v.texcoord.x);
+        hash_float(v.texcoord.y);
+        return h;
+    }
+};
+
+struct VertexEqual
+{
+    bool operator()(Vertex const& a, Vertex const& b) const noexcept
+    {
+        return a.normal == b.normal &&
+            a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+            a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
+    }
+};
+
 unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
 {
     assert(texture_index < 256);
@@ -122,6 +165,36 @@ unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_id
     return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
         | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
 }
+
+inline float2 SignNotZero(const float2& v)
+{
+    return float2(v.x >= 0.0f ? 1.0f : -1.0f,
+                    v.y >= 0.0f ? 1.0f : -1.0f);
+}
+
+// Octahedral normal encoding. Output range is [-1, 1]
+// https://jcgt.org/published/0003/02/01/paper.pdf
+inline float2 OctahedronEncode(const float3& n_in)
+{
+    // Assume n_in may not be normalized.
+    float3 v = n_in.Normalize();
+    float2 p = float2(v.x, v.y) / (std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z));
+    if (v.z <= 0.0f)
+    {
+        return (float2(1.0f - std::fabs(p.y), 1.0f - std::fabs(p.x))) * SignNotZero(p); // (1 - abs(p.yx)) * SignNotZero(p)
+    }
+    return p;
+}
+
+// Pack into 32-bit unsigned int
+inline std::uint32_t PackNormal(const float3& n)
+{
+    float2 enc = OctahedronEncode(n);
+    std::uint32_t packed_x = static_cast<std::uint32_t>(clamp((enc.x * 0.5f + 0.5f) * 65535.0f, 0.0f, 65535.0f));
+    std::uint32_t packed_y = static_cast<std::uint32_t>(clamp((enc.y * 0.5f + 0.5f) * 65535.0f, 0.0f, 65535.0f));
+    return (packed_x) | (packed_y << 16);
+
+}
 }
 
 void Scene::Load(const char* filename, float scale, bool flip_yz)
@@ -133,37 +206,33 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
-    std::string warn;
-    std::string err;
-    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
+    std::string warn, err;
 
-    if (!success)
-    {
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
+    if (!success) {
         throw std::runtime_error("Failed to load the scene!");
     }
 
+    // Collect materials
     materials_.resize(materials.size());
-
     const float kGamma = 2.2f;
     const std::uint32_t kInvalidTextureIndex = 0xFF;
 
-    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
-    {
+    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx) {
         auto& out_material = materials_[material_idx];
         auto const& in_material = materials[material_idx];
 
-        // Convert from sRGB to linear
         out_material.diffuse_albedo = PackAlbedo(
-            pow(in_material.diffuse[0], kGamma), // R
-            pow(in_material.diffuse[1], kGamma), // G
-            pow(in_material.diffuse[2], kGamma), // B
+            pow(in_material.diffuse[0], kGamma),
+            pow(in_material.diffuse[1], kGamma),
+            pow(in_material.diffuse[2], kGamma),
             in_material.diffuse_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
 
         out_material.specular_albedo = PackAlbedo(
-            pow(in_material.specular[0], kGamma), // R
-            pow(in_material.specular[1], kGamma), // G
-            pow(in_material.specular[2], kGamma), // B
+            pow(in_material.specular[0], kGamma),
+            pow(in_material.specular[1], kGamma),
+            pow(in_material.specular[2], kGamma),
             in_material.specular_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
 
@@ -178,26 +247,37 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             LoadTexture((path_to_folder + "/" + in_material.metallic_texname).c_str()));
 
         out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(
-            in_material.ior, in_material.emissive_texname.empty() ? kInvalidTextureIndex :
+            in_material.ior,
+            in_material.emissive_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.emissive_texname).c_str()),
-            in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
+            in_material.transmittance[0],
+            in_material.alpha_texname.empty() ? kInvalidTextureIndex :
             LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
-
     }
 
-    auto flip_vector = [](float3& vec, bool do_flip)
-    {
-        if (do_flip)
+    auto flip_vector = [](float3& v, bool do_flip)
         {
-            std::swap(vec.y, vec.z);
-            vec.y = -vec.y;
-        }
-    };
+            if (do_flip)
+            {
+                std::swap(v.y, v.z);
+                v.y = -v.y;
+            }
+        };
 
+    // Reserve memory (approx count) to reduce re-allocations
+    size_t approx_triangles = 0;
+    for (auto const& s : shapes) approx_triangles += s.mesh.indices.size() / 3;
+    vertices_.reserve(vertices_.size() + approx_triangles * 3);
+    indices_.reserve(indices_.size() + approx_triangles * 3);
+    material_ids_.reserve(material_ids_.size() + approx_triangles);
+
+    // Cache for vertex deduplication (position+normal+texcoord)
+    std::unordered_map<Vertex, std::uint32_t, VertexHasher, VertexEqual> vertex_cache;
+
+    // Build VB/IB
     for (auto const& shape : shapes)
     {
-        auto const& indices = shape.mesh.indices;
-        // The mesh is triangular
+        const auto& indices = shape.mesh.indices;
         assert(indices.size() % 3 == 0);
 
         for (std::uint32_t face = 0; face < indices.size() / 3; ++face)
@@ -214,64 +294,113 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             auto texcoord_idx_2 = indices[face * 3 + 1].texcoord_index;
             auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
 
-            Vertex v1;
-            v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0] * scale;
-            v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1] * scale;
-            v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2] * scale;
+            Vertex v1{}, v2{}, v3{};
 
-            v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
-            v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
-            v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+            // positions
+            v1.position = float3(
+                attrib.vertices[pos_idx_1 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_1 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_1 * 3 + 2] * scale);
+            v2.position = float3(
+                attrib.vertices[pos_idx_2 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_2 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_2 * 3 + 2] * scale);
+            v3.position = float3(
+                attrib.vertices[pos_idx_3 * 3 + 0] * scale,
+                attrib.vertices[pos_idx_3 * 3 + 1] * scale,
+                attrib.vertices[pos_idx_3 * 3 + 2] * scale);
 
-            v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
-            v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
+            // normals (fallback to face normal if there are no normals in OBJ)
+            auto compute_face_normal = [](const float3& a, const float3& b, const float3& c) {
+                return (Cross(b - a, c - a)).Normalize();
+                };
+            bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
 
-            Vertex v2;
-            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
-            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
-            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
+            float3 n1, n2, n3;
+            if (has_n)
+            {
+                n1 = float3(
+                    attrib.normals[normal_idx_1 * 3 + 0],
+                    attrib.normals[normal_idx_1 * 3 + 1],
+                    attrib.normals[normal_idx_1 * 3 + 2]);
+                n2 = float3(
+                    attrib.normals[normal_idx_2 * 3 + 0],
+                    attrib.normals[normal_idx_2 * 3 + 1],
+                    attrib.normals[normal_idx_2 * 3 + 2]);
+                n3 = float3(
+                    attrib.normals[normal_idx_3 * 3 + 0],
+                    attrib.normals[normal_idx_3 * 3 + 1],
+                    attrib.normals[normal_idx_3 * 3 + 2]);
+            }
+            else {
+                float3 n = compute_face_normal(v1.position, v2.position, v3.position);
+                n1 = n2 = n3 = n;
+            }
 
-            v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
-            v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
-            v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
+            // texcoords
+            v1.texcoord = (texcoord_idx_1 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_1 * 2 + 0], attrib.texcoords[texcoord_idx_1 * 2 + 1]);
+            v2.texcoord = (texcoord_idx_2 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_2 * 2 + 0], attrib.texcoords[texcoord_idx_2 * 2 + 1]);
+            v3.texcoord = (texcoord_idx_3 < 0) ? float2(0.0f) :
+                float2(attrib.texcoords[texcoord_idx_3 * 2 + 0], attrib.texcoords[texcoord_idx_3 * 2 + 1]);
 
-            v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
-            v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
-
-            Vertex v3;
-            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
-            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
-            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
-
-            v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
-            v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
-            v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
-
-            v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
-            v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
-
+            // YZ flip
             flip_vector(v1.position, flip_yz);
-            flip_vector(v1.normal, flip_yz);
             flip_vector(v2.position, flip_yz);
-            flip_vector(v2.normal, flip_yz);
             flip_vector(v3.position, flip_yz);
-            flip_vector(v3.normal, flip_yz);
+            flip_vector(n1, flip_yz);
+            flip_vector(n2, flip_yz);
+            flip_vector(n3, flip_yz);
 
-            if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
+            // Pack normals
+            v1.normal = PackNormal(n1);
+            v2.normal = PackNormal(n2);
+            v3.normal = PackNormal(n3);
+
+            // Vertex deduplication: reuse vertices with identical attributes
+            auto find_or_add = [&](Vertex const& v) -> std::uint32_t
+                {
+                    auto it = vertex_cache.find(v);
+                    if (it != vertex_cache.end()) return it->second;
+                    std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                    vertices_.push_back(v);
+                    vertex_cache.emplace(v, idx);
+                    return idx;
+                };
+
+            std::uint32_t i1 = find_or_add(v1);
+            std::uint32_t i2 = find_or_add(v2);
+            std::uint32_t i3 = find_or_add(v3);
+
+            indices_.push_back(i1);
+            indices_.push_back(i2);
+            indices_.push_back(i3);
+
+            // Collect material IDs
+            std::uint32_t mtl = 0;
+            if (face < shape.mesh.material_ids.size())
             {
-                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
+                int mid = shape.mesh.material_ids[face];
+                if (mid >= 0 && static_cast<size_t>(mid) < materials_.size()) mtl = static_cast<std::uint32_t>(mid);
             }
-            else
-            {
-                // Use the default material
-                triangles_.emplace_back(v1, v2, v3, 0);
-            }
+            material_ids_.push_back(mtl);
         }
     }
 
-    std::cout << "Load successful (" << triangles_.size() << " triangles)" << std::endl;
+    const auto tri_count = static_cast<std::uint32_t>(indices_.size() / 3);
+    assert(material_ids_.size() == (std::size_t)tri_count);
 
+    for (std::uint32_t material_id : material_ids_)
+    {
+        assert(material_id < materials_.size());
+    }
+
+    std::cout << "Load successful (" << tri_count << " triangles, "
+        << vertices_.size() << " vertices, "
+        << indices_.size() << " indices)" << std::endl;
 }
+
 
 std::size_t Scene::LoadTexture(char const* filename)
 {
@@ -323,30 +452,30 @@ std::size_t Scene::LoadTexture(char const* filename)
 
 void Scene::CollectEmissiveTriangles()
 {
-    for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
-    {
-        auto const& triangle = triangles_[triangle_idx];
-        float3 emission = UnpackRGBE(materials_[triangle.mtlIndex].emission);
+    emissive_indices_.clear();
+    emissive_indices_.reserve(material_ids_.size());
 
-        if (emission.x + emission.y + emission.z > 0.0f)
+    for (std::uint32_t t = 0; t < material_ids_.size(); ++t)
+    {
+        std::uint32_t mid = material_ids_[t];
+        if (mid < materials_.size())
         {
-            // The triangle is emissive
-            emissive_indices_.push_back(triangle_idx);
+            float3 e = UnpackRGBE(materials_[mid].emission);
+            if ((e.x + e.y + e.z) > 0.0f) emissive_indices_.push_back(t);
         }
     }
-
-    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
+    scene_info_.emissive_count = static_cast<std::uint32_t>(emissive_indices_.size());
 }
 
 void Scene::AddPointLight(float3 origin, float3 radiance)
 {
-    Light light = { origin, radiance, LIGHT_TYPE_POINT };
+    Light light = { origin, LIGHT_TYPE_POINT, radiance };
     lights_.push_back(std::move(light));
 }
 
 void Scene::AddDirectionalLight(float3 direction, float3 radiance)
 {
-    Light light = { direction.Normalize(), radiance, LIGHT_TYPE_DIRECTIONAL };
+    Light light = { direction.Normalize(), LIGHT_TYPE_DIRECTIONAL, radiance };
     lights_.emplace_back(std::move(light));
 }
 

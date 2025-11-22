@@ -47,53 +47,6 @@ layout(std430, binding = 2) buffer Hits
 
 layout(binding = 0) uniform usampler2D geometry_info_sampler;
 
-bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
-{
-    float3 e1 = triangle.position2 - triangle.position1;
-    float3 e2 = triangle.position3 - triangle.position1;
-    // Calculate planes normal vector
-    float3 pvec = cross(ray.direction.xyz, e2);
-    float det = dot(e1, pvec);
-
-    // Ray is parallel to plane
-    if (det < 1e-8f || -det > 1e-8f)
-    {
-        return false;
-    }
-
-    float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle.position1;
-    float u = dot(tvec, pvec) * inv_det;
-
-    if (u < 0.0f || u > 1.0f)
-    {
-        return false;
-    }
-
-    float3 qvec = cross(tvec, e1);
-    float v = dot(ray.direction.xyz, qvec) * inv_det;
-
-    if (v < 0.0f || u + v > 1.0f)
-    {
-        return false;
-    }
-
-    float t = dot(e2, qvec) * inv_det;
-    float t_min = ray.origin.w;
-    float t_max = ray.direction.w;
-
-    if (t < t_min || t > t_max)
-    {
-        return false;
-    }
-
-    // Intersection is found
-    bc = float2(u, v);
-    out_t = t;
-
-    return true;
-}
-
 void main()
 {
     uint2 pixel_pos = gl_GlobalInvocationID.xy;
@@ -111,16 +64,7 @@ void main()
     uint triangle_idx = (geom_info - 1);
 
     Hit hit;
-    hit.bc = float2(0.0f, 0.0f);
     hit.primitive_id = is_background ? INVALID_ID : triangle_idx;
-    hit.t = 0.0f;
-
-    if (!is_background)
-    {
-        Ray ray = rays[pixel_index];
-        RTTriangle triangle = triangles[triangle_idx];
-        RayTriangle(ray, triangle, hit.bc, hit.t);
-    }
 
     hits[pixel_index] = hit;
 }

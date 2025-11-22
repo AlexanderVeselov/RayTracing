@@ -22,7 +22,6 @@
  SOFTWARE.
  *****************************************************************************/
 
-#extension GL_ARB_gpu_shader_int64 : enable
 #extension GL_ARB_bindless_texture : enable
 
 layout (local_size_x = 32) in;
@@ -36,6 +35,8 @@ uniform uint width;
 uniform SceneInfo scene_info;
 
 layout(binding = 0, rgba32f) uniform image2D radiance_image;
+layout(binding = 1, rgba32f) uniform image2D throughput_image;
+layout(binding = 2, rgba32f) uniform image2D direct_light_samples_image;
 
 layout(std140, binding = 0) uniform SampleCounter
 {
@@ -52,14 +53,14 @@ layout(std430, binding = 0) buffer IncomingRays
     Ray incoming_rays[];
 };
 
-layout(std430, binding = 1) buffer IncomingRayCounter
-{
-    uint incoming_ray_counter[];
-};
-
-layout(std430, binding = 2) buffer IncomingPixelIndices
+layout(std430, binding = 1) buffer IncomingPixelIndices
 {
     uint incoming_pixel_indices[];
+};
+
+layout(std430, binding = 2) buffer IncomingRayCounter
+{
+    uint incoming_ray_counter[];
 };
 
 layout(std430, binding = 3) buffer OutgoingRays
@@ -92,24 +93,24 @@ layout(std430, binding = 8) buffer ShadowPixelIndices
     uint shadow_pixel_indices[];
 };
 
-layout(std430, binding = 9) buffer DirectLightSamples
-{
-    float3 direct_light_samples[];
-};
-
-layout(std430, binding = 10) buffer Hits
+layout(std430, binding = 9) buffer Hits
 {
     Hit hits[];
 };
 
-layout(std430, binding = 11) buffer Throughputs
+layout(std430, binding = 10) buffer Vertices
 {
-    float3 throughputs[];
+    Vertex vertices[];
 };
 
-layout(std430, binding = 12) buffer Triangles
+layout(std430, binding = 11) buffer Indices
 {
-    Triangle triangles[];
+    uint indices[];
+};
+
+layout(std430, binding = 12) buffer MaterialIDs
+{
+    uint material_ids[];
 };
 
 layout(std430, binding = 13) buffer AnalyticLights
@@ -156,31 +157,47 @@ void main()
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
 
-    Triangle triangle = triangles[hit.primitive_id];
+    uint prim = hit.primitive_id;
+    uint i0 = indices[prim * 3u + 0u];
+    uint i1 = indices[prim * 3u + 1u];
+    uint i2 = indices[prim * 3u + 2u];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    Vertex v0 = vertices[i0];
+    Vertex v1 = vertices[i1];
+    Vertex v2 = vertices[i2];
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position,
-        triangle.v3.position - triangle.v1.position));
+    // Compute barycentric coordinates
+    float2 bc = CalcBarycentrics(incoming_ray, v0.position, v1.position, v2.position);
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    // Interpolated hit position
+    float3 position = InterpolateAttributes(v0.position, v1.position, v2.position, bc);
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    // Geometric (non-interpolated) normal
+    float3 geometry_normal = normalize(cross(v1.position - v0.position,
+        v2.position - v0.position));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    // Interpolated texcoord and shading normal (decode packed normals first)
+    float2 texcoord = InterpolateAttributes2(v0.texcoord, v1.texcoord, v2.texcoord, bc);
+    float3 n0 = DecodeOctNormal(v0.normal);
+    float3 n1 = DecodeOctNormal(v1.normal);
+    float3 n2 = DecodeOctNormal(v2.normal);
+    float3 normal = normalize(InterpolateAttributes(n0, n1, n2, bc));
+
+    // Get packed material
+    uint material_id = material_ids[prim];
+    PackedMaterial packed_material = materials[material_id];
+
+    // Unpack material
     Material material;
     ApplyTextures(packed_material, material, texcoord);
 
-    float3 hit_throughput = throughputs[pixel_idx];
+    float3 path_throughput = imageLoad(throughput_image, ivec2(pixel_x, pixel_y)).xyz;
 
 #ifndef ENABLE_WHITE_FURNACE
     if (dot(material.emission.xyz, float3(1.0f, 1.0f, 1.0f)) > 0.0f)
     {
         vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
-        radiance.xyz += hit_throughput * material.emission.xyz;
+        radiance.xyz += path_throughput * material.emission.xyz;
         imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
     }
 #endif // ENABLE_WHITE_FURNACE
@@ -196,7 +213,7 @@ void main()
         outgoing = normalize(outgoing);
 
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
+        float3 light_sample = light_radiance * path_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
 
         bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
 
@@ -214,7 +231,7 @@ void main()
             // Store to the memory
             shadow_rays[shadow_ray_idx] = shadow_ray;
             shadow_pixel_indices[shadow_ray_idx] = pixel_idx;
-            direct_light_samples[shadow_ray_idx] = light_sample;
+            imageStore(direct_light_samples_image, ivec2(pixel_x, pixel_y), float4(light_sample, 0.0f));
         }
     }
 
@@ -227,17 +244,13 @@ void main()
         float s1 = SampleRandom(pixel_x, pixel_y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER);
 
         float pdf = 0.0f;
-        float3 throughput = to_float3(0.0f);
         float3 outgoing;
         float offset;
         float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
 
-        if (pdf > 0.0)
-        {
-            throughput = bxdf / pdf;
-        }
-
-        throughputs[pixel_idx] *= throughput;
+        // Update path throughput
+        path_throughput *= (pdf > 0.0f) ? (bxdf / pdf) : to_float3(0.0f);
+        imageStore(throughput_image, ivec2(pixel_x, pixel_y), float4(path_throughput, 0.0f));
 
         bool spawn_outgoing_ray = (pdf > 0.0f);
 

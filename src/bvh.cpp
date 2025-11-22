@@ -29,201 +29,172 @@ namespace
     constexpr auto kMaxPrimitivesInNode = 4u;
 }
 
-Bvh::Bvh()
+void Bvh::BuildCPU(const std::vector<Vertex>& vertices,
+    const std::vector<std::uint32_t>& indices)
 {
-}
+    std::cout << "Building BVH (VB/IB -> compact tri buffer) ..." << std::endl;
 
-void Bvh::BuildCPU(std::vector<Triangle> & triangles)
-{
-    std::cout << "Building Bounding Volume Hierarchy for scene" << std::endl;
+    if (indices.size() % 3 != 0)
+        throw std::runtime_error("Indices count must be divisible by 3");
 
-    std::uint32_t max_prims_in_node = 4u;
+    const unsigned triCount = static_cast<unsigned>(indices.size() / 3);
 
-    //double startTime = m_Render.GetCurtime();
-    std::vector<BVHPrimitiveInfo> primitiveInfo(triangles.size());
-    for (unsigned int i = 0; i < triangles.size(); ++i)
+    // 1. Collect primitives: AABB and centroids based on VB/IB
+    std::vector<BVHPrimitiveInfo> primInfo(triCount);
+    primInfo.reserve(triCount);
+
+    for (unsigned t = 0; t < triCount; ++t)
     {
-        primitiveInfo[i] = { i, triangles[i].GetBounds() };
+        const uint32_t i0 = indices[3 * t + 0];
+        const uint32_t i1 = indices[3 * t + 1];
+        const uint32_t i2 = indices[3 * t + 2];
+
+        const float3& p0 = vertices[i0].position;
+        const float3& p1 = vertices[i1].position;
+        const float3& p2 = vertices[i2].position;
+
+        Bounds3 b; b = Union(b, p0); b = Union(b, p1); b = Union(b, p2);
+        const float3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
+
+        primInfo[t] = { t, b, c };
     }
 
-    unsigned int totalNodes = 0;
-    std::vector<Triangle> orderedTriangles;
-    root_node_ = RecursiveBuild(triangles, primitiveInfo, 0, triangles.size(), &totalNodes, orderedTriangles);
-    triangles.swap(orderedTriangles);
+    // 2. Recursively build
+    unsigned totalNodes = 0;
+    std::vector<RTTriangle> orderedTris;
+    orderedTris.reserve(triCount);
 
-    //primitiveInfo.resize(0);
-    std::cout << "BVH created with " << totalNodes << " nodes for " << triangles.size()
-        << " triangles (" << float(totalNodes * sizeof(BVHBuildNode)) / (1024.0f * 1024.0f) << " MB, "
-        //<< m_Render.GetCurtime() - startTime << "s elapsed)"
-        << std::endl;
+    root_node_ = RecursiveBuild(vertices, indices, primInfo, 0, triCount, &totalNodes, orderedTris);
 
-    // Compute representation of depth-first traversal of BVH tree
+    rt_triangles_.swap(orderedTris);
+
+    // 3. Flatten
     nodes_.resize(totalNodes);
-    unsigned int offset = 0;
-    FlattenBVHTree(root_node_, &offset);
-    assert(totalNodes == offset);
+    unsigned off = 0;
+    FlattenBVHTree(root_node_, &off);
+    assert(off == totalNodes);
+
+    std::cout << "BVH nodes: " << totalNodes
+        << ", tris in buffer: " << rt_triangles_.size()
+        << " (" << (rt_triangles_.size() * sizeof(RTTriangle) / (1024.0 * 1024.0)) << " MiB)" << std::endl;
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(
-    std::vector<Triangle> const& triangles,
+    const std::vector<Vertex>& vertices,
+    const std::vector<std::uint32_t>& src_indices,
     std::vector<BVHPrimitiveInfo>& primitiveInfo,
-    unsigned int start,
-    unsigned int end, unsigned int* totalNodes,
-    std::vector<Triangle>& orderedTriangles)
+    unsigned start, unsigned end,
+    unsigned* totalNodes,
+    std::vector<RTTriangle>& orderedTris)
 {
-    assert(start <= end);
-
-    //// TODO: Add memory pool
     BVHBuildNode* node = new BVHBuildNode;
     (*totalNodes)++;
 
-    // Compute bounds of all primitives in BVH node
+    // Bounds' AABB
     Bounds3 bounds;
-    for (unsigned int i = start; i < end; ++i)
+    for (unsigned i = start; i < end; ++i) bounds = Union(bounds, primitiveInfo[i].bounds);
+
+    const unsigned n = end - start;
+
+    auto push_triangle = [&](unsigned primId)
+        {
+        const uint32_t i0 = src_indices[3 * primId + 0];
+        const uint32_t i1 = src_indices[3 * primId + 1];
+        const uint32_t i2 = src_indices[3 * primId + 2];
+
+        RTTriangle tri = {};
+        tri.position1 = vertices[i0].position;
+        tri.position2 = vertices[i1].position;
+        tri.position3 = vertices[i2].position;
+        tri.prim_id = primId;
+
+        orderedTris.push_back(tri);
+        };
+
+    if (n == 1)
     {
-        bounds = Union(bounds, primitiveInfo[i].bounds);
+        const unsigned first = static_cast<unsigned>(orderedTris.size());
+        push_triangle(primitiveInfo[start].primitiveNumber);
+        node->InitLeaf(first, 1, bounds);
+        return node;
     }
 
-    unsigned int nPrimitives = end - start;
-    if (nPrimitives == 1)
-    {
-        // Create leaf
-        int firstPrimOffset = orderedTriangles.size();
-        for (unsigned int i = start; i < end; ++i)
-        {
-            int primNum = primitiveInfo[i].primitiveNumber;
-            orderedTriangles.push_back(triangles[primNum]);
-        }
-        node->InitLeaf(firstPrimOffset, nPrimitives, bounds);
+    Bounds3 cBounds;
+    for (unsigned i = start; i < end; ++i) cBounds = Union(cBounds, primitiveInfo[i].centroid);
+    const unsigned dim = cBounds.MaximumExtent();
+
+    if (cBounds.max[dim] == cBounds.min[dim]) {
+        const unsigned first = static_cast<unsigned>(orderedTris.size());
+        for (unsigned i = start; i < end; ++i)
+            push_triangle(primitiveInfo[i].primitiveNumber);
+        node->InitLeaf(first, n, bounds);
         return node;
+    }
+
+    unsigned mid = (start + end) / 2;
+    if (n <= 2)
+    {
+        std::nth_element(&primitiveInfo[start], &primitiveInfo[mid], &primitiveInfo[end - 1] + 1,
+            [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b) { return a.centroid[dim] < b.centroid[dim]; });
     }
     else
     {
-        // Compute bound of primitive centroids, choose split dimension
-        Bounds3 centroidBounds;
-        for (unsigned int i = start; i < end; ++i)
-        {
-            centroidBounds = Union(centroidBounds, primitiveInfo[i].centroid);
-        }
-        unsigned int dim = centroidBounds.MaximumExtent();
+        constexpr unsigned nBuckets = 12;
+        BucketInfo buckets[nBuckets]{};
 
-        // Partition primitives into two sets and build children
-        unsigned int mid = (start + end) / 2;
-        if (centroidBounds.max[dim] == centroidBounds.min[dim])
+        for (unsigned i = start; i < end; ++i) {
+            int b = int(nBuckets * cBounds.Offset(primitiveInfo[i].centroid)[dim]);
+            if (b == int(nBuckets)) b = int(nBuckets) - 1;
+            buckets[b].count++;
+            buckets[b].bounds = Union(buckets[b].bounds, primitiveInfo[i].bounds);
+        }
+
+        float cost[nBuckets - 1];
+        for (unsigned i = 0; i < nBuckets - 1; ++i)
         {
-            // Create leaf
-            unsigned int firstPrimOffset = orderedTriangles.size();
-            for (unsigned int i = start; i < end; ++i)
-            {
-                unsigned int primNum = primitiveInfo[i].primitiveNumber;
-                orderedTriangles.push_back(triangles[primNum]);
-            }
-            node->InitLeaf(firstPrimOffset, nPrimitives, bounds);
-            return node;
+            Bounds3 b0, b1; int c0 = 0, c1 = 0;
+            for (unsigned j = 0; j <= i; ++j) { b0 = Union(b0, buckets[j].bounds); c0 += buckets[j].count; }
+            for (unsigned j = i + 1; j < nBuckets; ++j) { b1 = Union(b1, buckets[j].bounds); c1 += buckets[j].count; }
+            cost[i] = 1.0f + (c0 * b0.SurfaceArea() + c1 * b1.SurfaceArea()) / bounds.SurfaceArea();
+        }
+
+        float minCost = cost[0]; unsigned minSplit = 0;
+        for (unsigned i = 1; i < nBuckets - 1; ++i)
+            if (cost[i] < minCost) { minCost = cost[i]; minSplit = i; }
+
+        const float leafCost = float(n);
+        if (n > kMaxPrimitivesInNode || minCost < leafCost)
+        {
+            BVHPrimitiveInfo* pmid = std::partition(&primitiveInfo[start], &primitiveInfo[end - 1] + 1,
+                [&](const BVHPrimitiveInfo& pi)
+                {
+                    int b = int(nBuckets * cBounds.Offset(pi.centroid)[dim]);
+                    if (b == int(nBuckets)) b = int(nBuckets) - 1;
+                    return unsigned(b) <= minSplit;
+                });
+            mid = unsigned(pmid - &primitiveInfo[0]);
         }
         else
         {
-            if (nPrimitives <= 2)
-            {
-                // Partition primitives into equally-sized subsets
-                mid = (start + end) / 2;
-                std::nth_element(&primitiveInfo[start], &primitiveInfo[mid], &primitiveInfo[end - 1] + 1,
-                    [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b)
-                    {
-                        return a.centroid[dim] < b.centroid[dim];
-                    });
-            }
-            else
-            {
-                // Partition primitives using approximate SAH
-                const unsigned int nBuckets = 12;
-                BucketInfo buckets[nBuckets];
-
-                // Initialize _BucketInfo_ for SAH partition buckets
-                for (unsigned int i = start; i < end; ++i)
-                {
-                    int b = nBuckets * centroidBounds.Offset(primitiveInfo[i].centroid)[dim];
-                    if (b == nBuckets) b = nBuckets - 1;
-                    assert(b >= 0 && b < nBuckets);
-                    buckets[b].count++;
-                    buckets[b].bounds = Union(buckets[b].bounds, primitiveInfo[i].bounds);
-                }
-
-                // Compute costs for splitting after each bucket
-                float cost[nBuckets - 1];
-                for (unsigned int i = 0; i < nBuckets - 1; ++i)
-                {
-                    Bounds3 b0, b1;
-                    int count0 = 0, count1 = 0;
-                    for (unsigned int j = 0; j <= i; ++j)
-                    {
-                        b0 = Union(b0, buckets[j].bounds);
-                        count0 += buckets[j].count;
-                    }
-                    for (unsigned int j = i + 1; j < nBuckets; ++j)
-                    {
-                        b1 = Union(b1, buckets[j].bounds);
-                        count1 += buckets[j].count;
-                    }
-                    cost[i] = 1.0f + (count0 * b0.SurfaceArea() + count1 * b1.SurfaceArea()) / bounds.SurfaceArea();
-                }
-
-                // Find bucket to split at that minimizes SAH metric
-                float minCost = cost[0];
-                unsigned int minCostSplitBucket = 0;
-                for (unsigned int i = 1; i < nBuckets - 1; ++i)
-                {
-                    if (cost[i] < minCost)
-                    {
-                        minCost = cost[i];
-                        minCostSplitBucket = i;
-                    }
-                }
-
-                // Either create leaf or split primitives at selected SAH bucket
-                float leafCost = float(nPrimitives);
-                if (nPrimitives > kMaxPrimitivesInNode || minCost < leafCost)
-                {
-                    BVHPrimitiveInfo* pmid = std::partition(&primitiveInfo[start], &primitiveInfo[end - 1] + 1,
-                        [=](const BVHPrimitiveInfo& pi)
-                        {
-                            int b = nBuckets * centroidBounds.Offset(pi.centroid)[dim];
-                            if (b == nBuckets) b = nBuckets - 1;
-                            assert(b >= 0 && b < nBuckets);
-                            return b <= minCostSplitBucket;
-                        });
-                    mid = pmid - &primitiveInfo[0];
-                }
-                else
-                {
-                    // Create leaf
-                    unsigned int firstPrimOffset = orderedTriangles.size();
-                    for (unsigned int i = start; i < end; ++i)
-                    {
-                        unsigned int primNum = primitiveInfo[i].primitiveNumber;
-                        orderedTriangles.push_back(triangles[primNum]);
-                    }
-                    node->InitLeaf(firstPrimOffset, nPrimitives, bounds);
-
-                    return node;
-                }
-            }
-
-            node->InitInterior(dim,
-                RecursiveBuild(triangles, primitiveInfo, start, mid,
-                    totalNodes, orderedTriangles),
-                RecursiveBuild(triangles, primitiveInfo, mid, end,
-                    totalNodes, orderedTriangles));
+            const unsigned first = static_cast<unsigned>(orderedTris.size());
+            for (unsigned i = start; i < end; ++i)
+                push_triangle(primitiveInfo[i].primitiveNumber);
+            node->InitLeaf(first, n, bounds);
+            return node;
         }
     }
 
+    node->InitInterior(dim,
+        RecursiveBuild(vertices, src_indices, primitiveInfo, start, mid, totalNodes, orderedTris),
+        RecursiveBuild(vertices, src_indices, primitiveInfo, mid, end, totalNodes, orderedTris));
     return node;
 }
 
 unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
 {
     LinearBVHNode* linearNode = &nodes_[*offset];
-    linearNode->bounds = node->bounds;
+    linearNode->bmin = node->bounds.min;
+    linearNode->bmax = node->bounds.max;
     unsigned int myOffset = (*offset)++;
     if (node->nPrimitives > 0)
     {

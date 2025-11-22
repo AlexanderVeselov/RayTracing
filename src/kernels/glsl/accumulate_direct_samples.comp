@@ -28,6 +28,9 @@ layout (local_size_x = 256) in;
 
 uniform uint width;
 
+layout(binding = 0, rgba32f) uniform image2D radiance_image;
+layout(binding = 1, rgba32f) uniform image2D direct_light_samples_image;
+
 layout(std430, binding = 0) buffer ShadowHits 
 {
     uint shadow_hits[];
@@ -42,13 +45,6 @@ layout(std430, binding = 2) buffer ShadowPixelIndices
 {
     uint shadow_pixel_indices[];
 };
-
-layout(std430, binding = 3) buffer DirectLightSamples
-{
-    float3 direct_light_samples[];
-};
-
-layout(binding = 4, rgba32f) uniform image2D radiance_image;
 
 void main()
 {
@@ -70,7 +66,8 @@ void main()
         uint pixel_y = pixel_idx / width;
 
         vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
-        radiance.xyz += direct_light_samples[ray_idx];
+        vec3 light_sample = imageLoad(direct_light_samples_image, ivec2(pixel_x, pixel_y)).xyz;
+        radiance.xyz += light_sample;
 
         imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
     }

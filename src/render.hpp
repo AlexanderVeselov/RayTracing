@@ -51,8 +51,6 @@ public:
     double  GetDeltaTime() const;
     Window& GetWindow() const { return window_; }
 
-    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
-
 private:
     void FrameBegin();
     void FrameEnd();
@@ -72,7 +70,7 @@ private:
     // Timing
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
-    std::shared_ptr<CLContext> cl_context_;
+    std::unique_ptr<CLContext> cl_context_;
     // Integrator
     std::unique_ptr<Integrator> integrator_;
     // Acceleration structure

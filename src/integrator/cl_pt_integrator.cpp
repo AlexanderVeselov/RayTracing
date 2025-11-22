@@ -75,7 +75,9 @@ namespace args
             kRayCounterBuffer,
             kPixelIndicesBuffer,
             kHitsBuffer,
-            kTrianglesBuffer,
+            kVertexBuffer,
+            kIndexBuffer,
+            kMaterialIDsBuffer,
             kMaterialsBuffer,
             kTexturesBuffer,
             kTextureDataBuffer,
@@ -100,7 +102,9 @@ namespace args
             kIncomingRayCounterBuffer,
             kIncomingPixelIndicesBuffer,
             kHitsBuffer,
-            kTrianglesBuffer,
+            kVertexBuffer,
+            kIndexBuffer,
+            kMaterialIDsBuffer,
             kAnalyticLightsBuffer,
             kEmissiveIndicesBuffer,
             kMaterialsBuffer,
@@ -373,7 +377,9 @@ void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
 void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
     // Create scene buffers
-    auto const& triangles = scene.GetTriangles();
+    auto const& vertices = scene.GetVertices();
+    auto const& indices = scene.GetIndices();
+    auto const& material_ids = scene.GetMaterialIDs();
     auto const& materials = scene.GetMaterials();
     auto const& emissive_indices = scene.GetEmissiveIndices();
     auto const& lights = scene.GetLights();
@@ -381,78 +387,50 @@ void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     auto const& texture_data = scene.GetTextureData();
     auto const& env_image = scene.GetEnvImage();
 
-    cl_int status;
-
-    assert(!triangles.empty());
-    triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        triangles.size() * sizeof(Triangle), (void*)triangles.data(), &status);
-    ThrowIfFailed(status, "Failed to create triangle buffer");
-
-    // Additional compressed triangle buffer
-    {
-        std::vector<RTTriangle> rt_triangles;
-        for (auto const& triangle : triangles)
-        {
-            rt_triangles.emplace_back(triangle.v1.position, triangle.v2.position, triangle.v3.position);
-        }
-
-        rt_triangle_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            rt_triangles.size() * sizeof(RTTriangle), (void*)rt_triangles.data(), &status);
-        ThrowIfFailed(status, "Failed to create rt triangle buffer");
-    }
-
-    assert(!materials.empty());
-    material_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        materials.size() * sizeof(PackedMaterial), (void*)materials.data(), &status);
-    ThrowIfFailed(status, "Failed to create material buffer");
+    vertex_buffer_ = UploadBuffer(vertices);
+    index_buffer_ = UploadBuffer(indices);
+    material_ids_buffer_ = UploadBuffer(material_ids);
+    material_buffer_ = UploadBuffer(materials);
 
     if (!emissive_indices.empty())
     {
-        emissive_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            emissive_indices.size() * sizeof(std::uint32_t), (void*)emissive_indices.data(), &status);
-        ThrowIfFailed(status, "Failed to create emissive buffer");
+        emissive_buffer_ = UploadBuffer(emissive_indices);
     }
 
     if (!lights.empty())
     {
-        analytic_light_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            lights.size() * sizeof(Light), (void*)lights.data(), &status);
-        ThrowIfFailed(status, "Failed to create analytic light buffer");
+        analytic_light_buffer_ = UploadBuffer(lights);
     }
 
     if (!textures.empty())
     {
-        texture_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            textures.size() * sizeof(Texture), (void*)textures.data(), &status);
-        ThrowIfFailed(status, "Failed to create texture buffer");
+        texture_buffer_ = UploadBuffer(textures);
     }
 
     if (!texture_data.empty())
     {
-        texture_data_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            texture_data.size() * sizeof(std::uint32_t), (void*)texture_data.data(), &status);
-        ThrowIfFailed(status, "Failed to create texture data buffer");
+        texture_data_buffer_ = UploadBuffer(texture_data);
     }
 
-    cl::ImageFormat image_format;
-    image_format.image_channel_order = CL_RGBA;
-    image_format.image_channel_data_type = CL_FLOAT;
+    {
+        cl_int status;
+        cl::ImageFormat image_format;
+        image_format.image_channel_order = CL_RGBA;
+        image_format.image_channel_data_type = CL_FLOAT;
 
-    env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        image_format, env_image.width, env_image.height, 0, (void*)env_image.data.data(), &status);
-    ThrowIfFailed(status, "Failed to create environment image");
+        env_texture_ = cl::Image2D(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            image_format, env_image.width, env_image.height, 0, (void*)env_image.data.data(), &status);
+        ThrowIfFailed(status, "Failed to create environment image");
+    }
 
     scene_info_ = scene.GetSceneInfo();
 
-    auto const& nodes = acc_structure_.GetNodes();
-
     // Upload BVH data
-    nodes_buffer_ = cl::Buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        nodes.size() * sizeof(LinearBVHNode), (void*)nodes.data(), &status);
-    if (status != CL_SUCCESS)
-    {
-        throw CLException("Failed to create BVH node buffer", status);
-    }
+    auto const& nodes = acc_structure_.GetNodes();
+    auto const& rt_triangles = acc_structure_.GetTriangles();
+
+    nodes_buffer_ = UploadBuffer(nodes);
+    rt_triangles_buffer_ = UploadBuffer(rt_triangles);
 }
 
 void CLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
@@ -527,12 +505,12 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     CLKernel& kernel = *intersect_kernel_;
     kernel.SetArgument(0, rays_buffer_[incoming_idx]);
     kernel.SetArgument(1, ray_counter_buffer_[incoming_idx]);
-    kernel.SetArgument(2, rt_triangle_buffer_);
+    kernel.SetArgument(2, rt_triangles_buffer_);
     kernel.SetArgument(3, nodes_buffer_);
     kernel.SetArgument(4, hits_buffer_);
 
     ///@TODO: use indirect dispatch
-    cl_context_.ExecuteKernel(kernel, max_num_rays);
+    cl_context_.ExecuteKernel(kernel, max_num_rays, 64);
 
     //acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
     //    max_num_rays, hits_buffer_);
@@ -547,7 +525,9 @@ void CLPathTraceIntegrator::ComputeAOVs()
     aov_kernel_->SetArgument(args::Aov::kRayCounterBuffer, ray_counter_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kPixelIndicesBuffer, pixel_indices_buffer_[0]);
     aov_kernel_->SetArgument(args::Aov::kHitsBuffer, hits_buffer_);
-    aov_kernel_->SetArgument(args::Aov::kTrianglesBuffer, triangle_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kVertexBuffer, vertex_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kIndexBuffer, index_buffer_);
+    aov_kernel_->SetArgument(args::Aov::kMaterialIDsBuffer, material_ids_buffer_);
     aov_kernel_->SetArgument(args::Aov::kMaterialsBuffer, material_buffer_);
     aov_kernel_->SetArgument(args::Aov::kTexturesBuffer, texture_buffer_);
     aov_kernel_->SetArgument(args::Aov::kTextureDataBuffer, texture_data_buffer_);
@@ -568,7 +548,7 @@ void CLPathTraceIntegrator::IntersectShadowRays()
     CLKernel& kernel = *intersect_shadow_kernel_;
     kernel.SetArgument(0, shadow_rays_buffer_);
     kernel.SetArgument(1, shadow_ray_counter_buffer_);
-    kernel.SetArgument(2, rt_triangle_buffer_);
+    kernel.SetArgument(2, rt_triangles_buffer_);
     kernel.SetArgument(3, nodes_buffer_);
     kernel.SetArgument(4, shadow_hits_buffer_);
 
@@ -605,7 +585,9 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kHitsBuffer, hits_buffer_);
 
-    hit_surface_kernel_->SetArgument(args::HitSurface::kTrianglesBuffer, triangle_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kVertexBuffer, vertex_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kIndexBuffer, index_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialIDsBuffer, material_ids_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, analytic_light_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, emissive_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, material_buffer_);
@@ -639,7 +621,7 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     // Output radiance
     hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer, radiance_buffer_);
 
-    cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays);
+    cl_context_.ExecuteKernel(*hit_surface_kernel_, max_num_rays, 128);
 }
 
 void CLPathTraceIntegrator::AccumulateDirectSamples()

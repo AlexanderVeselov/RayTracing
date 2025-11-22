@@ -58,6 +58,17 @@ protected:
 private:
     cl::Buffer CreateBuffer(std::size_t size);
 
+    template<class T>
+    cl::Buffer UploadBuffer(std::vector<T> const& cpu_buffer)
+    {
+        cl_int status;
+        assert(!cpu_buffer.empty());
+        cl::Buffer buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            cpu_buffer.size() * sizeof(T), (void*)cpu_buffer.data(), &status);
+        ThrowIfFailed(status, "Failed to upload buffer");
+        return buffer;
+    }
+
     CLContext& cl_context_;
     cl_GLuint gl_interop_image_;
 
@@ -98,8 +109,9 @@ private:
     cl::Buffer direct_light_samples_buffer_;
 
     // Scene buffers
-    cl::Buffer triangle_buffer_;
-    cl::Buffer rt_triangle_buffer_;
+    cl::Buffer vertex_buffer_;
+    cl::Buffer index_buffer_;
+    cl::Buffer material_ids_buffer_;
     cl::Buffer material_buffer_;
     cl::Buffer texture_buffer_;
     cl::Buffer texture_data_buffer_;
@@ -109,8 +121,9 @@ private:
     cl::Image2D env_texture_;
     SceneInfo scene_info_;
 
-    // Acceleration structure buffer
+    // Acceleration structure buffers
     cl::Buffer nodes_buffer_;
+    cl::Buffer rt_triangles_buffer_;
 
     // Sampler buffers
     cl::Buffer sampler_sobol_buffer_;

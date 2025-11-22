@@ -47,22 +47,15 @@
 #define STRUCT_END(x) } x;
 #endif
 
-#ifndef __cplusplus
-STRUCT_BEGIN(Bounds3)
-    float3 pos[2];
-STRUCT_END(Bounds3)
-#endif
-
 STRUCT_BEGIN(Ray)
     float4 origin; // w - t_min
     float4 direction; // w - t_max
 STRUCT_END(Ray)
 
 STRUCT_BEGIN(Hit)
-    float2 bc;
     unsigned int primitive_id;
-    // TODO: remove t from hit structure
-    float t;
+    // Additional payload here
+    unsigned int padding[3];
 STRUCT_END(Hit)
 
 STRUCT_BEGIN(SceneInfo)
@@ -82,9 +75,9 @@ STRUCT_END(PackedMaterial)
 
 STRUCT_BEGIN(Light)
     float3 origin;
-    float3 radiance;
     unsigned int type;
-    unsigned int padding[3];
+    float3 radiance;
+    unsigned int padding;
 STRUCT_END(Light)
 
 STRUCT_BEGIN(Texture)
@@ -95,89 +88,37 @@ STRUCT_BEGIN(Texture)
 STRUCT_END(Texture)
 
 STRUCT_BEGIN(Vertex)
-#ifdef __cplusplus
-    Vertex() {}
-    Vertex(const float3& position, const float2& texcoord, const float3& normal)
-        : position(position), texcoord(texcoord.x, texcoord.y, 0), 
-        normal(normal)
-    {}
-#endif
-
     float3 position;
-    float3 texcoord;
-    float3 normal;
+    unsigned int normal;
+    float2 texcoord;
+    unsigned int padding[2];
 STRUCT_END(Vertex)
 
-STRUCT_BEGIN(Triangle)
-#ifdef __cplusplus
-    Triangle(Vertex v1, Vertex v2, Vertex v3, unsigned int mtlIndex)
-        : v1(v1), v2(v2), v3(v3), mtlIndex(mtlIndex)
-    {}
-
-    void Project(float3 axis, float& min, float& max) const
-    {
-        min = std::numeric_limits<float>::max();
-        max = std::numeric_limits<float>::lowest();
-
-        float3 points[3] = { v1.position, v2.position, v3.position };
-
-        for (size_t i = 0; i < 3; ++i)
-        {
-            float val = Dot(points[i], axis);
-            min = std::min(min, val);
-            max = std::max(max, val);
-        }
-    }
-
-    Bounds3 GetBounds() const
-    {
-        return Union(Bounds3(v1.position, v2.position), v3.position);
-    }
-#endif
-
-    Vertex v1, v2, v3;
-    unsigned int mtlIndex;
-    unsigned int padding[3];
-STRUCT_END(Triangle)
-
 STRUCT_BEGIN(RTTriangle)
-#ifdef __cplusplus
-    RTTriangle(float3 v1, float3 v2, float3 v3)
-        : position1(v1), position2(v2), position3(v3)
-    {}
-#endif
-
     float3 position1;
+    unsigned int prim_id;
     float3 position2;
+    unsigned int padding1;
     float3 position3;
+    unsigned int padding2;
 STRUCT_END(RTTriangle)
 
-STRUCT_BEGIN(CellData)
-    unsigned int start_index;
-    unsigned int count;
-STRUCT_END(CellData)
-
 STRUCT_BEGIN(LinearBVHNode)
-#ifdef __cplusplus
-    LinearBVHNode() {}
-#endif
-    // 32 bytes
-    Bounds3 bounds;
-    // 4 bytes
+    float3 bmin;
     unsigned int offset; // primitives (leaf) or second child (interior) offset
-    // 4 bytes
+    float3 bmax;
     unsigned int num_primitives_axis;  // 0 -> interior node
-    unsigned int padding[2]; // ensure 48 byte total size
 STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)
     float3 position;
-    float3 front;
-    float3 up;
     float  fov;
+    float3 front;
     float  aspect_ratio;
+    float3 up;
     float  aperture;
     float  focus_distance;
+    unsigned int padding[3];
 STRUCT_END(Camera)
 
 #endif // SHARED_STRUCTURES_HPP

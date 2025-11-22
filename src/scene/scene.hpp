@@ -36,8 +36,10 @@ class Scene
 public:
     Scene(const char* filename, float scale, bool flip_yz);
 
-    std::vector<Triangle>& GetTriangles() { return triangles_; }
-    std::vector<Triangle> const& GetTriangles() const { return triangles_; }
+    const std::vector<Vertex>& GetVertices()  const { return vertices_; }
+    const std::vector<std::uint32_t>& GetIndices()   const { return indices_; }
+    const std::vector<std::uint32_t>& GetMaterialIDs()   const { return material_ids_; }
+
     std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Texture> const& GetTextures() const { return textures_; }
@@ -55,8 +57,11 @@ private:
     std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
-    std::vector<Triangle> triangles_;
-    std::vector<std::uint32_t> emissive_indices_;
+    std::vector<Vertex>        vertices_;
+    std::vector<std::uint32_t> indices_;
+    std::vector<std::uint32_t> material_ids_;
+
+    std::vector<std::uint32_t>  emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
     std::vector<Texture> textures_;

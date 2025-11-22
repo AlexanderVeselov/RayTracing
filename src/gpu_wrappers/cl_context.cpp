@@ -112,9 +112,31 @@ void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_b
     ThrowIfFailed(status, "Failed to copy buffer");
 }
 
-void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
+void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t global_size, std::size_t local_size) const
 {
-    cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
+    if (local_size == 0)
+    {
+        // Let OpenCL decide
+        cl_int status = queue_.enqueueNDRangeKernel(
+            kernel.GetKernel(),
+            cl::NullRange,
+            cl::NDRange(global_size),
+            cl::NullRange,
+            nullptr);
+        ThrowIfFailed(status, ("Failed to enqueue kernel " + kernel.GetName()).c_str());
+        return;
+    }
+
+    // Ensure global size is a multiple of local size (OpenCL requirement when local size specified)
+    std::size_t adjusted_global = ((global_size + local_size - 1) / local_size) * local_size;
+
+    cl_int status = queue_.enqueueNDRangeKernel(
+        kernel.GetKernel(),
+        cl::NullRange,
+        cl::NDRange(adjusted_global),
+        cl::NDRange(local_size),
+        nullptr);
+
     ThrowIfFailed(status, ("Failed to enqueue kernel " + kernel.GetName()).c_str());
 }
 

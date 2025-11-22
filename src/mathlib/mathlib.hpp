@@ -37,7 +37,7 @@ const float MATH_1DIV2PI = 0.159154943f;
 const float MATH_PIDIV2 = 1.570796327f;
 const float MATH_PIDIV4 = 0.785398163f;
 
-class float3
+struct float3
 {
 public:
     float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
@@ -68,18 +68,51 @@ public:
     const float& operator[] (size_t i) const { return (i == 0) ? x : (i == 1 ? y : z); }
 
     friend std::ostream& operator<< (std::ostream &os, const float3 &vec) { return os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")"; }
-    
+
 public:
     float x, y, z;
-private:
-    // Used for align to 4 bytes
-    std::uint32_t padding;
 };
 
-///@TODO: fix it
-typedef float3 float4;
+struct float4
+{
+public:
+    float4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+    explicit float4(float val) : x(val), y(val), z(val), w(val) {}
+    float4() : x(0), y(0), z(0), w(0) {}
 
-class float2
+    float  Length() const { return std::sqrt(x * x + y * y + z * z + w * w); }
+    float4 Normalize() const { float l = Length(); return l > 0.0f ? float4(x / l, y / l, z / l, w / l) : float4(0.0f); }
+
+    // Scalar operators
+    float4 operator+ (float s) const { return float4(x + s, y + s, z + s, w + s); }
+    float4 operator- (float s) const { return float4(x - s, y - s, z - s, w - s); }
+    float4 operator* (float s) const { return float4(x * s, y * s, z * s, w * s); }
+    float4 operator/ (float s) const { return float4(x / s, y / s, z / s, w / s); }
+    friend float4 operator* (const float4& a, float b) { return float4(a.x * b, a.y * b, a.z * b, a.w * b); }
+
+    // Vector operators
+    friend float4 operator+ (const float4 &lhs, const float4 &rhs) { return float4(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w); }
+    friend float4 operator- (const float4 &lhs, const float4 &rhs) { return float4(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - rhs.w); }
+    friend float4 operator- (const float4 &v) { return float4(-v.x, -v.y, -v.z, -v.w); }
+
+    float4& operator+= (const float4 &o) { x += o.x; y += o.y; z += o.z; w += o.w; return *this; }
+    float4& operator-= (const float4 &o) { x -= o.x; y -= o.y; z -= o.z; w -= o.w; return *this; }
+    float4& operator*= (float s) { x *= s; y *= s; z *= s; w *= s; return *this; }
+
+    // Access
+    float&       operator[] (size_t i) { assert(i < 4); return *(&x + i); }
+    const float& operator[] (size_t i) const { assert(i < 4); return *(&x + i); }
+
+    // Helpers
+    float3 xyz() const { return float3(x, y, z); }
+
+    friend std::ostream& operator<< (std::ostream &os, const float4 &v) { return os << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w << ")"; }
+
+public:
+    float x, y, z, w;
+};
+
+struct float2
 {
 public:
     float2(float x, float y) : x(x), y(y) {}
@@ -98,6 +131,8 @@ public:
     // Vector operators
     float2 operator+ (const float2 &other) { return float2(x + other.x, y + other.y); }
     float2 operator- (const float2 &other) { return float2(x - other.x, y - other.y); }
+    float2 operator* (const float2 &other) { return float2(x * other.x, y * other.y); }
+    float2 operator/ (const float2 &other) { return float2(x / other.x, y / other.y); }
     friend float2 operator+ (const float2 &lhs, const float2 &rhs) { return float2(lhs.x + rhs.x, lhs.y + rhs.y); }
     friend float2 operator- (const float2 &lhs, const float2 &rhs) { return float2(lhs.x - rhs.x, lhs.y - rhs.y); }
 
@@ -204,7 +239,6 @@ public:
         return o;
     }
 
-    bool Intersects(const Triangle &triangle) const;
     void Project(float3 axis, float &mins, float &maxs) const;
 
 public:

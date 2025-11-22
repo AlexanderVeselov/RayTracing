@@ -81,10 +81,14 @@ private:
     GLuint depth_image_;
 
     GLuint radiance_image_;
+    GLuint throughput_image_;
+    GLuint direct_light_samples_image_;
     GLuint out_image_;
 
     // Scene buffers
-    GLuint triangle_buffer_;
+    GLuint vertex_buffer_;
+    GLuint index_buffer_;
+    GLuint material_ids_buffer_;
     GLuint material_buffer_;
     GLuint texture_buffer_;
     GLuint texture_data_buffer_;
@@ -113,11 +117,9 @@ private:
     // Hits
     GLuint hits_buffer_;
     GLuint shadow_hits_buffer_;
-    GLuint throughputs_buffer_;
     GLuint sample_counter_buffer_;
-    GLuint direct_light_samples_buffer_;
 
-    std::uint32_t num_triangles_;
+    std::uint32_t num_indices_;
     Camera camera = {};
     Camera prev_camera = {};
     glm::mat4 view_proj_matrix_;
