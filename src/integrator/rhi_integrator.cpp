@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2023 Alexander Veselov
+ Copyright(c) 2026 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -477,24 +477,32 @@ void RhiIntegrator::RebuildDescriptorSets()
         uint32_t pong = (i + 1u) & 1u;
         hit_surface_sets_[i] = hit_surface_pipeline_->CreateDescriptorSet();
         hit_surface_sets_[i]->BindBuffer(*camera_buffer_, 0);
+
         hit_surface_sets_[i]->BindBuffer(*rays_buffers_[ping], 1);
-        hit_surface_sets_[i]->BindBuffer(*rays_buffers_[pong], 2);
+        hit_surface_sets_[i]->BindBuffer(*pixel_indices_buffers_[ping], 2);
         hit_surface_sets_[i]->BindBuffer(*ray_counter_buffers_[ping], 3);
-        hit_surface_sets_[i]->BindBuffer(*pixel_indices_buffers_[ping], 4);
+
+        hit_surface_sets_[i]->BindBuffer(*rays_buffers_[pong], 4);
         hit_surface_sets_[i]->BindBuffer(*pixel_indices_buffers_[pong], 5);
-        hit_surface_sets_[i]->BindBuffer(*hits_buffer_, 6);
-        hit_surface_sets_[i]->BindBuffer(*shadow_rays_buffer_, 7);
-        hit_surface_sets_[i]->BindBuffer(*shadow_ray_counter_buffer_, 8);
+        hit_surface_sets_[i]->BindBuffer(*ray_counter_buffers_[pong], 6);
+
+        hit_surface_sets_[i]->BindBuffer(*hits_buffer_, 7);
+
+        hit_surface_sets_[i]->BindBuffer(*shadow_rays_buffer_, 8);
         hit_surface_sets_[i]->BindBuffer(*shadow_pixel_indices_buffer_, 9);
-        hit_surface_sets_[i]->BindBuffer(*throughputs_buffer_, 10);
-        hit_surface_sets_[i]->BindBuffer(*radiance_buffer_, 11);
-        hit_surface_sets_[i]->BindBuffer(*direct_light_samples_buffer_, 12);
-        hit_surface_sets_[i]->BindBuffer(*sample_counter_buffer_, 13);
-        hit_surface_sets_[i]->BindBuffer(*ray_counter_buffers_[pong], 14);
-        hit_surface_sets_[i]->BindBuffer(*triangle_buffer_, 15);
-        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 16);
-        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 17);
-        hit_surface_sets_[i]->BindBuffer(*bounce_buffers_[i], 18);
+        hit_surface_sets_[i]->BindBuffer(*shadow_ray_counter_buffer_, 10);
+        hit_surface_sets_[i]->BindBuffer(*direct_light_samples_buffer_, 11);
+
+        hit_surface_sets_[i]->BindBuffer(*throughputs_buffer_, 12);
+        hit_surface_sets_[i]->BindBuffer(*radiance_buffer_, 13);
+
+        hit_surface_sets_[i]->BindBuffer(*bounce_buffers_[i], 14);
+        hit_surface_sets_[i]->BindBuffer(*sample_counter_buffer_, 15);
+
+        hit_surface_sets_[i]->BindBuffer(*triangle_buffer_, 16);
+        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 17);
+        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 18);
+
         hit_surface_sets_[i]->BindBuffer(*texture_buffer_, 19);
         hit_surface_sets_[i]->BindBuffer(*texture_data_buffer_, 20);
     }

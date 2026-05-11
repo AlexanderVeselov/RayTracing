@@ -1,18 +1,52 @@
-#define TEXTURES_REGISTER t11
-#define TEXTURE_DATA_REGISTER t12
+/*****************************************************************************
+ MIT License
+
+ Copyright(c) 2026 Alexander Veselov
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this softwareand associated documentation files(the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions :
+
+ The above copyright noticeand this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ *****************************************************************************/
+
+#include "common.hlsli"
+
+// Ray data
+RWStructuredBuffer<Ray>    g_Rays                 : register(u1);
+RWStructuredBuffer<uint>   g_RayCounter           : register(u2);
+RWStructuredBuffer<uint>   g_PixelIndices         : register(u3);
+
+// Hit data
+RWStructuredBuffer<Hit>    g_Hits                 : register(u4);
+
+// AOV data
+RWStructuredBuffer<float4> g_DiffuseAlbedo        : register(u5);
+RWStructuredBuffer<float>  g_Depth                : register(u6);
+RWStructuredBuffer<float4> g_Normal               : register(u7);
+RWStructuredBuffer<float4> g_MotionVectors        : register(u8);
+
+// Scene data
+StructuredBuffer<Triangle>    g_Triangles      : register(t9);
+StructuredBuffer<PackedMaterial> g_Materials      : register(t10);
+
+// Texture data
+StructuredBuffer<TextureInfo> g_Textures          : register(t11);
+StructuredBuffer<uint>        g_TextureData       : register(t12);
 
 #include "material.hlsli"
-
-RWStructuredBuffer<Ray> g_Rays : register(u1);
-RWStructuredBuffer<uint> g_RayCounter : register(u2);
-RWStructuredBuffer<uint> g_PixelIndices : register(u3);
-RWStructuredBuffer<Hit> g_Hits : register(u4);
-RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u5);
-RWStructuredBuffer<float> g_Depth : register(u6);
-RWStructuredBuffer<float4> g_Normal : register(u7);
-RWStructuredBuffer<float4> g_MotionVectors : register(u8);
-StructuredBuffer<RhiTriangle> g_Triangles : register(t9);
-StructuredBuffer<PackedMaterial> g_Materials : register(t10);
 
 float2 ProjectScreen(float3 position, float3 camera_position, float3 camera_front, float3 camera_up,
     float fov, float aspect_ratio)
@@ -43,7 +77,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     uint pixel_idx = g_PixelIndices[ray_idx];
     Ray ray = g_Rays[ray_idx];
-    RhiTriangle tri = g_Triangles[hit.primitive_id];
+    Triangle tri = g_Triangles[hit.primitive_id];
     float3 position = InterpolateAttributes(
         tri.v1.position.xyz, tri.v2.position.xyz, tri.v3.position.xyz, hit.bc);
     float2 texcoord =

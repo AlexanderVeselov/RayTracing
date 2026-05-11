@@ -72,6 +72,7 @@ set(HLSL_KERNELS_SOURCES
     kernels/hlsl/frame_data.hlsli
     kernels/hlsl/hit_surface.cs
     kernels/hlsl/increment_counter.cs
+    kernels/hlsl/light.hlsli
     kernels/hlsl/material.hlsli
     kernels/hlsl/miss.cs
     kernels/hlsl/raygeneration.cs
