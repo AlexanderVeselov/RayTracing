@@ -16,8 +16,8 @@ set(INTEGRATOR_SOURCES
     integrator/cl_pt_integrator.hpp
     integrator/gl_pt_integrator.cpp
     integrator/gl_pt_integrator.hpp
-    integrator/rhi_albedo_integrator.cpp
-    integrator/rhi_albedo_integrator.hpp
+    integrator/rhi_integrator.cpp
+    integrator/rhi_integrator.hpp
 )
 
 set(COMMON_KERNELS_SOURCES
@@ -63,7 +63,20 @@ set(GLSL_KERNELS_SOURCES
 )
 
 set(HLSL_KERNELS_SOURCES
-    kernels/hlsl/rhi_albedo.cs
+    kernels/hlsl/accumulate_direct.cs
+    kernels/hlsl/aov.cs
+    kernels/hlsl/clear_counter.cs
+    kernels/hlsl/common.hlsli
+    kernels/hlsl/hit_surface.cs
+    kernels/hlsl/increment_counter.cs
+    kernels/hlsl/material.hlsli
+    kernels/hlsl/miss.cs
+    kernels/hlsl/raygeneration.cs
+    kernels/hlsl/reset.cs
+    kernels/hlsl/resolve.cs
+    kernels/hlsl/trace_bvh.cs
+    kernels/hlsl/trace_common.hlsli
+    kernels/hlsl/trace_shadow_bvh.cs
 )
 
 set(LOADERS_SOURCES

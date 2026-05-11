@@ -25,7 +25,6 @@
 #include "rhi_albedo_integrator.hpp"
 
 #include "acceleration_structure.hpp"
-#include "gpu_buffer.hpp"
 #include "gpu_command_buffer.hpp"
 #include "gpu_descriptor_set.hpp"
 #include "gpu_device.hpp"
@@ -46,6 +45,7 @@ struct RhiCameraData
     float camera_position_fov[4];
     float camera_front_aspect[4];
     float camera_up_padding[4];
+    std::uint32_t render_size[4];
     std::uint32_t scene_counts[4];
 };
 }
@@ -53,17 +53,41 @@ struct RhiCameraData
 RhiAlbedoIntegrator::RhiAlbedoIntegrator(std::uint32_t width, std::uint32_t height,
     AccelerationStructure& acc_structure, void* window_native_handle)
     : Integrator(width, height, acc_structure)
-    , api_(gpu::Api::Create(gpu::ApiType::kD3D12))
+    , api_(gpu::Api::Create(gpu::ApiType::kVulkan))
 {
     if (!api_)
     {
         throw std::runtime_error("Failed to create GpuApi");
     }
+    api_->SetShaderPath("src/kernels/hlsl");
 
     device_ = api_->CreateDevice();
     swapchain_ = device_->CreateSwapchain(window_native_handle, width_, height_, 3);
     output_image_ = device_->CreateImage(width_, height_, swapchain_->GetFormat(), 1, 1,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+
+    std::uint32_t num_pixels = width_ * height_;
+    for (std::uint32_t i = 0; i < 2; ++i)
+    {
+        rays_buffers_[i] = CreateStorageBuffer(num_pixels * sizeof(Ray), sizeof(Ray));
+        pixel_indices_buffers_[i] =
+            CreateStorageBuffer(num_pixels * sizeof(std::uint32_t), sizeof(std::uint32_t));
+        ray_counter_buffers_[i] = CreateStorageBuffer(sizeof(std::uint32_t), sizeof(std::uint32_t));
+    }
+
+    shadow_rays_buffer_ = CreateStorageBuffer(num_pixels * sizeof(Ray), sizeof(Ray));
+    shadow_pixel_indices_buffer_ =
+        CreateStorageBuffer(num_pixels * sizeof(std::uint32_t), sizeof(std::uint32_t));
+    shadow_ray_counter_buffer_ = CreateStorageBuffer(sizeof(std::uint32_t), sizeof(std::uint32_t));
+    hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(Hit), sizeof(Hit));
+    shadow_hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(std::uint32_t), sizeof(std::uint32_t));
+    throughputs_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+    sample_counter_buffer_ = CreateStorageBuffer(sizeof(std::uint32_t), sizeof(std::uint32_t));
+    radiance_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float4), sizeof(float4));
+    diffuse_albedo_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+    depth_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float), sizeof(float));
+    normal_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+    direct_light_samples_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
 
     CreateKernels();
 }
@@ -90,29 +114,29 @@ void RhiAlbedoIntegrator::UploadGPUData(
     node_count_ = static_cast<std::uint32_t>(nodes.size());
     light_count_ = static_cast<std::uint32_t>(lights.size());
     texture_count_ = static_cast<std::uint32_t>(textures.size());
-    texture_data_count_ = static_cast<std::uint32_t>(texture_data.size());
 
     triangle_buffer_ = CreateUploadBuffer(triangles.empty() ? nullptr : triangles.data(),
-        triangles.size() * sizeof(Triangle),
-        sizeof(Triangle), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        triangles.size() * sizeof(Triangle), sizeof(Triangle),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     node_buffer_ = CreateUploadBuffer(nodes.empty() ? nullptr : nodes.data(),
-        nodes.size() * sizeof(LinearBVHNode),
-        sizeof(LinearBVHNode), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        nodes.size() * sizeof(LinearBVHNode), sizeof(LinearBVHNode),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     material_buffer_ = CreateUploadBuffer(materials.empty() ? nullptr : materials.data(),
-        materials.size() * sizeof(PackedMaterial),
-        sizeof(PackedMaterial), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        materials.size() * sizeof(PackedMaterial), sizeof(PackedMaterial),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     light_buffer_ = CreateUploadBuffer(lights.empty() ? nullptr : lights.data(),
-        lights.size() * sizeof(Light),
-        sizeof(Light), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        lights.size() * sizeof(Light), sizeof(Light),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     texture_buffer_ = CreateUploadBuffer(textures.empty() ? nullptr : textures.data(),
-        textures.size() * sizeof(Texture),
-        sizeof(Texture), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        textures.size() * sizeof(Texture), sizeof(Texture),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     texture_data_buffer_ = CreateUploadBuffer(texture_data.empty() ? nullptr : texture_data.data(),
-        texture_data.size() * sizeof(std::uint32_t),
-        sizeof(std::uint32_t), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        texture_data.size() * sizeof(std::uint32_t), sizeof(std::uint32_t),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
 
     SetCameraData(camera_);
-    RebuildDescriptorSet();
+    RebuildDescriptorSets();
+    Reset();
 }
 
 void RhiAlbedoIntegrator::SetCameraData(Camera const& camera)
@@ -135,6 +159,11 @@ void RhiAlbedoIntegrator::SetCameraData(Camera const& camera)
     data.camera_up_padding[2] = camera.up.z;
     data.camera_up_padding[3] = 0.0f;
 
+    data.render_size[0] = width_;
+    data.render_size[1] = height_;
+    data.render_size[2] = 0u;
+    data.render_size[3] = 0u;
+
     data.scene_counts[0] = triangle_count_;
     data.scene_counts[1] = node_count_;
     data.scene_counts[2] = light_count_;
@@ -143,9 +172,9 @@ void RhiAlbedoIntegrator::SetCameraData(Camera const& camera)
     camera_buffer_ = CreateUploadBuffer(&data, sizeof(data), sizeof(data),
         gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kConstant);
 
-    if (pipeline_ && triangle_buffer_ && node_buffer_ && material_buffer_)
+    if (triangle_buffer_)
     {
-        RebuildDescriptorSet();
+        RebuildDescriptorSets();
     }
 }
 
@@ -166,55 +195,79 @@ void RhiAlbedoIntegrator::EnableDenoiser(bool enable)
 
 void RhiAlbedoIntegrator::CreateKernels()
 {
-    pipeline_ = device_->CreateComputePipeline("src/kernels/hlsl/rhi_albedo.cs");
-    if (camera_buffer_ && triangle_buffer_ && node_buffer_ && material_buffer_)
-    {
-        RebuildDescriptorSet();
-    }
+    reset_pipeline_ = device_->CreateComputePipeline("rhi_reset.cs");
+    raygen_pipeline_ = device_->CreateComputePipeline("rhi_raygeneration.cs");
+    trace_pipeline_ = device_->CreateComputePipeline("rhi_trace_bvh.cs");
+    trace_shadow_pipeline_ = device_->CreateComputePipeline("rhi_trace_shadow_bvh.cs");
+    aov_pipeline_ = device_->CreateComputePipeline("rhi_aov.cs");
+    miss_pipeline_ = device_->CreateComputePipeline("rhi_miss.cs");
+    hit_surface_pipeline_ = device_->CreateComputePipeline("rhi_hit_surface.cs");
+    accumulate_direct_pipeline_ =
+        device_->CreateComputePipeline("rhi_accumulate_direct.cs");
+    clear_counter_pipeline_ = device_->CreateComputePipeline("rhi_clear_counter.cs");
+    increment_counter_pipeline_ =
+        device_->CreateComputePipeline("rhi_increment_counter.cs");
+    resolve_pipeline_ = device_->CreateComputePipeline("rhi_resolve.cs");
 }
 
 void RhiAlbedoIntegrator::Reset()
 {
+    if (reset_set_)
+    {
+        SubmitCompute(reset_pipeline_, reset_set_, DivideAndRoundUp(width_ * height_, 256));
+    }
 }
 
 void RhiAlbedoIntegrator::AdvanceSampleCount()
 {
+    SubmitCompute(increment_counter_pipeline_, increment_counter_set_, 1);
 }
 
 void RhiAlbedoIntegrator::GenerateRays()
 {
+    SubmitCompute(raygen_pipeline_, raygen_set_, DivideAndRoundUp(width_ * height_, 256));
 }
 
-void RhiAlbedoIntegrator::IntersectRays(std::uint32_t)
+void RhiAlbedoIntegrator::IntersectRays(std::uint32_t bounce)
 {
+    SubmitCompute(trace_pipeline_, trace_sets_[bounce & 1], DivideAndRoundUp(width_ * height_, 256));
 }
 
 void RhiAlbedoIntegrator::ComputeAOVs()
 {
+    SubmitCompute(aov_pipeline_, aov_set_, DivideAndRoundUp(width_ * height_, 256));
 }
 
-void RhiAlbedoIntegrator::ShadeMissedRays(std::uint32_t)
+void RhiAlbedoIntegrator::ShadeMissedRays(std::uint32_t bounce)
 {
+    SubmitCompute(miss_pipeline_, miss_sets_[bounce & 1], DivideAndRoundUp(width_ * height_, 256));
 }
 
-void RhiAlbedoIntegrator::ShadeSurfaceHits(std::uint32_t)
+void RhiAlbedoIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 {
+    SubmitCompute(hit_surface_pipeline_, hit_surface_sets_[bounce & 1],
+        DivideAndRoundUp(width_ * height_, 256));
 }
 
 void RhiAlbedoIntegrator::IntersectShadowRays()
 {
+    SubmitCompute(trace_shadow_pipeline_, trace_shadow_set_, DivideAndRoundUp(width_ * height_, 256));
 }
 
 void RhiAlbedoIntegrator::AccumulateDirectSamples()
 {
+    SubmitCompute(accumulate_direct_pipeline_, accumulate_direct_set_,
+        DivideAndRoundUp(width_ * height_, 256));
 }
 
-void RhiAlbedoIntegrator::ClearOutgoingRayCounter(std::uint32_t)
+void RhiAlbedoIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
 {
+    SubmitCompute(clear_counter_pipeline_, clear_counter_sets_[(bounce + 1) & 1], 1);
 }
 
 void RhiAlbedoIntegrator::ClearShadowRayCounter()
 {
+    SubmitCompute(clear_counter_pipeline_, clear_shadow_counter_set_, 1);
 }
 
 void RhiAlbedoIntegrator::Denoise()
@@ -227,18 +280,13 @@ void RhiAlbedoIntegrator::CopyHistoryBuffers()
 
 void RhiAlbedoIntegrator::ResolveRadiance()
 {
-    if (!descriptor_set_)
-    {
-        return;
-    }
-
     gpu::ImagePtr swapchain_image = swapchain_->GetCurrentImage();
     gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr cmd_buffer = queue.CreateCommandBuffer();
 
     cmd_buffer->TransitionBarrier(output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
-    cmd_buffer->BindPipeline(pipeline_);
-    cmd_buffer->BindDescriptorSet(descriptor_set_);
+    cmd_buffer->BindPipeline(resolve_pipeline_);
+    cmd_buffer->BindDescriptorSet(resolve_set_);
     cmd_buffer->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
     cmd_buffer->TransitionBarrier(output_image_, gpu::ImageLayout::kShaderReadWrite,
         gpu::ImageLayout::kCopySrc);
@@ -267,17 +315,126 @@ gpu::BufferPtr RhiAlbedoIntegrator::CreateUploadBuffer(void const* data, std::si
     return buffer;
 }
 
-void RhiAlbedoIntegrator::RebuildDescriptorSet()
+gpu::BufferPtr RhiAlbedoIntegrator::CreateStorageBuffer(std::size_t size, std::uint32_t stride)
 {
-    descriptor_set_ = pipeline_->CreateDescriptorSet();
-    descriptor_set_->BindImage(*output_image_, 0, 0);
-    descriptor_set_->BindBuffer(*camera_buffer_, 1, 0);
-    descriptor_set_->BindBuffer(*triangle_buffer_, 2, 0);
-    descriptor_set_->BindBuffer(*node_buffer_, 3, 0);
-    descriptor_set_->BindBuffer(*material_buffer_, 4, 0);
-    descriptor_set_->BindBuffer(*light_buffer_, 5, 0);
-    descriptor_set_->BindBuffer(*texture_buffer_, 6, 0);
-    descriptor_set_->BindBuffer(*texture_data_buffer_, 7, 0);
+    std::size_t allocation_size = std::max<std::size_t>(size, stride);
+    return device_->CreateBuffer(allocation_size, stride,
+        gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kStorage);
+}
+
+void RhiAlbedoIntegrator::RebuildDescriptorSets()
+{
+    if (!camera_buffer_ || !triangle_buffer_)
+    {
+        return;
+    }
+
+    reset_set_ = reset_pipeline_->CreateDescriptorSet();
+    reset_set_->BindBuffer(*sample_counter_buffer_, 15, 0);
+    reset_set_->BindBuffer(*radiance_buffer_, 13, 0);
+
+    raygen_set_ = raygen_pipeline_->CreateDescriptorSet();
+    raygen_set_->BindBuffer(*camera_buffer_, 1, 0);
+    raygen_set_->BindBuffer(*rays_buffers_[0], 2, 0);
+    raygen_set_->BindBuffer(*ray_counter_buffers_[0], 4, 0);
+    raygen_set_->BindBuffer(*pixel_indices_buffers_[0], 5, 0);
+    raygen_set_->BindBuffer(*throughputs_buffer_, 12, 0);
+    raygen_set_->BindBuffer(*sample_counter_buffer_, 15, 0);
+    raygen_set_->BindBuffer(*diffuse_albedo_buffer_, 16, 0);
+    raygen_set_->BindBuffer(*depth_buffer_, 17, 0);
+    raygen_set_->BindBuffer(*normal_buffer_, 18, 0);
+
+    for (std::uint32_t i = 0; i < 2; ++i)
+    {
+        trace_sets_[i] = trace_pipeline_->CreateDescriptorSet();
+        trace_sets_[i]->BindBuffer(*rays_buffers_[i], 2, 0);
+        trace_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 4, 0);
+        trace_sets_[i]->BindBuffer(*hits_buffer_, 7, 0);
+        trace_sets_[i]->BindBuffer(*triangle_buffer_, 20, 0);
+        trace_sets_[i]->BindBuffer(*node_buffer_, 21, 0);
+
+        miss_sets_[i] = miss_pipeline_->CreateDescriptorSet();
+        miss_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 4, 0);
+        miss_sets_[i]->BindBuffer(*pixel_indices_buffers_[i], 5, 0);
+        miss_sets_[i]->BindBuffer(*hits_buffer_, 7, 0);
+        miss_sets_[i]->BindBuffer(*throughputs_buffer_, 12, 0);
+        miss_sets_[i]->BindBuffer(*radiance_buffer_, 13, 0);
+
+        hit_surface_sets_[i] = hit_surface_pipeline_->CreateDescriptorSet();
+        hit_surface_sets_[i]->BindBuffer(*camera_buffer_, 1, 0);
+        hit_surface_sets_[i]->BindBuffer(*rays_buffers_[i], 2, 0);
+        hit_surface_sets_[i]->BindBuffer(*rays_buffers_[(i + 1) & 1], 3, 0);
+        hit_surface_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 4, 0);
+        hit_surface_sets_[i]->BindBuffer(*pixel_indices_buffers_[i], 5, 0);
+        hit_surface_sets_[i]->BindBuffer(*pixel_indices_buffers_[(i + 1) & 1], 6, 0);
+        hit_surface_sets_[i]->BindBuffer(*hits_buffer_, 7, 0);
+        hit_surface_sets_[i]->BindBuffer(*shadow_rays_buffer_, 8, 0);
+        hit_surface_sets_[i]->BindBuffer(*shadow_ray_counter_buffer_, 9, 0);
+        hit_surface_sets_[i]->BindBuffer(*shadow_pixel_indices_buffer_, 10, 0);
+        hit_surface_sets_[i]->BindBuffer(*throughputs_buffer_, 12, 0);
+        hit_surface_sets_[i]->BindBuffer(*radiance_buffer_, 13, 0);
+        hit_surface_sets_[i]->BindBuffer(*direct_light_samples_buffer_, 14, 0);
+        hit_surface_sets_[i]->BindBuffer(*sample_counter_buffer_, 15, 0);
+        hit_surface_sets_[i]->BindBuffer(*ray_counter_buffers_[(i + 1) & 1], 19, 0);
+        hit_surface_sets_[i]->BindBuffer(*triangle_buffer_, 20, 0);
+        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 22, 0);
+        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 23, 0);
+        hit_surface_sets_[i]->BindBuffer(*texture_buffer_, 24, 0);
+        hit_surface_sets_[i]->BindBuffer(*texture_data_buffer_, 25, 0);
+
+        clear_counter_sets_[i] = clear_counter_pipeline_->CreateDescriptorSet();
+        clear_counter_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 4, 0);
+    }
+
+    trace_shadow_set_ = trace_shadow_pipeline_->CreateDescriptorSet();
+    trace_shadow_set_->BindBuffer(*shadow_rays_buffer_, 8, 0);
+    trace_shadow_set_->BindBuffer(*shadow_ray_counter_buffer_, 9, 0);
+    trace_shadow_set_->BindBuffer(*shadow_hits_buffer_, 11, 0);
+    trace_shadow_set_->BindBuffer(*triangle_buffer_, 20, 0);
+    trace_shadow_set_->BindBuffer(*node_buffer_, 21, 0);
+
+    aov_set_ = aov_pipeline_->CreateDescriptorSet();
+    aov_set_->BindBuffer(*camera_buffer_, 1, 0);
+    aov_set_->BindBuffer(*rays_buffers_[0], 2, 0);
+    aov_set_->BindBuffer(*ray_counter_buffers_[0], 4, 0);
+    aov_set_->BindBuffer(*pixel_indices_buffers_[0], 5, 0);
+    aov_set_->BindBuffer(*hits_buffer_, 7, 0);
+    aov_set_->BindBuffer(*diffuse_albedo_buffer_, 16, 0);
+    aov_set_->BindBuffer(*depth_buffer_, 17, 0);
+    aov_set_->BindBuffer(*normal_buffer_, 18, 0);
+    aov_set_->BindBuffer(*triangle_buffer_, 20, 0);
+    aov_set_->BindBuffer(*material_buffer_, 22, 0);
+    aov_set_->BindBuffer(*texture_buffer_, 24, 0);
+    aov_set_->BindBuffer(*texture_data_buffer_, 25, 0);
+
+    accumulate_direct_set_ = accumulate_direct_pipeline_->CreateDescriptorSet();
+    accumulate_direct_set_->BindBuffer(*shadow_ray_counter_buffer_, 9, 0);
+    accumulate_direct_set_->BindBuffer(*shadow_pixel_indices_buffer_, 10, 0);
+    accumulate_direct_set_->BindBuffer(*shadow_hits_buffer_, 11, 0);
+    accumulate_direct_set_->BindBuffer(*radiance_buffer_, 13, 0);
+    accumulate_direct_set_->BindBuffer(*direct_light_samples_buffer_, 14, 0);
+
+    clear_shadow_counter_set_ = clear_counter_pipeline_->CreateDescriptorSet();
+    clear_shadow_counter_set_->BindBuffer(*shadow_ray_counter_buffer_, 4, 0);
+
+    increment_counter_set_ = increment_counter_pipeline_->CreateDescriptorSet();
+    increment_counter_set_->BindBuffer(*sample_counter_buffer_, 15, 0);
+
+    resolve_set_ = resolve_pipeline_->CreateDescriptorSet();
+    resolve_set_->BindImage(*output_image_, 0, 0);
+    resolve_set_->BindBuffer(*diffuse_albedo_buffer_, 16, 0);
+}
+
+void RhiAlbedoIntegrator::SubmitCompute(gpu::ComputePipelinePtr const& pipeline,
+    gpu::DescriptorSetPtr const& descriptor_set, std::uint32_t groups_x,
+    std::uint32_t groups_y, std::uint32_t groups_z)
+{
+    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    gpu::CommandBufferPtr cmd_buffer = queue.CreateCommandBuffer();
+    cmd_buffer->BindPipeline(pipeline);
+    cmd_buffer->BindDescriptorSet(descriptor_set);
+    cmd_buffer->Dispatch(groups_x, groups_y, groups_z);
+    queue.Submit(std::move(cmd_buffer));
 }
 
 std::uint32_t RhiAlbedoIntegrator::DivideAndRoundUp(std::uint32_t value, std::uint32_t divisor)

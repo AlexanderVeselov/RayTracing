@@ -49,8 +49,8 @@ int main(int argc, char** argv)
         cli_app.add_option("--scene", scene_path, "Scene path");
         cli_app.add_option("--scale", scene_scale, "Scene scale");
         cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
-        cli_app.add_option("--opengl", use_opengl, "Use OpenGL");
-        cli_app.add_option("--rhi", use_rhi, "Use GpuApi RHI albedo renderer");
+        cli_app.add_flag("--opengl", use_opengl, "Use OpenGL");
+        cli_app.add_flag("--rhi", use_rhi, "Use GpuApi RHI albedo renderer");
 
         cli_app.parse(argc, argv);
 
