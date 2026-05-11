@@ -96,5 +96,4 @@ protected:
     // For debugging
     bool enable_white_furnace_ = false;
     bool enable_denoiser_ = false;
-
 };

@@ -1,8 +1,8 @@
 #include "trace_common.hlsli"
 
-RWStructuredBuffer<Ray> g_ShadowRays : register(u8);
-RWStructuredBuffer<uint> g_ShadowRayCounter : register(u9);
-RWStructuredBuffer<uint> g_ShadowHits : register(u11);
+RWStructuredBuffer<Ray> g_ShadowRays : register(u0);
+RWStructuredBuffer<uint> g_ShadowRayCounter : register(u1);
+RWStructuredBuffer<uint> g_ShadowHits : register(u2);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)

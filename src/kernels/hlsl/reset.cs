@@ -1,6 +1,6 @@
 #include "common.hlsli"
 
-RWStructuredBuffer<float4> g_Radiance : register(u13);
+RWStructuredBuffer<float4> g_Radiance : register(u0);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)

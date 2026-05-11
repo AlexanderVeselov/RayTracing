@@ -1,10 +1,18 @@
 static const float EPS = 0.001f;
 static const float INV_PI = 0.318309886f;
+static const float INV_TWO_PI = 0.159154943f;
 static const float TWO_PI = 6.283185307f;
 static const float MAX_RENDER_DIST = 1000000.0f;
 static const uint INVALID_ID = 0xFFFFFFFFu;
 static const uint INVALID_TEXTURE_IDX = 0xFFu;
 static const uint LIGHT_TYPE_POINT = 0u;
+
+static const uint SAMPLE_TYPE_SUBPIXEL = 0u;
+static const uint SAMPLE_TYPE_BXDF_LAYER = 1u;
+static const uint SAMPLE_TYPE_BXDF_U = 2u;
+static const uint SAMPLE_TYPE_BXDF_V = 3u;
+static const uint SAMPLE_TYPE_LIGHT = 4u;
+static const uint SAMPLE_TYPE_MAX = 5u;
 
 struct Ray
 {
@@ -147,6 +155,11 @@ float3 FresnelSchlick(float3 f0, float h_dot_o)
     return f0 + (1.0f - f0) * pow(1.0f - h_dot_o, 5.0f);
 }
 
+float Luma(float3 color)
+{
+    return dot(color, float3(0.299f, 0.587f, 0.114f));
+}
+
 float GGX_D(float alpha, float n_dot_h)
 {
     float alpha2 = alpha * alpha;
@@ -168,6 +181,19 @@ float3 TangentToWorld(float3 dir, float3 n)
     float3 t = normalize(cross(axis, n));
     float3 b = cross(n, t);
     return normalize(b * dir.x + t * dir.y + n * dir.z);
+}
+
+float3 GGX_Sample(float2 s, float3 n, float alpha)
+{
+    float phi = TWO_PI * s.x;
+    float cos_theta = 1.0f / sqrt(1.0f + (alpha * alpha * s.y) / max(1.0f - s.y, EPS));
+    float sin_theta = sqrt(max(0.0f, 1.0f - cos_theta * cos_theta));
+
+    float3 axis = abs(n.x) > 0.001f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+    float3 t = normalize(cross(axis, n));
+    float3 b = cross(n, t);
+
+    return normalize(b * cos(phi) * sin_theta + t * sin(phi) * sin_theta + n * cos_theta);
 }
 
 float3 SampleHemisphereCosine(float2 s, out float pdf)
@@ -199,6 +225,16 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
     return fresnel * GGX_D(alpha, n_dot_h) * V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha) +
            (1.0f - fresnel) * diffuse_color * INV_PI;
+}
+
+float SampleRandom(uint pixel_i, uint pixel_j, uint sample_index, uint bounce, uint sample_type)
+{
+    uint sample_dimension = bounce * SAMPLE_TYPE_MAX + sample_type;
+    uint seed = WangHash(pixel_i);
+    seed = WangHash(seed + WangHash(pixel_j));
+    seed = WangHash(seed + WangHash(sample_index));
+    seed = WangHash(seed + WangHash(sample_dimension));
+    return float(seed) * 2.3283064365386963e-10f;
 }
 
 float3 Tonemap(float3 color)

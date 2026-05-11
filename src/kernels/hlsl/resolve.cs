@@ -1,13 +1,13 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
-RWTexture2D<float4> g_Output : register(u0);
-RWStructuredBuffer<float4> g_Radiance : register(u13);
-RWStructuredBuffer<uint> g_SampleCounter : register(u15);
-RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u16);
-RWStructuredBuffer<float> g_Depth : register(u17);
-RWStructuredBuffer<float4> g_Normal : register(u18);
-RWStructuredBuffer<float4> g_MotionVectors : register(u26);
+RWTexture2D<float4> g_Output : register(u1);
+RWStructuredBuffer<float4> g_Radiance : register(u2);
+RWStructuredBuffer<uint> g_SampleCounter : register(u3);
+RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u4);
+RWStructuredBuffer<float> g_Depth : register(u5);
+RWStructuredBuffer<float4> g_Normal : register(u6);
+RWStructuredBuffer<float4> g_MotionVectors : register(u7);
 
 [numthreads(8, 8, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)

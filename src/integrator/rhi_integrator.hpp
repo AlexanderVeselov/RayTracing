@@ -68,6 +68,7 @@ class RhiIntegrator : public Integrator
         void const* data, std::size_t size, std::uint32_t stride, gpu::BufferFlags flags);
     gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
+    void UpdateFrameData();
     void RebuildDescriptorSets();
     void SubmitCompute(gpu::ComputePipelinePtr const& pipeline,
         gpu::DescriptorSetPtr const& descriptor_set, std::uint32_t groups_x,
@@ -127,6 +128,7 @@ class RhiIntegrator : public Integrator
     gpu::BufferPtr normal_buffer_;
     gpu::BufferPtr motion_vectors_buffer_;
     gpu::BufferPtr direct_light_samples_buffer_;
+    std::array<gpu::BufferPtr, 2> bounce_buffers_;
 
     gpu::BufferPtr triangle_buffer_;
     gpu::BufferPtr node_buffer_;

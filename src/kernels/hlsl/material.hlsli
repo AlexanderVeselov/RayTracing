@@ -1,7 +1,16 @@
 #include "common.hlsli"
+#include "frame_data.hlsli"
 
-StructuredBuffer<TextureInfo> g_Textures : register(t24);
-StructuredBuffer<uint> g_TextureData : register(t25);
+#ifndef TEXTURES_REGISTER
+#define TEXTURES_REGISTER t0
+#endif
+
+#ifndef TEXTURE_DATA_REGISTER
+#define TEXTURE_DATA_REGISTER t1
+#endif
+
+StructuredBuffer<TextureInfo> g_Textures : register(TEXTURES_REGISTER);
+StructuredBuffer<uint> g_TextureData : register(TEXTURE_DATA_REGISTER);
 
 float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
 {
@@ -74,4 +83,89 @@ Material ApplyTextures(PackedMaterial packed_material, float2 uv, uint texture_c
     }
 
     return material;
+}
+
+float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, out float3 outgoing, out float pdf)
+{
+    float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
+    outgoing = TangentToWorld(tbn_outgoing, normal);
+    return albedo * INV_PI;
+}
+
+float3 SampleSpecular(
+    float2 s, float alpha, float3 normal, float3 incoming, out float3 outgoing, out float pdf)
+{
+    if (alpha <= 1.0e-4f)
+    {
+        outgoing = reflect(-incoming, normal);
+        pdf = 1.0f;
+        float n_dot_o = max(dot(outgoing, normal), EPS);
+        return 1.0f.xxx / n_dot_o;
+    }
+
+    float3 wh = GGX_Sample(s, normal, alpha);
+    outgoing = reflect(-incoming, wh);
+
+    float n_dot_o = max(dot(normal, outgoing), EPS);
+    float n_dot_h = max(dot(normal, wh), EPS);
+    float n_dot_i = max(dot(normal, incoming), EPS);
+    float wh_dot_o = max(dot(wh, outgoing), EPS);
+
+    float d = GGX_D(alpha, n_dot_h);
+    float g = V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
+    pdf = d * n_dot_h / (4.0f * wh_dot_o);
+    return d.xxx * g;
+}
+
+float3 SampleTransparency(float3 incoming, out float3 outgoing, out float pdf)
+{
+    pdf = 1.0f;
+    outgoing = -incoming;
+    return 1.0f.xxx;
+}
+
+float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 incoming,
+    out float3 outgoing, out float pdf, out float offset)
+{
+    if ((g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) != 0u)
+    {
+        material.diffuse_albedo = 1.0f.xxx;
+        material.specular_albedo = 1.0f.xxx;
+    }
+
+    float alpha = material.roughness * material.roughness;
+    float f0_dielectric = IorToF0(1.0f, material.ior);
+    float3 f0 = lerp(f0_dielectric.xxx, material.specular_albedo, material.metalness.xxx);
+    float3 diffuse_albedo = (1.0f - material.metalness) * material.diffuse_albedo;
+    float3 specular_albedo = lerp(material.specular_albedo, 1.0f.xxx, material.metalness.xxx);
+    float3 fresnel = FresnelSchlick(f0, dot(normal, incoming)) * specular_albedo;
+
+    float specular_weight = Luma(specular_albedo * fresnel);
+    float diffuse_weight = Luma(diffuse_albedo * (1.0f - fresnel));
+    float weight_sum = diffuse_weight + specular_weight;
+    float specular_sampling_pdf = weight_sum > 0.0f ? specular_weight / weight_sum : 0.0f;
+    float diffuse_sampling_pdf = weight_sum > 0.0f ? diffuse_weight / weight_sum : 0.0f;
+
+    offset = 1.0f;
+    if (material.transparency < 0.5f)
+    {
+        offset = -1.0f;
+        return SampleTransparency(incoming, outgoing, pdf);
+    }
+
+    float3 bxdf;
+    if (s1 <= specular_sampling_pdf)
+    {
+        bxdf = fresnel * SampleSpecular(s, alpha, normal, incoming, outgoing, pdf) *
+               max(dot(outgoing, normal), 0.0f);
+        pdf *= specular_sampling_pdf;
+    }
+    else
+    {
+        bxdf = (1.0f - fresnel) * SampleDiffuse(s, diffuse_albedo, normal, outgoing, pdf) *
+               max(dot(outgoing, normal), 0.0f);
+        pdf *= diffuse_sampling_pdf;
+    }
+
+    return bxdf;
 }

@@ -1,11 +1,11 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
-RWStructuredBuffer<uint> g_RayCounter : register(u4);
-RWStructuredBuffer<uint> g_PixelIndices : register(u5);
-RWStructuredBuffer<Hit> g_Hits : register(u7);
-RWStructuredBuffer<float4> g_Throughputs : register(u12);
-RWStructuredBuffer<float4> g_Radiance : register(u13);
+RWStructuredBuffer<uint> g_RayCounter : register(u1);
+RWStructuredBuffer<uint> g_PixelIndices : register(u2);
+RWStructuredBuffer<Hit> g_Hits : register(u3);
+RWStructuredBuffer<float4> g_Throughputs : register(u4);
+RWStructuredBuffer<float4> g_Radiance : register(u5);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)

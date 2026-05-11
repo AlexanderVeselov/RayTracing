@@ -1,16 +1,18 @@
-#include "frame_data.hlsli"
+#define TEXTURES_REGISTER t11
+#define TEXTURE_DATA_REGISTER t12
+
 #include "material.hlsli"
 
-RWStructuredBuffer<Ray> g_Rays : register(u2);
-RWStructuredBuffer<uint> g_RayCounter : register(u4);
-RWStructuredBuffer<uint> g_PixelIndices : register(u5);
-RWStructuredBuffer<Hit> g_Hits : register(u7);
-RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u16);
-RWStructuredBuffer<float> g_Depth : register(u17);
-RWStructuredBuffer<float4> g_Normal : register(u18);
-RWStructuredBuffer<float4> g_MotionVectors : register(u26);
-StructuredBuffer<RhiTriangle> g_Triangles : register(t20);
-StructuredBuffer<PackedMaterial> g_Materials : register(t22);
+RWStructuredBuffer<Ray> g_Rays : register(u1);
+RWStructuredBuffer<uint> g_RayCounter : register(u2);
+RWStructuredBuffer<uint> g_PixelIndices : register(u3);
+RWStructuredBuffer<Hit> g_Hits : register(u4);
+RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u5);
+RWStructuredBuffer<float> g_Depth : register(u6);
+RWStructuredBuffer<float4> g_Normal : register(u7);
+RWStructuredBuffer<float4> g_MotionVectors : register(u8);
+StructuredBuffer<RhiTriangle> g_Triangles : register(t9);
+StructuredBuffer<PackedMaterial> g_Materials : register(t10);
 
 float2 ProjectScreen(float3 position, float3 camera_position, float3 camera_front, float3 camera_up,
     float fov, float aspect_ratio)

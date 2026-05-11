@@ -1,12 +1,11 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
-RWStructuredBuffer<float4> g_Radiance : register(u13);
-RWStructuredBuffer<uint> g_SampleCounter : register(u15);
-StructuredBuffer<float4> g_PrevRadiance : register(t27);
-RWStructuredBuffer<float> g_Depth : register(u17);
-StructuredBuffer<float> g_PrevDepth : register(t28);
-RWStructuredBuffer<float4> g_MotionVectors : register(u26);
+RWStructuredBuffer<float4> g_Radiance : register(u1);
+StructuredBuffer<float4> g_PrevRadiance : register(t2);
+RWStructuredBuffer<float> g_Depth : register(u3);
+StructuredBuffer<float> g_PrevDepth : register(t4);
+RWStructuredBuffer<float4> g_MotionVectors : register(u5);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
@@ -19,11 +18,6 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     {
         return;
     }
-    if (g_SampleCounter[0] <= 1u)
-    {
-        return;
-    }
-
     uint x = pixel_idx % width;
     uint y = pixel_idx / width;
     float depth_value = g_Depth[pixel_idx];

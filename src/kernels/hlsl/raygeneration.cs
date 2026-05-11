@@ -1,15 +1,15 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
-RWStructuredBuffer<Ray> g_Rays : register(u2);
-RWStructuredBuffer<uint> g_RayCounter : register(u4);
-RWStructuredBuffer<uint> g_PixelIndices : register(u5);
-RWStructuredBuffer<float4> g_Throughputs : register(u12);
-RWStructuredBuffer<uint> g_SampleCounter : register(u15);
-RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u16);
-RWStructuredBuffer<float> g_Depth : register(u17);
-RWStructuredBuffer<float4> g_Normal : register(u18);
-RWStructuredBuffer<float4> g_MotionVectors : register(u26);
+RWStructuredBuffer<Ray> g_Rays : register(u1);
+RWStructuredBuffer<uint> g_RayCounter : register(u2);
+RWStructuredBuffer<uint> g_PixelIndices : register(u3);
+RWStructuredBuffer<float4> g_Throughputs : register(u4);
+RWStructuredBuffer<uint> g_SampleCounter : register(u5);
+RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u6);
+RWStructuredBuffer<float> g_Depth : register(u7);
+RWStructuredBuffer<float4> g_Normal : register(u8);
+RWStructuredBuffer<float4> g_MotionVectors : register(u9);
 
 float2 PointInHexagon(inout uint seed)
 {

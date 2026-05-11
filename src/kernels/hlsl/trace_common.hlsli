@@ -1,7 +1,7 @@
 #include "common.hlsli"
 
-StructuredBuffer<RhiTriangle> g_Triangles : register(t20);
-StructuredBuffer<LinearBVHNode> g_Nodes : register(t21);
+StructuredBuffer<RhiTriangle> g_Triangles : register(t3);
+StructuredBuffer<LinearBVHNode> g_Nodes : register(t4);
 
 bool IntersectTriangle(
     float3 origin, float3 direction, float t_min, inout float t_max, RhiTriangle tri, out float2 bc)

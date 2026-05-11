@@ -1,7 +1,7 @@
 #ifndef FRAME_DATA_HLSLI
 #define FRAME_DATA_HLSLI
 
-cbuffer FrameData : register(b1)
+cbuffer FrameData : register(b0)
 {
     float4 g_CameraPositionFov;
     float4 g_CameraFrontAspect;
