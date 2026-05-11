@@ -126,16 +126,14 @@ float3 UnpackRGBE(uint rgbe)
     }
 
     return float3((rgbe >> 0) & 0xFFu, (rgbe >> 8) & 0xFFu, (rgbe >> 16) & 0xFFu) *
-        exp2(float(e - (128 + 8)));
+           exp2(float(e - (128 + 8)));
 }
 
 float4 UnpackRGBA8(uint data)
 {
-    return float4(
-        float((data >> 0) & 0xFFu),
-        float((data >> 8) & 0xFFu),
-        float((data >> 16) & 0xFFu),
-        float((data >> 24) & 0xFFu)) / 255.0f;
+    return float4(float((data >> 0) & 0xFFu), float((data >> 8) & 0xFFu),
+               float((data >> 16) & 0xFFu), float((data >> 24) & 0xFFu)) /
+           255.0f;
 }
 
 float IorToF0(float ior_incident, float ior_transmitted)
@@ -195,11 +193,12 @@ float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float
     float n_dot_h = max(dot(normal, half_vec), EPS);
     float h_dot_o = max(dot(half_vec, outgoing), EPS);
     float alpha = material.roughness * material.roughness;
-    float3 f0 = lerp(IorToF0(1.0f, material.ior).xxx, material.specular_albedo, material.metalness.xxx);
+    float3 f0 =
+        lerp(IorToF0(1.0f, material.ior).xxx, material.specular_albedo, material.metalness.xxx);
     float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo;
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
     return fresnel * GGX_D(alpha, n_dot_h) * V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha) +
-        (1.0f - fresnel) * diffuse_color * INV_PI;
+           (1.0f - fresnel) * diffuse_color * INV_PI;
 }
 
 float3 Tonemap(float3 color)

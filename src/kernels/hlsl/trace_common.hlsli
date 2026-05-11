@@ -3,8 +3,8 @@
 StructuredBuffer<RhiTriangle> g_Triangles : register(t20);
 StructuredBuffer<LinearBVHNode> g_Nodes : register(t21);
 
-bool IntersectTriangle(float3 origin, float3 direction, float t_min, inout float t_max,
-    RhiTriangle tri, out float2 bc)
+bool IntersectTriangle(
+    float3 origin, float3 direction, float t_min, inout float t_max, RhiTriangle tri, out float2 bc)
 {
     float3 p0 = tri.v1.position.xyz;
     float3 p1 = tri.v2.position.xyz;
@@ -49,7 +49,8 @@ bool IntersectTriangle(float3 origin, float3 direction, float t_min, inout float
     return true;
 }
 
-bool IntersectBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool IntersectBounds(
+    Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
 {
     float3 t0 = (bounds.pmin.xyz - ray_origin) * ray_inv_dir;
     float3 t1 = (bounds.pmax.xyz - ray_origin) * ray_inv_dir;
@@ -60,8 +61,8 @@ bool IntersectBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, floa
     return far_t >= near_t;
 }
 
-Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max,
-    uint node_count, bool any_hit)
+Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max, uint node_count,
+    bool any_hit)
 {
     Hit hit;
     hit.bc = 0.0f.xx;
@@ -79,8 +80,7 @@ Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max,
     uint to_visit_offset = 0;
     uint current_node_index = 0;
 
-    [loop]
-    while (true)
+    [loop] while (true)
     {
         LinearBVHNode node = g_Nodes[current_node_index];
         if (IntersectBounds(node.bounds, ray_origin, ray_inv_dir, t_min, hit.t))
@@ -88,13 +88,12 @@ Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max,
             uint num_primitives = node.num_primitives_axis >> 16;
             if (num_primitives > 0)
             {
-                [loop]
-                for (uint i = 0; i < num_primitives; ++i)
+                [loop] for (uint i = 0; i < num_primitives; ++i)
                 {
                     float2 bc;
                     float t = hit.t;
-                    if (IntersectTriangle(ray_origin, ray_direction, t_min, t,
-                        g_Triangles[node.offset + i], bc))
+                    if (IntersectTriangle(
+                            ray_origin, ray_direction, t_min, t, g_Triangles[node.offset + i], bc))
                     {
                         hit.bc = bc;
                         hit.primitive_id = node.offset + i;
@@ -115,7 +114,8 @@ Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max,
             else
             {
                 uint axis = node.num_primitives_axis & 0xFFFFu;
-                bool sign = axis == 0 ? ray_sign.x != 0 : (axis == 1 ? ray_sign.y != 0 : ray_sign.z != 0);
+                bool sign =
+                    axis == 0 ? ray_sign.x != 0 : (axis == 1 ? ray_sign.y != 0 : ray_sign.z != 0);
                 if (sign)
                 {
                     nodes_to_visit[to_visit_offset++] = current_node_index + 1;

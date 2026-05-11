@@ -1,13 +1,5 @@
+#include "frame_data.hlsli"
 #include "material.hlsli"
-
-cbuffer CameraData : register(b1)
-{
-    float4 g_CameraPositionFov;
-    float4 g_CameraFrontAspect;
-    float4 g_CameraUpPadding;
-    uint4 g_RenderSize;
-    uint4 g_SceneCounts;
-};
 
 RWStructuredBuffer<Ray> g_IncomingRays : register(u2);
 RWStructuredBuffer<Ray> g_OutgoingRays : register(u3);
@@ -27,7 +19,8 @@ StructuredBuffer<RhiTriangle> g_Triangles : register(t20);
 StructuredBuffer<PackedMaterial> g_Materials : register(t22);
 StructuredBuffer<Light> g_Lights : register(t23);
 
-float3 SampleFirstLight(float3 position, out float3 outgoing, out float pdf, out float distance_to_light)
+float3 SampleFirstLight(
+    float3 position, out float3 outgoing, out float pdf, out float distance_to_light)
 {
     if (g_SceneCounts.z == 0)
     {
@@ -48,13 +41,13 @@ float3 SampleFirstLight(float3 position, out float3 outgoing, out float pdf, out
         return light.radiance.xyz / sq_length;
     }
 
-    outgoing = light.origin.xyz * MAX_RENDER_DIST;
+    outgoing = normalize(light.origin.xyz);
     distance_to_light = MAX_RENDER_DIST;
     return light.radiance.xyz;
 }
 
 [numthreads(256, 1, 1)]
-void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
+void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
     uint ray_idx = dispatch_thread_id.x;
     if (ray_idx >= g_IncomingRayCounter[0])
@@ -72,14 +65,14 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
     Ray incoming_ray = g_IncomingRays[ray_idx];
     float3 incoming = -incoming_ray.direction.xyz;
     RhiTriangle tri = g_Triangles[hit.primitive_id];
-    float3 position = InterpolateAttributes(tri.v1.position.xyz, tri.v2.position.xyz,
-        tri.v3.position.xyz, hit.bc);
-    float2 texcoord = InterpolateAttributes2(tri.v1.texcoord.xy, tri.v2.texcoord.xy,
-        tri.v3.texcoord.xy, hit.bc);
-    float3 geometry_normal = normalize(cross(tri.v2.position.xyz - tri.v1.position.xyz,
-        tri.v3.position.xyz - tri.v1.position.xyz));
-    float3 normal = normalize(InterpolateAttributes(tri.v1.normal.xyz, tri.v2.normal.xyz,
-        tri.v3.normal.xyz, hit.bc));
+    float3 position = InterpolateAttributes(
+        tri.v1.position.xyz, tri.v2.position.xyz, tri.v3.position.xyz, hit.bc);
+    float2 texcoord =
+        InterpolateAttributes2(tri.v1.texcoord.xy, tri.v2.texcoord.xy, tri.v3.texcoord.xy, hit.bc);
+    float3 geometry_normal = normalize(cross(
+        tri.v2.position.xyz - tri.v1.position.xyz, tri.v3.position.xyz - tri.v1.position.xyz));
+    float3 normal = normalize(
+        InterpolateAttributes(tri.v1.normal.xyz, tri.v2.normal.xyz, tri.v3.normal.xyz, hit.bc));
     if (dot(normal, incoming) < 0.0f)
     {
         normal = -normal;
@@ -96,13 +89,14 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
     float3 light_outgoing;
     float light_pdf;
     float distance_to_light;
-    float3 light_radiance = SampleFirstLight(position, light_outgoing, light_pdf, distance_to_light);
+    float3 light_radiance =
+        SampleFirstLight(position, light_outgoing, light_pdf, distance_to_light);
     if (light_pdf > 0.0f && dot(light_radiance, light_radiance) > 0.0f)
     {
         float3 outgoing = normalize(light_outgoing);
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample = light_radiance * throughput * brdf *
-            max(dot(outgoing, normal), 0.0f) / light_pdf;
+        float3 light_sample =
+            light_radiance * throughput * brdf * max(dot(outgoing, normal), 0.0f) / light_pdf;
 
         if (dot(light_sample, light_sample) > 0.0f)
         {

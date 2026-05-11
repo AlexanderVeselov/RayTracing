@@ -33,108 +33,111 @@
 #include <array>
 #include <memory>
 
-class RhiIntegrator : public Integrator {
-public:
-  RhiIntegrator(std::uint32_t width, std::uint32_t height,
-                AccelerationStructure &acc_structure,
-                void *window_native_handle);
-  ~RhiIntegrator();
+class RhiIntegrator : public Integrator
+{
+  public:
+    RhiIntegrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure,
+        void* window_native_handle);
+    ~RhiIntegrator();
 
-  void UploadGPUData(Scene const &scene,
-                     AccelerationStructure const &acc_structure) override;
-  void SetCameraData(Camera const &camera) override;
-  void SetSamplerType(SamplerType sampler_type) override;
-  void SetAOV(AOV aov) override;
-  void EnableDenoiser(bool enable) override;
+    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
+    void SetCameraData(Camera const& camera) override;
+    void SetSamplerType(SamplerType sampler_type) override;
+    void SetAOV(AOV aov) override;
+    void EnableDenoiser(bool enable) override;
 
-protected:
-  void CreateKernels() override;
-  void Reset() override;
-  void AdvanceSampleCount() override;
-  void GenerateRays() override;
-  void IntersectRays(std::uint32_t bounce) override;
-  void ComputeAOVs() override;
-  void ShadeMissedRays(std::uint32_t bounce) override;
-  void ShadeSurfaceHits(std::uint32_t bounce) override;
-  void IntersectShadowRays() override;
-  void AccumulateDirectSamples() override;
-  void ClearOutgoingRayCounter(std::uint32_t bounce) override;
-  void ClearShadowRayCounter() override;
-  void Denoise() override;
-  void CopyHistoryBuffers() override;
-  void ResolveRadiance() override;
+  protected:
+    void CreateKernels() override;
+    void Reset() override;
+    void AdvanceSampleCount() override;
+    void GenerateRays() override;
+    void IntersectRays(std::uint32_t bounce) override;
+    void ComputeAOVs() override;
+    void ShadeMissedRays(std::uint32_t bounce) override;
+    void ShadeSurfaceHits(std::uint32_t bounce) override;
+    void IntersectShadowRays() override;
+    void AccumulateDirectSamples() override;
+    void ClearOutgoingRayCounter(std::uint32_t bounce) override;
+    void ClearShadowRayCounter() override;
+    void Denoise() override;
+    void CopyHistoryBuffers() override;
+    void ResolveRadiance() override;
 
-private:
-  gpu::BufferPtr CreateUploadBuffer(void const *data, std::size_t size,
-                                    std::uint32_t stride,
-                                    gpu::BufferFlags flags);
-  gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
+  private:
+    gpu::BufferPtr CreateUploadBuffer(
+        void const* data, std::size_t size, std::uint32_t stride, gpu::BufferFlags flags);
+    gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
-  void RebuildDescriptorSets();
-  void SubmitCompute(gpu::ComputePipelinePtr const &pipeline,
-                     gpu::DescriptorSetPtr const &descriptor_set,
-                     std::uint32_t groups_x, std::uint32_t groups_y = 1u,
-                     std::uint32_t groups_z = 1u);
-  static std::uint32_t DivideAndRoundUp(std::uint32_t value,
-                                        std::uint32_t divisor);
+    void RebuildDescriptorSets();
+    void SubmitCompute(gpu::ComputePipelinePtr const& pipeline,
+        gpu::DescriptorSetPtr const& descriptor_set, std::uint32_t groups_x,
+        std::uint32_t groups_y = 1u, std::uint32_t groups_z = 1u);
+    static std::uint32_t DivideAndRoundUp(std::uint32_t value, std::uint32_t divisor);
 
-  std::unique_ptr<gpu::Api> api_;
-  gpu::DevicePtr device_;
-  gpu::SwapchainPtr swapchain_;
-  gpu::ImagePtr output_image_;
+    std::unique_ptr<gpu::Api> api_;
+    gpu::DevicePtr device_;
+    gpu::SwapchainPtr swapchain_;
+    gpu::ImagePtr output_image_;
 
-  gpu::ComputePipelinePtr reset_pipeline_;
-  gpu::ComputePipelinePtr raygen_pipeline_;
-  gpu::ComputePipelinePtr trace_pipeline_;
-  gpu::ComputePipelinePtr trace_shadow_pipeline_;
-  gpu::ComputePipelinePtr aov_pipeline_;
-  gpu::ComputePipelinePtr miss_pipeline_;
-  gpu::ComputePipelinePtr hit_surface_pipeline_;
-  gpu::ComputePipelinePtr accumulate_direct_pipeline_;
-  gpu::ComputePipelinePtr clear_counter_pipeline_;
-  gpu::ComputePipelinePtr increment_counter_pipeline_;
-  gpu::ComputePipelinePtr resolve_pipeline_;
+    gpu::ComputePipelinePtr reset_pipeline_;
+    gpu::ComputePipelinePtr raygen_pipeline_;
+    gpu::ComputePipelinePtr trace_pipeline_;
+    gpu::ComputePipelinePtr trace_shadow_pipeline_;
+    gpu::ComputePipelinePtr aov_pipeline_;
+    gpu::ComputePipelinePtr miss_pipeline_;
+    gpu::ComputePipelinePtr hit_surface_pipeline_;
+    gpu::ComputePipelinePtr accumulate_direct_pipeline_;
+    gpu::ComputePipelinePtr clear_counter_pipeline_;
+    gpu::ComputePipelinePtr clear_sample_counter_pipeline_;
+    gpu::ComputePipelinePtr increment_counter_pipeline_;
+    gpu::ComputePipelinePtr denoiser_pipeline_;
+    gpu::ComputePipelinePtr resolve_pipeline_;
 
-  gpu::DescriptorSetPtr reset_set_;
-  gpu::DescriptorSetPtr raygen_set_;
-  std::array<gpu::DescriptorSetPtr, 2> trace_sets_;
-  gpu::DescriptorSetPtr trace_shadow_set_;
-  gpu::DescriptorSetPtr aov_set_;
-  std::array<gpu::DescriptorSetPtr, 2> miss_sets_;
-  std::array<gpu::DescriptorSetPtr, 2> hit_surface_sets_;
-  gpu::DescriptorSetPtr accumulate_direct_set_;
-  std::array<gpu::DescriptorSetPtr, 2> clear_counter_sets_;
-  gpu::DescriptorSetPtr clear_shadow_counter_set_;
-  gpu::DescriptorSetPtr increment_counter_set_;
-  gpu::DescriptorSetPtr resolve_set_;
+    gpu::DescriptorSetPtr reset_set_;
+    gpu::DescriptorSetPtr raygen_set_;
+    std::array<gpu::DescriptorSetPtr, 2> trace_sets_;
+    gpu::DescriptorSetPtr trace_shadow_set_;
+    gpu::DescriptorSetPtr aov_set_;
+    std::array<gpu::DescriptorSetPtr, 2> miss_sets_;
+    std::array<gpu::DescriptorSetPtr, 2> hit_surface_sets_;
+    gpu::DescriptorSetPtr accumulate_direct_set_;
+    std::array<gpu::DescriptorSetPtr, 2> clear_counter_sets_;
+    gpu::DescriptorSetPtr clear_shadow_counter_set_;
+    gpu::DescriptorSetPtr clear_sample_counter_set_;
+    gpu::DescriptorSetPtr increment_counter_set_;
+    gpu::DescriptorSetPtr denoiser_set_;
+    gpu::DescriptorSetPtr resolve_set_;
 
-  gpu::BufferPtr camera_buffer_;
-  std::array<gpu::BufferPtr, 2> rays_buffers_;
-  std::array<gpu::BufferPtr, 2> pixel_indices_buffers_;
-  std::array<gpu::BufferPtr, 2> ray_counter_buffers_;
-  gpu::BufferPtr shadow_rays_buffer_;
-  gpu::BufferPtr shadow_pixel_indices_buffer_;
-  gpu::BufferPtr shadow_ray_counter_buffer_;
-  gpu::BufferPtr hits_buffer_;
-  gpu::BufferPtr shadow_hits_buffer_;
-  gpu::BufferPtr throughputs_buffer_;
-  gpu::BufferPtr sample_counter_buffer_;
-  gpu::BufferPtr radiance_buffer_;
-  gpu::BufferPtr diffuse_albedo_buffer_;
-  gpu::BufferPtr depth_buffer_;
-  gpu::BufferPtr normal_buffer_;
-  gpu::BufferPtr direct_light_samples_buffer_;
+    gpu::BufferPtr camera_buffer_;
+    std::array<gpu::BufferPtr, 2> rays_buffers_;
+    std::array<gpu::BufferPtr, 2> pixel_indices_buffers_;
+    std::array<gpu::BufferPtr, 2> ray_counter_buffers_;
+    gpu::BufferPtr shadow_rays_buffer_;
+    gpu::BufferPtr shadow_pixel_indices_buffer_;
+    gpu::BufferPtr shadow_ray_counter_buffer_;
+    gpu::BufferPtr hits_buffer_;
+    gpu::BufferPtr shadow_hits_buffer_;
+    gpu::BufferPtr throughputs_buffer_;
+    gpu::BufferPtr sample_counter_buffer_;
+    gpu::BufferPtr radiance_buffer_;
+    gpu::BufferPtr prev_radiance_buffer_;
+    gpu::BufferPtr diffuse_albedo_buffer_;
+    gpu::BufferPtr depth_buffer_;
+    gpu::BufferPtr prev_depth_buffer_;
+    gpu::BufferPtr normal_buffer_;
+    gpu::BufferPtr motion_vectors_buffer_;
+    gpu::BufferPtr direct_light_samples_buffer_;
 
-  gpu::BufferPtr triangle_buffer_;
-  gpu::BufferPtr node_buffer_;
-  gpu::BufferPtr material_buffer_;
-  gpu::BufferPtr light_buffer_;
-  gpu::BufferPtr texture_buffer_;
-  gpu::BufferPtr texture_data_buffer_;
+    gpu::BufferPtr triangle_buffer_;
+    gpu::BufferPtr node_buffer_;
+    gpu::BufferPtr material_buffer_;
+    gpu::BufferPtr light_buffer_;
+    gpu::BufferPtr texture_buffer_;
+    gpu::BufferPtr texture_data_buffer_;
 
-  gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
-  std::uint32_t triangle_count_ = 0u;
-  std::uint32_t node_count_ = 0u;
-  std::uint32_t light_count_ = 0u;
-  std::uint32_t texture_count_ = 0u;
+    gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
+    std::uint32_t triangle_count_ = 0u;
+    std::uint32_t node_count_ = 0u;
+    std::uint32_t light_count_ = 0u;
+    std::uint32_t texture_count_ = 0u;
 };

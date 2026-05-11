@@ -63,10 +63,13 @@ set(GLSL_KERNELS_SOURCES
 )
 
 set(HLSL_KERNELS_SOURCES
-    kernels/hlsl/accumulate_direct.cs
+    kernels/hlsl/accumulate_direct_samples.cs
     kernels/hlsl/aov.cs
     kernels/hlsl/clear_counter.cs
+    kernels/hlsl/clear_sample_counter.cs
     kernels/hlsl/common.hlsli
+    kernels/hlsl/denoiser.cs
+    kernels/hlsl/frame_data.hlsli
     kernels/hlsl/hit_surface.cs
     kernels/hlsl/increment_counter.cs
     kernels/hlsl/material.hlsli

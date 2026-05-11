@@ -1,13 +1,5 @@
 #include "common.hlsli"
-
-cbuffer CameraData : register(b1)
-{
-    float4 g_CameraPositionFov;
-    float4 g_CameraFrontAspect;
-    float4 g_CameraUpPadding;
-    uint4 g_RenderSize;
-    uint4 g_SceneCounts;
-};
+#include "frame_data.hlsli"
 
 RWStructuredBuffer<Ray> g_Rays : register(u2);
 RWStructuredBuffer<uint> g_RayCounter : register(u4);
@@ -17,9 +9,21 @@ RWStructuredBuffer<uint> g_SampleCounter : register(u15);
 RWStructuredBuffer<float4> g_DiffuseAlbedo : register(u16);
 RWStructuredBuffer<float> g_Depth : register(u17);
 RWStructuredBuffer<float4> g_Normal : register(u18);
+RWStructuredBuffer<float4> g_MotionVectors : register(u26);
+
+float2 PointInHexagon(inout uint seed)
+{
+    float2 hex_points[3] = { float2(-1.0f, 0.0f), float2(0.5f, 0.866f), float2(0.5f, -0.866f) };
+    uint x = min(uint(RandomFloat(seed) * 3.0f), 2u);
+    float2 v1 = hex_points[x];
+    float2 v2 = hex_points[(x + 1u) % 3u];
+    float p1 = RandomFloat(seed);
+    float p2 = RandomFloat(seed);
+    return p1 * v1 + p2 * v2;
+}
 
 [numthreads(256, 1, 1)]
-void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
+void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
     uint pixel_idx = dispatch_thread_id.x;
     uint width = g_RenderSize.x;
@@ -48,13 +52,19 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
 
     float3 camera_position = g_CameraPositionFov.xyz;
     float3 camera_front = normalize(g_CameraFrontAspect.xyz);
-    float3 camera_up = normalize(g_CameraUpPadding.xyz);
+    float3 camera_up = normalize(g_CameraUpAperture.xyz);
     float3 camera_right = normalize(cross(camera_front, camera_up));
     float3 dir = normalize(x * camera_right + y * camera_up + camera_front);
 
+    float3 point_aimed = camera_position + g_CameraLens.x * dir;
+    float2 dof_dir = PointInHexagon(seed);
+    float aperture = g_CameraUpAperture.w;
+    float3 ray_origin =
+        camera_position + dof_dir.x * aperture * camera_right + dof_dir.y * aperture * camera_up;
+
     Ray ray;
-    ray.origin = float4(camera_position, 0.0f);
-    ray.direction = float4(dir, MAX_RENDER_DIST);
+    ray.origin = float4(ray_origin, 0.0f);
+    ray.direction = float4(normalize(point_aimed - ray_origin), MAX_RENDER_DIST);
 
     g_Rays[pixel_idx] = ray;
     g_PixelIndices[pixel_idx] = pixel_idx;
@@ -62,4 +72,5 @@ void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
     g_DiffuseAlbedo[pixel_idx] = 0.0f.xxxx;
     g_Depth[pixel_idx] = MAX_RENDER_DIST;
     g_Normal[pixel_idx] = 0.0f.xxxx;
+    g_MotionVectors[pixel_idx] = 0.0f.xxxx;
 }

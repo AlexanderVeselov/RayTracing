@@ -28,14 +28,16 @@ Material ApplyTextures(PackedMaterial packed_material, float2 uv, uint texture_c
     material.diffuse_albedo = UnpackRGBTex(packed_material.diffuse_albedo, diffuse_albedo_idx);
     if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material.diffuse_albedo = pow(SampleTexture(diffuse_albedo_idx, uv, texture_count), 2.2f.xxx);
+        material.diffuse_albedo =
+            pow(SampleTexture(diffuse_albedo_idx, uv, texture_count), 2.2f.xxx);
     }
 
     uint specular_albedo_idx;
     material.specular_albedo = UnpackRGBTex(packed_material.specular_albedo, specular_albedo_idx);
     if (specular_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material.specular_albedo = pow(SampleTexture(specular_albedo_idx, uv, texture_count), 2.2f.xxx);
+        material.specular_albedo =
+            pow(SampleTexture(specular_albedo_idx, uv, texture_count), 2.2f.xxx);
     }
 
     material.emission = UnpackRGBE(packed_material.emission);
