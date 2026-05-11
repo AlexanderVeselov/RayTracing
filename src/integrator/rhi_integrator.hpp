@@ -47,6 +47,8 @@ class RhiIntegrator : public Integrator
     void EnableDenoiser(bool enable) override;
 
   protected:
+    void BeginFrame() override;
+    void EndFrame() override;
     void CreateKernels() override;
     void Reset() override;
     void AdvanceSampleCount() override;
@@ -70,15 +72,13 @@ class RhiIntegrator : public Integrator
 
     void UpdateFrameData();
     void RebuildDescriptorSets();
-    void SubmitCompute(gpu::ComputePipelinePtr const& pipeline,
-        gpu::DescriptorSetPtr const& descriptor_set, std::uint32_t groups_x,
-        std::uint32_t groups_y = 1u, std::uint32_t groups_z = 1u);
     static std::uint32_t DivideAndRoundUp(std::uint32_t value, std::uint32_t divisor);
 
     std::unique_ptr<gpu::Api> api_;
     gpu::DevicePtr device_;
     gpu::SwapchainPtr swapchain_;
     gpu::ImagePtr output_image_;
+    gpu::CommandBufferPtr command_buffer_;
 
     gpu::ComputePipelinePtr reset_pipeline_;
     gpu::ComputePipelinePtr raygen_pipeline_;

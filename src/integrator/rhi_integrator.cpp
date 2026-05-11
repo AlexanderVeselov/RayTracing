@@ -151,7 +151,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
 
     SetCameraData(camera_);
     RebuildDescriptorSets();
-    Reset();
+    RequestReset();
 }
 
 void RhiIntegrator::SetCameraData(Camera const& camera)
@@ -301,110 +301,138 @@ void RhiIntegrator::CreateKernels()
     }
 }
 
+void RhiIntegrator::BeginFrame()
+{
+    assert(!command_buffer_ && "RhiIntegrator::BeginFrame(): command buffer from previous frame was not submitted");
+    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    command_buffer_ = queue.CreateCommandBuffer();
+}
+
+void RhiIntegrator::EndFrame()
+{
+    assert(command_buffer_ && "RhiIntegrator::EndFrame(): no command buffer to submit");
+
+    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    queue.Submit(std::move(command_buffer_));
+    swapchain_->Present();
+}
+
 void RhiIntegrator::Reset()
 {
-    if (reset_set_)
+    assert(reset_pipeline_ && reset_set_);
+    if (!enable_denoiser_)
     {
-        if (!enable_denoiser_)
-        {
-            SubmitCompute(clear_sample_counter_pipeline_, clear_sample_counter_set_, 1);
-        }
-        SubmitCompute(reset_pipeline_, reset_set_, DivideAndRoundUp(width_ * height_, 256));
+        command_buffer_->BindPipeline(clear_sample_counter_pipeline_);
+        command_buffer_->BindDescriptorSet(clear_sample_counter_set_);
+        command_buffer_->Dispatch(1, 1, 1);
     }
+
+    command_buffer_->BindPipeline(reset_pipeline_);
+    command_buffer_->BindDescriptorSet(reset_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    printf("Reset integrator state %d\n", (int)rand());
 }
 
 void RhiIntegrator::AdvanceSampleCount()
 {
-    SubmitCompute(increment_counter_pipeline_, increment_counter_set_, 1);
+    command_buffer_->BindPipeline(increment_counter_pipeline_);
+    command_buffer_->BindDescriptorSet(increment_counter_set_);
+    command_buffer_->Dispatch(1, 1, 1);
 }
 
 void RhiIntegrator::GenerateRays()
 {
-    SubmitCompute(raygen_pipeline_, raygen_set_, DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(raygen_pipeline_);
+    command_buffer_->BindDescriptorSet(raygen_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::IntersectRays(uint32_t bounce)
 {
-    SubmitCompute(
-        trace_pipeline_, trace_sets_[bounce & 1], DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(trace_pipeline_);
+    command_buffer_->BindDescriptorSet(trace_sets_[bounce & 1]);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::ComputeAOVs()
 {
-    SubmitCompute(aov_pipeline_, aov_set_, DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(aov_pipeline_);
+    command_buffer_->BindDescriptorSet(aov_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
 {
-    SubmitCompute(miss_pipeline_, miss_sets_[bounce & 1], DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(miss_pipeline_);
+    command_buffer_->BindDescriptorSet(miss_sets_[bounce & 1]);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
 {
-    SubmitCompute(hit_surface_pipeline_, hit_surface_sets_[bounce & 1],
-        DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(hit_surface_pipeline_);
+    command_buffer_->BindDescriptorSet(hit_surface_sets_[bounce & 1]);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::IntersectShadowRays()
 {
-    SubmitCompute(
-        trace_shadow_pipeline_, trace_shadow_set_, DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(trace_shadow_pipeline_);
+    command_buffer_->BindDescriptorSet(trace_shadow_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::AccumulateDirectSamples()
 {
-    SubmitCompute(accumulate_direct_pipeline_, accumulate_direct_set_,
-        DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(accumulate_direct_pipeline_);
+    command_buffer_->BindDescriptorSet(accumulate_direct_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
 {
-    SubmitCompute(clear_counter_pipeline_, clear_counter_sets_[(bounce + 1) & 1], 1);
+    command_buffer_->BindPipeline(clear_counter_pipeline_);
+    command_buffer_->BindDescriptorSet(clear_counter_sets_[(bounce + 1) & 1]);
+    command_buffer_->Dispatch(1, 1, 1);
 }
 
 void RhiIntegrator::ClearShadowRayCounter()
 {
-    SubmitCompute(clear_counter_pipeline_, clear_shadow_counter_set_, 1);
+    command_buffer_->BindPipeline(clear_counter_pipeline_);
+    command_buffer_->BindDescriptorSet(clear_shadow_counter_set_);
+    command_buffer_->Dispatch(1, 1, 1);
 }
 
 void RhiIntegrator::Denoise()
 {
-    SubmitCompute(denoiser_pipeline_, denoiser_set_, DivideAndRoundUp(width_ * height_, 256));
+    command_buffer_->BindPipeline(denoiser_pipeline_);
+    command_buffer_->BindDescriptorSet(denoiser_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
 }
 
 void RhiIntegrator::CopyHistoryBuffers()
 {
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
-    gpu::CommandBufferPtr cmd_buffer = queue.CreateCommandBuffer();
-    cmd_buffer->CopyBuffer(radiance_buffer_.get(), 0, prev_radiance_buffer_.get(), 0,
-        width_ * height_ * sizeof(float4));
-    cmd_buffer->CopyBuffer(
-        depth_buffer_.get(), 0, prev_depth_buffer_.get(), 0, width_ * height_ * sizeof(float));
-    queue.Submit(std::move(cmd_buffer));
+
 }
 
 void RhiIntegrator::ResolveRadiance()
 {
     gpu::ImagePtr swapchain_image = swapchain_->GetCurrentImage();
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
-    gpu::CommandBufferPtr cmd_buffer = queue.CreateCommandBuffer();
 
-    cmd_buffer->TransitionBarrier(
+    command_buffer_->TransitionBarrier(
         output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
-    cmd_buffer->BindPipeline(resolve_pipeline_);
-    cmd_buffer->BindDescriptorSet(resolve_set_);
-    cmd_buffer->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
-    cmd_buffer->TransitionBarrier(
+    command_buffer_->BindPipeline(resolve_pipeline_);
+    command_buffer_->BindDescriptorSet(resolve_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
+    command_buffer_->StorageBarrier(output_image_);
+    command_buffer_->TransitionBarrier(
         output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
     output_layout_ = gpu::ImageLayout::kCopySrc;
-    cmd_buffer->TransitionBarrier(
+    command_buffer_->TransitionBarrier(
         swapchain_image, gpu::ImageLayout::kPresent, gpu::ImageLayout::kCopyDst);
-    cmd_buffer->CopyImage(swapchain_image.get(), output_image_.get());
-    cmd_buffer->TransitionBarrier(
+    command_buffer_->CopyImage(swapchain_image.get(), output_image_.get());
+    command_buffer_->TransitionBarrier(
         swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kPresent);
-
-    queue.Submit(std::move(cmd_buffer));
-    swapchain_->Present();
 }
 
 gpu::BufferPtr RhiIntegrator::CreateUploadBuffer(
@@ -562,18 +590,6 @@ void RhiIntegrator::RebuildDescriptorSets()
     resolve_set_->BindBuffer(*depth_buffer_, 5);
     resolve_set_->BindBuffer(*normal_buffer_, 6);
     resolve_set_->BindBuffer(*motion_vectors_buffer_, 7);
-}
-
-void RhiIntegrator::SubmitCompute(gpu::ComputePipelinePtr const& pipeline,
-    gpu::DescriptorSetPtr const& descriptor_set, uint32_t groups_x, uint32_t groups_y,
-    uint32_t groups_z)
-{
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
-    gpu::CommandBufferPtr cmd_buffer = queue.CreateCommandBuffer();
-    cmd_buffer->BindPipeline(pipeline);
-    cmd_buffer->BindDescriptorSet(descriptor_set);
-    cmd_buffer->Dispatch(groups_x, groups_y, groups_z);
-    queue.Submit(std::move(cmd_buffer));
 }
 
 uint32_t RhiIntegrator::DivideAndRoundUp(uint32_t value, uint32_t divisor)

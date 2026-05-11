@@ -33,7 +33,7 @@ class AccelerationStructure;
 
 class Integrator
 {
-public:
+  public:
     enum class SamplerType
     {
         kRandom,
@@ -50,18 +50,29 @@ public:
     };
 
     Integrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure)
-        : width_(width), height_(height), acc_structure_(acc_structure) {}
+        : width_(width), height_(height), acc_structure_(acc_structure)
+    {
+    }
     void Integrate();
     virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
-    void RequestReset() { request_reset_ = true; }
+    void RequestReset()
+    {
+        request_reset_ = true;
+    }
     void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(std::uint32_t max_bounces);
     virtual void SetSamplerType(SamplerType sampler_type) = 0;
     virtual void SetAOV(AOV aov) = 0;
     virtual void EnableDenoiser(bool enable) = 0;
 
-protected:
+  protected:
+    virtual void BeginFrame()
+    {
+    }
+    virtual void EndFrame()
+    {
+    }
     virtual void CreateKernels() = 0;
     virtual void Reset() = 0;
     virtual void AdvanceSampleCount() = 0;

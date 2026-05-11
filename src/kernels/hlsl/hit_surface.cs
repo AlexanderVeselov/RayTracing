@@ -52,7 +52,7 @@ StructuredBuffer<uint>     g_Bounce               : register(t14);
 RWStructuredBuffer<uint>   g_SampleCounter        : register(u15);
 
 // Scene data
-StructuredBuffer<Triangle>    g_Triangles      : register(t16);
+StructuredBuffer<Triangle>       g_Triangles      : register(t16);
 StructuredBuffer<PackedMaterial> g_Materials      : register(t17);
 StructuredBuffer<Light>          g_Lights         : register(t18);
 

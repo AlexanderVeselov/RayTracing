@@ -26,6 +26,8 @@
 
 void Integrator::Integrate()
 {
+    BeginFrame();
+
     if (request_reset_ || enable_denoiser_)
     {
         Reset();
@@ -56,6 +58,8 @@ void Integrator::Integrate()
         CopyHistoryBuffers();
     }
     ResolveRadiance();
+
+    EndFrame();
 }
 
 void Integrator::SetMaxBounces(std::uint32_t max_bounces)
