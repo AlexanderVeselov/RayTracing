@@ -40,7 +40,8 @@ public:
     enum class RenderBackend
     {
         kOpenCL,
-        kOpenGL
+        kOpenGL,
+        kRHI
     };
 
     Render(Window& window, RenderBackend backend, Scene& scene);

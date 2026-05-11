@@ -16,6 +16,8 @@ set(INTEGRATOR_SOURCES
     integrator/cl_pt_integrator.hpp
     integrator/gl_pt_integrator.cpp
     integrator/gl_pt_integrator.hpp
+    integrator/rhi_albedo_integrator.cpp
+    integrator/rhi_albedo_integrator.hpp
 )
 
 set(COMMON_KERNELS_SOURCES
@@ -60,6 +62,10 @@ set(GLSL_KERNELS_SOURCES
     kernels/glsl/visibility_buffer.frag
 )
 
+set(HLSL_KERNELS_SOURCES
+    kernels/hlsl/rhi_albedo.cs
+)
+
 set(LOADERS_SOURCES
     loaders/dds_loader.cpp
     loaders/hdr_loader.cpp
@@ -102,6 +108,7 @@ set(SOURCES
     ${INTEGRATOR_SOURCES}
     ${CL_KERNELS_SOURCES}
     ${GLSL_KERNELS_SOURCES}
+    ${HLSL_KERNELS_SOURCES}
     ${COMMON_KERNELS_SOURCES}
     ${LOADERS_SOURCES}
     ${MATHLIB_SOURCES}
@@ -115,6 +122,7 @@ source_group("integrator" FILES ${INTEGRATOR_SOURCES})
 source_group("kernels\\common" FILES ${COMMON_KERNELS_SOURCES})
 source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
 source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
+source_group("kernels\\hlsl" FILES ${HLSL_KERNELS_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
@@ -126,7 +134,7 @@ target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader ${CMAKE_SOURCE_DIR}/3rdparty/glm)
 target_compile_features(RayTracingApp PRIVATE cxx_std_17)
 
-target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU imgui CLI11)
+target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU imgui CLI11 GpuApi)
 set_target_properties(RayTracingApp PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 )
@@ -134,4 +142,12 @@ set_target_properties(RayTracingApp PROPERTIES
 add_custom_command(TARGET RayTracingApp POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${PROJECT_SOURCE_DIR}/3rdparty/glew-2.1.0/bin/x64/glew32.dll"
+    $<TARGET_FILE_DIR:RayTracingApp>)
+
+add_custom_command(TARGET RayTracingApp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${PROJECT_SOURCE_DIR}/3rdparty/GpuApi/third_party/dxc_2022_12_16/bin/x64/dxcompiler.dll"
+    $<TARGET_FILE_DIR:RayTracingApp>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${PROJECT_SOURCE_DIR}/3rdparty/GpuApi/third_party/dxc_2022_12_16/bin/x64/dxil.dll"
     $<TARGET_FILE_DIR:RayTracingApp>)

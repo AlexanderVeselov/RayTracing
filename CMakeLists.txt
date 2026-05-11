@@ -11,6 +11,9 @@ find_package(OpenCL_Light REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 
+set(GPU_API_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/GpuApi)
+
 add_library(imgui STATIC
     3rdparty/imgui/imconfig.h
     3rdparty/imgui/imgui.cpp

@@ -34,6 +34,7 @@ int main(int argc, char** argv)
         std::uint32_t window_width = 1280;
         std::uint32_t window_height = 720;
         bool use_opengl = false;
+        bool use_rhi = false;
         std::string scene_path = "assets/ShaderBalls.obj";
         float scene_scale = 1.0f;
         bool flip_yz = false;
@@ -49,6 +50,7 @@ int main(int argc, char** argv)
         cli_app.add_option("--scale", scene_scale, "Scene scale");
         cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
         cli_app.add_option("--opengl", use_opengl, "Use OpenGL");
+        cli_app.add_option("--rhi", use_rhi, "Use GpuApi RHI albedo renderer");
 
         cli_app.parse(argc, argv);
 
@@ -58,10 +60,18 @@ int main(int argc, char** argv)
         scene.AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
 
         // Create the window
-        Window window(window_width, window_height, "RayTracing");
+        Window window(window_width, window_height, "RayTracing", use_rhi);
 
         // Create the renderer
-        Render::RenderBackend backend = use_opengl ? Render::RenderBackend::kOpenGL : Render::RenderBackend::kOpenCL;
+        Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
+        if (use_rhi)
+        {
+            backend = Render::RenderBackend::kRHI;
+        }
+        else if (use_opengl)
+        {
+            backend = Render::RenderBackend::kOpenGL;
+        }
         Render render(window, backend, scene);
 
         // Render loop

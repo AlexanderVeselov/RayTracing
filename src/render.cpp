@@ -25,6 +25,7 @@
 #include "render.hpp"
 #include "integrator/cl_pt_integrator.hpp"
 #include "integrator/gl_pt_integrator.hpp"
+#include "integrator/rhi_albedo_integrator.hpp"
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 #include "bvh.hpp"
@@ -54,7 +55,10 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
-    framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
+    if (render_backend_ != RenderBackend::kRHI)
+    {
+        framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
+    }
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
@@ -72,10 +76,15 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *acc_structure_,
             *cl_context_, framebuffer_->GetGLImage());
     }
-    else
+    else if (render_backend_ == RenderBackend::kOpenGL)
     {
         integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, *acc_structure_,
             framebuffer_->GetGLImage());
+    }
+    else
+    {
+        integrator_ = std::make_unique<RhiAlbedoIntegrator>(width_, height_, *acc_structure_,
+            window_.GetNativeHandle());
     }
 
     // Upload scene data to the GPU
@@ -100,8 +109,11 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    glFinish();
-    window_.SwapBuffers();
+    if (render_backend_ != RenderBackend::kRHI)
+    {
+        glFinish();
+        window_.SwapBuffers();
+    }
     prev_frame_time_ = start_frame_time_;
 }
 
@@ -173,8 +185,11 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
-    glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (render_backend_ != RenderBackend::kRHI)
+    {
+        glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 
     bool need_to_reset = false;
 
@@ -195,10 +210,13 @@ void Render::RenderFrame()
     }
 
     integrator_->Integrate();
-    framebuffer_->Present();
 
-    // Draw GUI
-    DrawGUI();
+    if (render_backend_ != RenderBackend::kRHI)
+    {
+        framebuffer_->Present();
+        // Draw GUI
+        DrawGUI();
+    }
 
     FrameEnd();
 }
