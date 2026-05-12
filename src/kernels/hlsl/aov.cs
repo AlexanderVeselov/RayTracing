@@ -34,9 +34,12 @@ RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 RWStructuredBuffer<Hit> g_Hits : register(u4);
 
 // AOV data
+IMAGE_FORMAT("rgba8")
 RWTexture2D<float4> g_DiffuseAlbedo : register(u5);
 RWTexture2D<float> g_Depth : register(u6);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Normal : register(u7);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_MotionVectors : register(u8);
 
 // Scene data

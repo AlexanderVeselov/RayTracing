@@ -31,15 +31,19 @@ RWStructuredBuffer<uint> g_RayCounter : register(u2);
 RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 
 // Radiance and throughput data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u4);
 
 // Sample counter data
 RWStructuredBuffer<uint> g_SampleCounter : register(u5);
 
 // AOV data
+IMAGE_FORMAT("rgba8")
 RWTexture2D<float4> g_DiffuseAlbedo : register(u6);
 RWTexture2D<float> g_Depth : register(u7);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Normal : register(u8);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_MotionVectors : register(u9);
 
 float2 PointInHexagon(inout uint seed)

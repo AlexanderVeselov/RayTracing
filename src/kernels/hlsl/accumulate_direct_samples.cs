@@ -28,9 +28,11 @@
 RWStructuredBuffer<uint> g_ShadowRayCounter : register(u0);
 RWStructuredBuffer<uint> g_ShadowPixelIndices : register(u1);
 RWStructuredBuffer<uint> g_ShadowHits : register(u2);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_DirectLightSamples : register(u4);
 
 // Radiance data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u3);
 
 [numthreads(256, 1, 1)]

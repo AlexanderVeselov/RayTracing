@@ -42,10 +42,13 @@ RWStructuredBuffer<Hit> g_Hits : register(u7);
 RWStructuredBuffer<Ray> g_ShadowRays : register(u8);
 RWStructuredBuffer<uint> g_ShadowPixelIndices : register(u9);
 RWStructuredBuffer<uint> g_ShadowRayCounter : register(u10);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_DirectLightSamples : register(u11);
 
 // Radiance and throughput data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u12);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u13);
 
 // Bounce and sample counters

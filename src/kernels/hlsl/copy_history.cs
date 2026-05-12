@@ -25,7 +25,9 @@
 #include "common.hlsli"
 
 // Radiance history data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u0);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_PrevRadiance : register(u1);
 
 // Geometry history data

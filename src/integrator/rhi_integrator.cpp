@@ -119,6 +119,24 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
+    upload_command_buffer->TransitionBarrier(
+        throughputs_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        radiance_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        prev_radiance_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        diffuse_albedo_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        depth_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        prev_depth_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        normal_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(
+        motion_vectors_image_, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier(direct_light_samples_image_,
+        gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
     for (uint32_t bounce = 0; bounce < bounce_buffers_.size(); ++bounce)
     {
         bounce_buffers_[bounce] = CreateGpuBuffer(&bounce, sizeof(bounce), sizeof(bounce),
@@ -130,6 +148,7 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     camera_cpu_buffer_ = CreateStagingBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData));
     camera_buffer_ = device_->CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
+    swapchain_image_layouts_.resize(swapchain_->GetImageCount(), gpu::ImageLayout::kUndefined);
 
     CreateKernels();
 }
@@ -527,6 +546,7 @@ void RhiIntegrator::ResolveRadiance()
         command_buffer_ && "RhiIntegrator::ResolveRadiance(): command buffer is not initialized");
 
     gpu::ImagePtr swapchain_image = swapchain_->GetCurrentImage();
+    uint32_t const swapchain_image_index = swapchain_->GetCurrentImageIndex();
 
     command_buffer_->TransitionBarrier(
         output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
@@ -536,11 +556,12 @@ void RhiIntegrator::ResolveRadiance()
     command_buffer_->TransitionBarrier(
         output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
     output_layout_ = gpu::ImageLayout::kCopySrc;
-    command_buffer_->TransitionBarrier(
-        swapchain_image, gpu::ImageLayout::kPresent, gpu::ImageLayout::kCopyDst);
+    command_buffer_->TransitionBarrier(swapchain_image,
+        swapchain_image_layouts_[swapchain_image_index], gpu::ImageLayout::kCopyDst);
     command_buffer_->CopyImage(swapchain_image, output_image_);
     command_buffer_->TransitionBarrier(
         swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kPresent);
+    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kPresent;
 }
 
 gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)

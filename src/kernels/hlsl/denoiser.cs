@@ -26,12 +26,15 @@
 #include "frame_data.hlsli"
 
 // Radiance history data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u1);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_PrevRadiance : register(u2);
 
 // Geometry history data
 RWTexture2D<float> g_Depth : register(u3);
 RWTexture2D<float> g_PrevDepth : register(u4);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_MotionVectors : register(u5);
 
 [numthreads(256, 1, 1)]

@@ -26,18 +26,23 @@
 #include "frame_data.hlsli"
 
 // Output image
+IMAGE_FORMAT("rgba8")
 RWTexture2D<float4> g_Output : register(u1);
 
 // Radiance data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u2);
 
 // Sample counter data
 RWStructuredBuffer<uint> g_SampleCounter : register(u3);
 
 // AOV data
+IMAGE_FORMAT("rgba8")
 RWTexture2D<float4> g_DiffuseAlbedo : register(u4);
 RWTexture2D<float> g_Depth : register(u5);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Normal : register(u6);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_MotionVectors : register(u7);
 
 [numthreads(8, 8, 1)]

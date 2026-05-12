@@ -33,7 +33,9 @@ RWStructuredBuffer<uint> g_PixelIndices : register(u2);
 RWStructuredBuffer<Hit> g_Hits : register(u3);
 
 // Radiance and throughput data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u4);
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u5);
 
 [numthreads(256, 1, 1)]

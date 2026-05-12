@@ -25,6 +25,7 @@
 #include "common.hlsli"
 
 // Radiance data
+IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u0);
 
 [numthreads(256, 1, 1)]
