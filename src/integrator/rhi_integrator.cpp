@@ -105,14 +105,19 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     normal_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
     motion_vectors_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float4), sizeof(float4));
     direct_light_samples_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+
+    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
+    std::vector<gpu::BufferPtr> staging_buffers;
     for (uint32_t bounce = 0; bounce < bounce_buffers_.size(); ++bounce)
     {
-        bounce_buffers_[bounce] = CreateUploadBuffer(&bounce, sizeof(bounce), sizeof(bounce),
-            gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        bounce_buffers_[bounce] = CreateGpuBuffer(&bounce, sizeof(bounce), sizeof(bounce),
+            gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
     }
+    queue.Submit(std::move(upload_command_buffer));
+    queue.WaitIdle();
 
-    camera_cpu_buffer_ = CreateUploadBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kConstant);
+    camera_cpu_buffer_ = CreateStagingBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData));
     camera_buffer_ = device_->CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
 
@@ -141,24 +146,31 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = static_cast<uint32_t>(textures.size());
 
-    triangle_buffer_ = CreateUploadBuffer(triangles.empty() ? nullptr : triangles.data(),
-        triangles.size() * sizeof(Triangle), sizeof(Triangle),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
-    node_buffer_ = CreateUploadBuffer(nodes.empty() ? nullptr : nodes.data(),
+    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
+    std::vector<gpu::BufferPtr> staging_buffers;
+
+    triangle_buffer_ = CreateGpuBuffer(triangles.empty() ? nullptr : triangles.data(),
+        triangles.size() * sizeof(Triangle), sizeof(Triangle), gpu::BufferFlags::kShaderResource,
+        *upload_command_buffer, staging_buffers);
+    node_buffer_ = CreateGpuBuffer(nodes.empty() ? nullptr : nodes.data(),
         nodes.size() * sizeof(LinearBVHNode), sizeof(LinearBVHNode),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
-    material_buffer_ = CreateUploadBuffer(materials.empty() ? nullptr : materials.data(),
+        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
+    material_buffer_ = CreateGpuBuffer(materials.empty() ? nullptr : materials.data(),
         materials.size() * sizeof(PackedMaterial), sizeof(PackedMaterial),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
-    light_buffer_ =
-        CreateUploadBuffer(lights.empty() ? nullptr : lights.data(), lights.size() * sizeof(Light),
-            sizeof(Light), gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
-    texture_buffer_ = CreateUploadBuffer(textures.empty() ? nullptr : textures.data(),
-        textures.size() * sizeof(Texture), sizeof(Texture),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
-    texture_data_buffer_ = CreateUploadBuffer(texture_data.empty() ? nullptr : texture_data.data(),
-        texture_data.size() * sizeof(uint32_t), sizeof(uint32_t),
-        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
+        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
+    light_buffer_ = CreateGpuBuffer(lights.empty() ? nullptr : lights.data(),
+        lights.size() * sizeof(Light), sizeof(Light), gpu::BufferFlags::kShaderResource,
+        *upload_command_buffer, staging_buffers);
+    texture_buffer_ = CreateGpuBuffer(textures.empty() ? nullptr : textures.data(),
+        textures.size() * sizeof(Texture), sizeof(Texture), gpu::BufferFlags::kShaderResource,
+        *upload_command_buffer, staging_buffers);
+    texture_data_buffer_ = CreateGpuBuffer(texture_data.empty() ? nullptr : texture_data.data(),
+        texture_data.size() * sizeof(uint32_t), sizeof(uint32_t), gpu::BufferFlags::kShaderResource,
+        *upload_command_buffer, staging_buffers);
+
+    queue.Submit(std::move(upload_command_buffer));
+    queue.WaitIdle();
 
     SetCameraData(camera_);
     RebuildDescriptorSets();
@@ -522,16 +534,31 @@ void RhiIntegrator::ResolveRadiance()
         swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kPresent);
 }
 
-gpu::BufferPtr RhiIntegrator::CreateUploadBuffer(
-    void const* data, size_t size, uint32_t stride, gpu::BufferFlags flags)
+gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
-    gpu::BufferPtr buffer = device_->CreateBuffer(allocation_size, stride, flags);
+    gpu::BufferPtr buffer =
+        device_->CreateBuffer(allocation_size, stride, gpu::BufferFlags::kCpuAccess);
     if (data)
     {
         void* mapped_data = buffer->Map();
         std::memcpy(mapped_data, data, size);
         buffer->Unmap();
+    }
+    return buffer;
+}
+
+gpu::BufferPtr RhiIntegrator::CreateGpuBuffer(void const* data, size_t size, uint32_t stride,
+    gpu::BufferFlags flags, gpu::CommandBuffer& upload_command_buffer,
+    std::vector<gpu::BufferPtr>& staging_buffers)
+{
+    size_t allocation_size = std::max<size_t>(size, stride);
+    gpu::BufferPtr buffer = device_->CreateBuffer(allocation_size, stride, flags);
+    if (data && size > 0)
+    {
+        gpu::BufferPtr staging_buffer = CreateStagingBuffer(data, size, stride);
+        upload_command_buffer.CopyBuffer(staging_buffer, 0, buffer, 0, size);
+        staging_buffers.push_back(std::move(staging_buffer));
     }
     return buffer;
 }

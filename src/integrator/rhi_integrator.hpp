@@ -32,6 +32,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 class RhiIntegrator : public Integrator
 {
@@ -66,8 +67,10 @@ class RhiIntegrator : public Integrator
     void ResolveRadiance() override;
 
   private:
-    gpu::BufferPtr CreateUploadBuffer(
-        void const* data, std::size_t size, std::uint32_t stride, gpu::BufferFlags flags);
+    gpu::BufferPtr CreateStagingBuffer(void const* data, std::size_t size, std::uint32_t stride);
+    gpu::BufferPtr CreateGpuBuffer(void const* data, std::size_t size, std::uint32_t stride,
+        gpu::BufferFlags flags, gpu::CommandBuffer& upload_command_buffer,
+        std::vector<gpu::BufferPtr>& staging_buffers);
     gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
     void UpdateFrameData();
