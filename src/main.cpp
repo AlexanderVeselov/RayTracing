@@ -22,9 +22,22 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include "CLI/CLI.hpp"
 #include "render.hpp"
 #include "utils/window.hpp"
-#include "CLI/CLI.hpp"
+
+#include <iostream>
+#include <map>
+#include <string>
+
+namespace
+{
+std::map<std::string, Render::RenderBackend> CreateBackendMap()
+{
+    return {{"opencl", Render::RenderBackend::kOpenCL}, {"opengl", Render::RenderBackend::kOpenGL},
+        {"vulkan", Render::RenderBackend::kVulkan}, {"d3d12", Render::RenderBackend::kD3D12}};
+}
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -33,8 +46,7 @@ int main(int argc, char** argv)
         // Default parameters
         std::uint32_t window_width = 1280;
         std::uint32_t window_height = 720;
-        bool use_opengl = false;
-        bool use_rhi = false;
+        Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
         std::string scene_path = "assets/ShaderBalls.obj";
         float scene_scale = 1.0f;
         bool flip_yz = false;
@@ -49,29 +61,31 @@ int main(int argc, char** argv)
         cli_app.add_option("--scene", scene_path, "Scene path");
         cli_app.add_option("--scale", scene_scale, "Scene scale");
         cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
-        cli_app.add_flag("--opengl", use_opengl, "Use OpenGL");
-        cli_app.add_flag("--rhi", use_rhi, "Use GpuApi RHI albedo renderer");
+        auto backend_transform =
+            CLI::CheckedTransformer(CreateBackendMap(), CLI::ignore_case).description("");
+        cli_app.add_option("--backend", backend, "Render backend: opencl, opengl, vulkan, d3d12")
+            ->type_name("opencl|opengl|vulkan|d3d12")
+            ->transform(backend_transform);
 
-        cli_app.parse(argc, argv);
+        try
+        {
+            cli_app.parse(argc, argv);
+        }
+        catch (CLI::ParseError const& ex)
+        {
+            return cli_app.exit(ex);
+        }
 
         // Load the scene
         Scene scene(scene_path.c_str(), scene_scale, flip_yz);
         // Add a directional light since obj format doesn't support lights
-        scene.AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
+        scene.AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
 
         // Create the window
-        Window window(window_width, window_height, "RayTracing", use_rhi);
+        bool const no_window_api =
+            backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
+        Window window(window_width, window_height, "RayTracing", no_window_api);
 
-        // Create the renderer
-        Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
-        if (use_rhi)
-        {
-            backend = Render::RenderBackend::kRHI;
-        }
-        else if (use_opengl)
-        {
-            backend = Render::RenderBackend::kOpenGL;
-        }
         Render render(window, backend, scene);
 
         // Render loop
@@ -84,6 +98,7 @@ int main(int argc, char** argv)
     catch (std::exception& ex)
     {
         std::cerr << "Caught exception: " << ex.what() << std::endl;
+        return 1;
     }
 
     return 0;

@@ -40,6 +40,15 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()),
       height_(window.GetHeight())
 {
+    if (render_backend_ == RenderBackend::kVulkan)
+    {
+        rhi_api_type_ = gpu::ApiType::kVulkan;
+    }
+    else if (render_backend_ == RenderBackend::kD3D12)
+    {
+        rhi_api_type_ = gpu::ApiType::kD3D12;
+    }
+
     if (render_backend_ == RenderBackend::kOpenCL)
     {
         std::vector<cl::Platform> all_platforms;
@@ -52,7 +61,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
-    if (render_backend_ != RenderBackend::kRHI)
+    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
     {
         framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     }
@@ -81,7 +90,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     else
     {
         integrator_ = std::make_unique<RhiIntegrator>(
-            width_, height_, *acc_structure_, window_.GetNativeHandle());
+            width_, height_, *acc_structure_, window_.GetNativeHandle(), rhi_api_type_);
     }
 
     // Upload scene data to the GPU
@@ -106,7 +115,7 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    if (render_backend_ != RenderBackend::kRHI)
+    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
     {
         glFinish();
         window_.SwapBuffers();
@@ -185,7 +194,7 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
-    if (render_backend_ != RenderBackend::kRHI)
+    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
     {
         glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -211,7 +220,7 @@ void Render::RenderFrame()
 
     integrator_->Integrate();
 
-    if (render_backend_ != RenderBackend::kRHI)
+    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
     {
         framebuffer_->Present();
         // Draw GUI

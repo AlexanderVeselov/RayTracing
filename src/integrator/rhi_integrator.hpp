@@ -38,7 +38,7 @@ class RhiIntegrator : public Integrator
 {
   public:
     RhiIntegrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure,
-        void* window_native_handle);
+        void* window_native_handle, gpu::ApiType api_type);
     ~RhiIntegrator();
 
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;

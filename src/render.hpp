@@ -24,43 +24,51 @@
 
 #pragma once
 
-#include "integrator/integrator.hpp"
 #include "acceleration_structure.hpp"
+#include "gpu_api.hpp"
+#include "gpu_wrappers/cl_context.hpp"
+#include "integrator/integrator.hpp"
 #include "scene/scene.hpp"
 #include "utils/camera_controller.hpp"
 #include "utils/framebuffer.hpp"
-#include "gpu_wrappers/cl_context.hpp"
-#include <memory>
 #include <ctime>
+#include <memory>
 
 class Window;
 class Render
 {
-public:
+  public:
     enum class RenderBackend
     {
         kOpenCL,
         kOpenGL,
-        kRHI
+        kVulkan,
+        kD3D12
     };
 
     Render(Window& window, RenderBackend backend, Scene& scene);
     ~Render() = default;
 
-    void    RenderFrame();
-    double  GetCurtime()   const;
-    double  GetDeltaTime() const;
-    Window& GetWindow() const { return window_; }
+    void RenderFrame();
+    double GetCurtime() const;
+    double GetDeltaTime() const;
+    Window& GetWindow() const
+    {
+        return window_;
+    }
 
-    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
+    std::shared_ptr<CLContext> GetCLContext() const
+    {
+        return cl_context_;
+    }
 
-private:
+  private:
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
     void ReloadKernels();
-    
-private:
+
+  private:
     // Window
     Window& window_;
     RenderBackend render_backend_;
@@ -74,22 +82,22 @@ private:
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
     std::shared_ptr<CLContext> cl_context_;
+    gpu::ApiType rhi_api_type_ = gpu::ApiType::kVulkan;
     // Integrator
     std::unique_ptr<Integrator> integrator_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
 
     std::unique_ptr<CameraController> camera_controller_;
-    std::unique_ptr<Framebuffer>      framebuffer_;
+    std::unique_ptr<Framebuffer> framebuffer_;
 
     struct GuiParams
     {
         float camera_aperture = 0.0f;
         float camera_focus_distance = 10.0f;
-        int   max_bounces = 3u;
-        bool  enable_denoiser = false;
-        bool  enable_white_furnace = false;
-        bool  enable_blue_noise = false;
+        int max_bounces = 3u;
+        bool enable_denoiser = false;
+        bool enable_white_furnace = false;
+        bool enable_blue_noise = false;
     } gui_params_;
-
 };

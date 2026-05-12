@@ -66,8 +66,8 @@ inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 } // namespace
 
 RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStructure& acc_structure,
-    void* window_native_handle)
-    : Integrator(width, height, acc_structure), api_(gpu::Api::Create(gpu::ApiType::kD3D12))
+    void* window_native_handle, gpu::ApiType api_type)
+    : Integrator(width, height, acc_structure), api_(gpu::Api::Create(api_type))
 {
     if (!api_)
     {
@@ -359,8 +359,6 @@ void RhiIntegrator::Reset()
     command_buffer_->BindDescriptorSet(reset_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
     command_buffer_->StorageBarrier(radiance_image_);
-
-    printf("Reset integrator state %d\n", (int)rand());
 }
 
 void RhiIntegrator::AdvanceSampleCount()
