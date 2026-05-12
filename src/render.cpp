@@ -27,7 +27,9 @@
 #include "bvh.hpp"
 #include "integrator/cl_pt_integrator.hpp"
 #include "integrator/gl_pt_integrator.hpp"
+#ifdef RAYTRACING_ENABLE_RHI
 #include "integrator/rhi_integrator.hpp"
+#endif
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 #include <backends/imgui_impl_opengl3.h>
@@ -36,10 +38,26 @@
 #include <iostream>
 #include <sstream>
 
+namespace
+{
+bool IsGlBackend(Render::RenderBackend backend)
+{
+    return backend == Render::RenderBackend::kOpenCL || backend == Render::RenderBackend::kOpenGL;
+}
+
+#ifdef RAYTRACING_ENABLE_RHI
+bool IsRhiBackend(Render::RenderBackend backend)
+{
+    return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
+}
+#endif
+} // namespace
+
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()),
       height_(window.GetHeight())
 {
+#ifdef RAYTRACING_ENABLE_RHI
     if (render_backend_ == RenderBackend::kVulkan)
     {
         rhi_api_type_ = gpu::ApiType::kVulkan;
@@ -48,6 +66,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     {
         rhi_api_type_ = gpu::ApiType::kD3D12;
     }
+#endif
 
     if (render_backend_ == RenderBackend::kOpenCL)
     {
@@ -61,7 +80,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
-    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
+    if (IsGlBackend(render_backend_))
     {
         framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
     }
@@ -87,10 +106,16 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         integrator_ = std::make_unique<GLPathTraceIntegrator>(
             width_, height_, *acc_structure_, framebuffer_->GetGLImage());
     }
-    else
+#ifdef RAYTRACING_ENABLE_RHI
+    else if (IsRhiBackend(render_backend_))
     {
         integrator_ = std::make_unique<RhiIntegrator>(
             width_, height_, *acc_structure_, window_.GetNativeHandle(), rhi_api_type_);
+    }
+#endif
+    else
+    {
+        throw std::runtime_error("Unsupported render backend");
     }
 
     // Upload scene data to the GPU
@@ -115,7 +140,7 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
+    if (IsGlBackend(render_backend_))
     {
         glFinish();
         window_.SwapBuffers();
@@ -194,7 +219,7 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
-    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
+    if (IsGlBackend(render_backend_))
     {
         glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -220,7 +245,7 @@ void Render::RenderFrame()
 
     integrator_->Integrate();
 
-    if (render_backend_ == RenderBackend::kOpenCL || render_backend_ == RenderBackend::kOpenGL)
+    if (IsGlBackend(render_backend_))
     {
         framebuffer_->Present();
         // Draw GUI

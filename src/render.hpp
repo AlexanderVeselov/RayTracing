@@ -25,12 +25,14 @@
 #pragma once
 
 #include "acceleration_structure.hpp"
-#include "gpu_api.hpp"
 #include "gpu_wrappers/cl_context.hpp"
 #include "integrator/integrator.hpp"
 #include "scene/scene.hpp"
 #include "utils/camera_controller.hpp"
 #include "utils/framebuffer.hpp"
+#ifdef RAYTRACING_ENABLE_RHI
+#include "gpu_api.hpp"
+#endif
 #include <ctime>
 #include <memory>
 
@@ -42,8 +44,10 @@ class Render
     {
         kOpenCL,
         kOpenGL,
+#ifdef RAYTRACING_ENABLE_RHI
         kVulkan,
         kD3D12
+#endif
     };
 
     Render(Window& window, RenderBackend backend, Scene& scene);
@@ -82,7 +86,9 @@ class Render
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
     std::shared_ptr<CLContext> cl_context_;
+#ifdef RAYTRACING_ENABLE_RHI
     gpu::ApiType rhi_api_type_ = gpu::ApiType::kVulkan;
+#endif
     // Integrator
     std::unique_ptr<Integrator> integrator_;
     // Acceleration structure

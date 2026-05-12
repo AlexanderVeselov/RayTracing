@@ -34,8 +34,33 @@ namespace
 {
 std::map<std::string, Render::RenderBackend> CreateBackendMap()
 {
-    return {{"opencl", Render::RenderBackend::kOpenCL}, {"opengl", Render::RenderBackend::kOpenGL},
-        {"vulkan", Render::RenderBackend::kVulkan}, {"d3d12", Render::RenderBackend::kD3D12}};
+    std::map<std::string, Render::RenderBackend> backends = {
+        {"opencl", Render::RenderBackend::kOpenCL},
+        {"opengl", Render::RenderBackend::kOpenGL},
+    };
+#ifdef RAYTRACING_ENABLE_RHI
+    backends.emplace("vulkan", Render::RenderBackend::kVulkan);
+    backends.emplace("d3d12", Render::RenderBackend::kD3D12);
+#endif
+    return backends;
+}
+
+char const* GetBackendHelpText()
+{
+#ifdef RAYTRACING_ENABLE_RHI
+    return "Render backend: opencl, opengl, vulkan, d3d12";
+#else
+    return "Render backend: opencl, opengl";
+#endif
+}
+
+char const* GetBackendTypeName()
+{
+#ifdef RAYTRACING_ENABLE_RHI
+    return "opencl|opengl|vulkan|d3d12";
+#else
+    return "opencl|opengl";
+#endif
 }
 } // namespace
 
@@ -63,8 +88,8 @@ int main(int argc, char** argv)
         cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
         auto backend_transform =
             CLI::CheckedTransformer(CreateBackendMap(), CLI::ignore_case).description("");
-        cli_app.add_option("--backend", backend, "Render backend: opencl, opengl, vulkan, d3d12")
-            ->type_name("opencl|opengl|vulkan|d3d12")
+        cli_app.add_option("--backend", backend, GetBackendHelpText())
+            ->type_name(GetBackendTypeName())
             ->transform(backend_transform);
 
         try
@@ -82,8 +107,11 @@ int main(int argc, char** argv)
         scene.AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
 
         // Create the window
-        bool const no_window_api =
+        bool no_window_api = false;
+#ifdef RAYTRACING_ENABLE_RHI
+        no_window_api =
             backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
+#endif
         Window window(window_width, window_height, "RayTracing", no_window_api);
 
         Render render(window, backend, scene);
