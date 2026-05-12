@@ -39,7 +39,7 @@ RWStructuredBuffer<float4> g_Normal               : register(u7);
 RWStructuredBuffer<float4> g_MotionVectors        : register(u8);
 
 // Scene data
-StructuredBuffer<Triangle>    g_Triangles      : register(t9);
+StructuredBuffer<Triangle>       g_Triangles      : register(t9);
 StructuredBuffer<PackedMaterial> g_Materials      : register(t10);
 
 // Texture data

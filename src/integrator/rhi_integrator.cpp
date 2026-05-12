@@ -57,6 +57,12 @@ struct RhiCameraData
 
 constexpr uint32_t kRenderFlagWhiteFurnace = 1u;
 constexpr uint32_t kRenderFlagDenoiser = 2u;
+
+inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
+{
+    return (value + divisor - 1) / divisor;
+}
+
 } // namespace
 
 RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStructure& acc_structure,
@@ -104,6 +110,11 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
         bounce_buffers_[bounce] = CreateUploadBuffer(&bounce, sizeof(bounce), sizeof(bounce),
             gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kShaderResource);
     }
+
+    camera_cpu_buffer_ = CreateUploadBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData),
+        gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kConstant);
+    camera_buffer_ = device_->CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
+        gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
 
     CreateKernels();
 }
@@ -162,7 +173,7 @@ void RhiIntegrator::SetCameraData(Camera const& camera)
     }
 
     camera_ = camera;
-    bool const had_camera_buffer = camera_buffer_ != nullptr;
+    bool const had_camera_buffer = camera_cpu_buffer_ != nullptr;
     UpdateFrameData();
 
     if (triangle_buffer_ && !had_camera_buffer)
@@ -267,16 +278,10 @@ void RhiIntegrator::UpdateFrameData()
     data.render_params[2] = 0u;
     data.render_params[3] = 0u;
 
-    if (!camera_buffer_)
-    {
-        camera_buffer_ = CreateUploadBuffer(&data, sizeof(data), sizeof(data),
-            gpu::BufferFlags::kCpuAccess | gpu::BufferFlags::kConstant);
-        return;
-    }
-
-    void* mapped_data = camera_buffer_->Map();
+    // Copy data to staging buffer
+    void* mapped_data = camera_cpu_buffer_->Map();
     std::memcpy(mapped_data, &data, sizeof(data));
-    camera_buffer_->Unmap();
+    camera_cpu_buffer_->Unmap();
 }
 
 void RhiIntegrator::CreateKernels()
@@ -294,16 +299,13 @@ void RhiIntegrator::CreateKernels()
     increment_counter_pipeline_ = device_->CreateComputePipeline("increment_counter.cs");
     denoiser_pipeline_ = device_->CreateComputePipeline("denoiser.cs");
     resolve_pipeline_ = device_->CreateComputePipeline("resolve.cs");
-
-    if (camera_buffer_ && triangle_buffer_)
-    {
-        RebuildDescriptorSets();
-    }
 }
 
 void RhiIntegrator::BeginFrame()
 {
-    assert(!command_buffer_ && "RhiIntegrator::BeginFrame(): command buffer from previous frame was not submitted");
+    assert(!command_buffer_ &&
+           "RhiIntegrator::BeginFrame(): command buffer from previous frame was not submitted");
+
     gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
     command_buffer_ = queue.CreateCommandBuffer();
 }
@@ -320,103 +322,189 @@ void RhiIntegrator::EndFrame()
 void RhiIntegrator::Reset()
 {
     assert(reset_pipeline_ && reset_set_);
+    command_buffer_->CopyBuffer(camera_cpu_buffer_, 0, camera_buffer_, 0, sizeof(RhiCameraData));
+
     if (!enable_denoiser_)
     {
         command_buffer_->BindPipeline(clear_sample_counter_pipeline_);
         command_buffer_->BindDescriptorSet(clear_sample_counter_set_);
         command_buffer_->Dispatch(1, 1, 1);
+        command_buffer_->StorageBarrier(sample_counter_buffer_);
     }
 
     command_buffer_->BindPipeline(reset_pipeline_);
     command_buffer_->BindDescriptorSet(reset_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(radiance_buffer_);
+
     printf("Reset integrator state %d\n", (int)rand());
 }
 
 void RhiIntegrator::AdvanceSampleCount()
 {
+    assert(increment_counter_pipeline_ && increment_counter_set_);
+    assert(command_buffer_ &&
+           "RhiIntegrator::AdvanceSampleCount(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(increment_counter_pipeline_);
     command_buffer_->BindDescriptorSet(increment_counter_set_);
     command_buffer_->Dispatch(1, 1, 1);
+    command_buffer_->StorageBarrier(sample_counter_buffer_);
 }
 
 void RhiIntegrator::GenerateRays()
 {
+    assert(raygen_pipeline_ && raygen_set_);
+    assert(command_buffer_ && "RhiIntegrator::GenerateRays(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(raygen_pipeline_);
     command_buffer_->BindDescriptorSet(raygen_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(rays_buffers_[0]);
+    command_buffer_->StorageBarrier(ray_counter_buffers_[0]);
+    command_buffer_->StorageBarrier(pixel_indices_buffers_[0]);
+    command_buffer_->StorageBarrier(throughputs_buffer_);
+    command_buffer_->StorageBarrier(diffuse_albedo_buffer_);
+    command_buffer_->StorageBarrier(depth_buffer_);
+    command_buffer_->StorageBarrier(normal_buffer_);
+    command_buffer_->StorageBarrier(motion_vectors_buffer_);
 }
 
 void RhiIntegrator::IntersectRays(uint32_t bounce)
 {
+    assert(trace_pipeline_ && trace_sets_[bounce & 1]);
+    assert(command_buffer_ && "RhiIntegrator::IntersectRays(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(trace_pipeline_);
     command_buffer_->BindDescriptorSet(trace_sets_[bounce & 1]);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(hits_buffer_);
 }
 
 void RhiIntegrator::ComputeAOVs()
 {
+    assert(aov_pipeline_ && aov_set_);
+    assert(command_buffer_ && "RhiIntegrator::ComputeAOVs(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(aov_pipeline_);
     command_buffer_->BindDescriptorSet(aov_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(diffuse_albedo_buffer_);
+    command_buffer_->StorageBarrier(depth_buffer_);
+    command_buffer_->StorageBarrier(normal_buffer_);
+    command_buffer_->StorageBarrier(motion_vectors_buffer_);
 }
 
 void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
 {
+    assert(miss_pipeline_ && miss_sets_[bounce & 1]);
+    assert(
+        command_buffer_ && "RhiIntegrator::ShadeMissedRays(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(miss_pipeline_);
     command_buffer_->BindDescriptorSet(miss_sets_[bounce & 1]);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(radiance_buffer_);
 }
 
 void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
 {
+    assert(hit_surface_pipeline_ && hit_surface_sets_[bounce & 1]);
+    assert(
+        command_buffer_ && "RhiIntegrator::ShadeSurfaceHits(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(hit_surface_pipeline_);
     command_buffer_->BindDescriptorSet(hit_surface_sets_[bounce & 1]);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(rays_buffers_[(bounce + 1) & 1]);
+    command_buffer_->StorageBarrier(pixel_indices_buffers_[(bounce + 1) & 1]);
+    command_buffer_->StorageBarrier(ray_counter_buffers_[(bounce + 1) & 1]);
+    command_buffer_->StorageBarrier(shadow_rays_buffer_);
+    command_buffer_->StorageBarrier(shadow_pixel_indices_buffer_);
+    command_buffer_->StorageBarrier(shadow_ray_counter_buffer_);
+    command_buffer_->StorageBarrier(direct_light_samples_buffer_);
+    command_buffer_->StorageBarrier(throughputs_buffer_);
+    command_buffer_->StorageBarrier(radiance_buffer_);
 }
 
 void RhiIntegrator::IntersectShadowRays()
 {
+    assert(trace_shadow_pipeline_ && trace_shadow_set_);
+    assert(command_buffer_ &&
+           "RhiIntegrator::IntersectShadowRays(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(trace_shadow_pipeline_);
     command_buffer_->BindDescriptorSet(trace_shadow_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(shadow_hits_buffer_);
 }
 
 void RhiIntegrator::AccumulateDirectSamples()
 {
+    assert(accumulate_direct_pipeline_ && accumulate_direct_set_);
+    assert(command_buffer_ &&
+           "RhiIntegrator::AccumulateDirectSamples(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(accumulate_direct_pipeline_);
     command_buffer_->BindDescriptorSet(accumulate_direct_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(radiance_buffer_);
 }
 
 void RhiIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
 {
+    assert(clear_counter_pipeline_ && clear_counter_sets_[(bounce + 1) & 1]);
+    assert(command_buffer_ &&
+           "RhiIntegrator::ClearOutgoingRayCounter(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(clear_counter_pipeline_);
     command_buffer_->BindDescriptorSet(clear_counter_sets_[(bounce + 1) & 1]);
     command_buffer_->Dispatch(1, 1, 1);
+    command_buffer_->StorageBarrier(ray_counter_buffers_[(bounce + 1) & 1]);
 }
 
 void RhiIntegrator::ClearShadowRayCounter()
 {
+    assert(clear_counter_pipeline_ && clear_shadow_counter_set_);
+    assert(command_buffer_ &&
+           "RhiIntegrator::ClearShadowRayCounter(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(clear_counter_pipeline_);
     command_buffer_->BindDescriptorSet(clear_shadow_counter_set_);
     command_buffer_->Dispatch(1, 1, 1);
+    command_buffer_->StorageBarrier(shadow_ray_counter_buffer_);
 }
 
 void RhiIntegrator::Denoise()
 {
+    assert(denoiser_pipeline_ && denoiser_set_);
+    assert(command_buffer_ && "RhiIntegrator::Denoise(): command buffer is not initialized");
+
     command_buffer_->BindPipeline(denoiser_pipeline_);
     command_buffer_->BindDescriptorSet(denoiser_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
+    command_buffer_->StorageBarrier(radiance_buffer_);
 }
 
 void RhiIntegrator::CopyHistoryBuffers()
 {
+    assert(command_buffer_ &&
+           "RhiIntegrator::CopyHistoryBuffers(): command buffer is not initialized");
 
+    command_buffer_->CopyBuffer(
+        radiance_buffer_, 0, prev_radiance_buffer_, 0, width_ * height_ * sizeof(float4));
+    command_buffer_->CopyBuffer(
+        depth_buffer_, 0, prev_depth_buffer_, 0, width_ * height_ * sizeof(float));
+    command_buffer_->StorageBarrier(prev_radiance_buffer_);
+    command_buffer_->StorageBarrier(prev_depth_buffer_);
 }
 
 void RhiIntegrator::ResolveRadiance()
 {
+    assert(resolve_pipeline_ && resolve_set_);
+    assert(
+        command_buffer_ && "RhiIntegrator::ResolveRadiance(): command buffer is not initialized");
+
     gpu::ImagePtr swapchain_image = swapchain_->GetCurrentImage();
 
     command_buffer_->TransitionBarrier(
@@ -424,13 +512,12 @@ void RhiIntegrator::ResolveRadiance()
     command_buffer_->BindPipeline(resolve_pipeline_);
     command_buffer_->BindDescriptorSet(resolve_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
-    command_buffer_->StorageBarrier(output_image_);
     command_buffer_->TransitionBarrier(
         output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
     output_layout_ = gpu::ImageLayout::kCopySrc;
     command_buffer_->TransitionBarrier(
         swapchain_image, gpu::ImageLayout::kPresent, gpu::ImageLayout::kCopyDst);
-    command_buffer_->CopyImage(swapchain_image.get(), output_image_.get());
+    command_buffer_->CopyImage(swapchain_image, output_image_);
     command_buffer_->TransitionBarrier(
         swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kPresent);
 }
@@ -458,11 +545,6 @@ gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 
 void RhiIntegrator::RebuildDescriptorSets()
 {
-    if (!camera_buffer_ || !triangle_buffer_)
-    {
-        return;
-    }
-
     reset_set_ = reset_pipeline_->CreateDescriptorSet();
     reset_set_->BindBuffer(*radiance_buffer_, 0);
 
@@ -590,9 +672,4 @@ void RhiIntegrator::RebuildDescriptorSets()
     resolve_set_->BindBuffer(*depth_buffer_, 5);
     resolve_set_->BindBuffer(*normal_buffer_, 6);
     resolve_set_->BindBuffer(*motion_vectors_buffer_, 7);
-}
-
-uint32_t RhiIntegrator::DivideAndRoundUp(uint32_t value, uint32_t divisor)
-{
-    return (value + divisor - 1) / divisor;
 }

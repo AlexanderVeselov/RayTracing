@@ -72,7 +72,6 @@ class RhiIntegrator : public Integrator
 
     void UpdateFrameData();
     void RebuildDescriptorSets();
-    static std::uint32_t DivideAndRoundUp(std::uint32_t value, std::uint32_t divisor);
 
     std::unique_ptr<gpu::Api> api_;
     gpu::DevicePtr device_;
@@ -109,6 +108,7 @@ class RhiIntegrator : public Integrator
     gpu::DescriptorSetPtr denoiser_set_;
     gpu::DescriptorSetPtr resolve_set_;
 
+    gpu::BufferPtr camera_cpu_buffer_;
     gpu::BufferPtr camera_buffer_;
     std::array<gpu::BufferPtr, 2> rays_buffers_;
     std::array<gpu::BufferPtr, 2> pixel_indices_buffers_;
