@@ -26,13 +26,13 @@
 #include "frame_data.hlsli"
 
 // Radiance history data
-RWStructuredBuffer<float4> g_Radiance             : register(u1);
-StructuredBuffer<float4>   g_PrevRadiance         : register(t2);
+RWTexture2D<float4> g_Radiance : register(u1);
+RWTexture2D<float4> g_PrevRadiance : register(u2);
 
 // Geometry history data
-RWStructuredBuffer<float>  g_Depth                : register(u3);
-StructuredBuffer<float>    g_PrevDepth            : register(t4);
-RWStructuredBuffer<float4> g_MotionVectors        : register(u5);
+RWTexture2D<float> g_Depth : register(u3);
+RWTexture2D<float> g_PrevDepth : register(u4);
+RWTexture2D<float4> g_MotionVectors : register(u5);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
@@ -47,13 +47,14 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
     uint x = pixel_idx % width;
     uint y = pixel_idx / width;
-    float depth_value = g_Depth[pixel_idx];
+    uint2 pixel_coord = uint2(x, y);
+    float depth_value = g_Depth[pixel_coord];
     if (depth_value == MAX_RENDER_DIST)
     {
         return;
     }
 
-    float2 motion = g_MotionVectors[pixel_idx].xy;
+    float2 motion = g_MotionVectors[pixel_coord].xy;
     float2 prev_uv = (float2(float(x) + 0.5f, float(y) + 0.5f) / float2(width, height)) - motion;
     int prev_x = int(prev_uv.x * float(width));
     int prev_y = int(prev_uv.y * float(height));
@@ -62,14 +63,14 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         return;
     }
 
-    uint prev_idx = uint(prev_y) * width + uint(prev_x);
-    float prev_depth_value = g_PrevDepth[prev_idx];
+    uint2 prev_coord = uint2(uint(prev_x), uint(prev_y));
+    float prev_depth_value = g_PrevDepth[prev_coord];
     if (abs(depth_value - prev_depth_value) / max(depth_value, EPS) > 0.1f)
     {
         return;
     }
 
-    float3 current_radiance = g_Radiance[pixel_idx].xyz;
-    float3 prev_radiance = g_PrevRadiance[prev_idx].xyz;
-    g_Radiance[pixel_idx].xyz = lerp(current_radiance, prev_radiance, 0.9f);
+    float3 current_radiance = g_Radiance[pixel_coord].xyz;
+    float3 prev_radiance = g_PrevRadiance[prev_coord].xyz;
+    g_Radiance[pixel_coord] = float4(lerp(current_radiance, prev_radiance, 0.9f), 0.0f);
 }

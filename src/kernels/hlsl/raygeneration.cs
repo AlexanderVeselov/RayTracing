@@ -26,21 +26,21 @@
 #include "frame_data.hlsli"
 
 // Ray data
-RWStructuredBuffer<Ray>    g_Rays                 : register(u1);
-RWStructuredBuffer<uint>   g_RayCounter           : register(u2);
-RWStructuredBuffer<uint>   g_PixelIndices         : register(u3);
+RWStructuredBuffer<Ray> g_Rays : register(u1);
+RWStructuredBuffer<uint> g_RayCounter : register(u2);
+RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 
 // Radiance and throughput data
-RWStructuredBuffer<float4> g_Throughputs          : register(u4);
+RWTexture2D<float4> g_Throughputs : register(u4);
 
 // Sample counter data
-RWStructuredBuffer<uint>   g_SampleCounter        : register(u5);
+RWStructuredBuffer<uint> g_SampleCounter : register(u5);
 
 // AOV data
-RWStructuredBuffer<float4> g_DiffuseAlbedo        : register(u6);
-RWStructuredBuffer<float>  g_Depth                : register(u7);
-RWStructuredBuffer<float4> g_Normal               : register(u8);
-RWStructuredBuffer<float4> g_MotionVectors        : register(u9);
+RWTexture2D<float4> g_DiffuseAlbedo : register(u6);
+RWTexture2D<float> g_Depth : register(u7);
+RWTexture2D<float4> g_Normal : register(u8);
+RWTexture2D<float4> g_MotionVectors : register(u9);
 
 float2 PointInHexagon(inout uint seed)
 {
@@ -73,6 +73,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
+    uint2 pixel_coord = uint2(pixel_x, pixel_y);
     uint seed = pixel_idx + WangHash(g_SampleCounter[0]);
 
     float x = (float(pixel_x) + RandomFloat(seed)) / float(width);
@@ -99,9 +100,9 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     g_Rays[pixel_idx] = ray;
     g_PixelIndices[pixel_idx] = pixel_idx;
-    g_Throughputs[pixel_idx] = float4(1.0f, 1.0f, 1.0f, 0.0f);
-    g_DiffuseAlbedo[pixel_idx] = 0.0f.xxxx;
-    g_Depth[pixel_idx] = MAX_RENDER_DIST;
-    g_Normal[pixel_idx] = 0.0f.xxxx;
-    g_MotionVectors[pixel_idx] = 0.0f.xxxx;
+    g_Throughputs[pixel_coord] = float4(1.0f, 1.0f, 1.0f, 0.0f);
+    g_DiffuseAlbedo[pixel_coord] = 0.0f.xxxx;
+    g_Depth[pixel_coord] = MAX_RENDER_DIST;
+    g_Normal[pixel_coord] = 0.0f.xxxx;
+    g_MotionVectors[pixel_coord] = 0.0f.xxxx;
 }

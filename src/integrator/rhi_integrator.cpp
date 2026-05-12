@@ -77,7 +77,7 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
 
     device_ = api_->CreateDevice();
     swapchain_ = device_->CreateSwapchain(window_native_handle, width_, height_, 3);
-    output_image_ = device_->CreateImage(width_, height_, swapchain_->GetFormat(), 1, 1,
+    output_image_ = device_->CreateImage(width_, height_, swapchain_->GetFormat(),
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     uint32_t num_pixels = width_ * height_;
@@ -95,16 +95,26 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     shadow_ray_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
     hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(Hit), sizeof(Hit));
     shadow_hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(uint32_t), sizeof(uint32_t));
-    throughputs_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+    throughputs_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     sample_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
-    radiance_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float4), sizeof(float4));
-    prev_radiance_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float4), sizeof(float4));
-    diffuse_albedo_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
-    depth_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float), sizeof(float));
-    prev_depth_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float), sizeof(float));
-    normal_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
-    motion_vectors_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float4), sizeof(float4));
-    direct_light_samples_buffer_ = CreateStorageBuffer(num_pixels * sizeof(float3), sizeof(float3));
+    radiance_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    prev_radiance_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    diffuse_albedo_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA8_UNorm,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    depth_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    prev_depth_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    normal_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    motion_vectors_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    direct_light_samples_image_ =
+        device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+            gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
@@ -310,6 +320,7 @@ void RhiIntegrator::CreateKernels()
     clear_sample_counter_pipeline_ = device_->CreateComputePipeline("clear_sample_counter.cs");
     increment_counter_pipeline_ = device_->CreateComputePipeline("increment_counter.cs");
     denoiser_pipeline_ = device_->CreateComputePipeline("denoiser.cs");
+    copy_history_pipeline_ = device_->CreateComputePipeline("copy_history.cs");
     resolve_pipeline_ = device_->CreateComputePipeline("resolve.cs");
 }
 
@@ -347,7 +358,7 @@ void RhiIntegrator::Reset()
     command_buffer_->BindPipeline(reset_pipeline_);
     command_buffer_->BindDescriptorSet(reset_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(radiance_buffer_);
+    command_buffer_->StorageBarrier(radiance_image_);
 
     printf("Reset integrator state %d\n", (int)rand());
 }
@@ -375,11 +386,11 @@ void RhiIntegrator::GenerateRays()
     command_buffer_->StorageBarrier(rays_buffers_[0]);
     command_buffer_->StorageBarrier(ray_counter_buffers_[0]);
     command_buffer_->StorageBarrier(pixel_indices_buffers_[0]);
-    command_buffer_->StorageBarrier(throughputs_buffer_);
-    command_buffer_->StorageBarrier(diffuse_albedo_buffer_);
-    command_buffer_->StorageBarrier(depth_buffer_);
-    command_buffer_->StorageBarrier(normal_buffer_);
-    command_buffer_->StorageBarrier(motion_vectors_buffer_);
+    command_buffer_->StorageBarrier(throughputs_image_);
+    command_buffer_->StorageBarrier(diffuse_albedo_image_);
+    command_buffer_->StorageBarrier(depth_image_);
+    command_buffer_->StorageBarrier(normal_image_);
+    command_buffer_->StorageBarrier(motion_vectors_image_);
 }
 
 void RhiIntegrator::IntersectRays(uint32_t bounce)
@@ -401,10 +412,10 @@ void RhiIntegrator::ComputeAOVs()
     command_buffer_->BindPipeline(aov_pipeline_);
     command_buffer_->BindDescriptorSet(aov_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(diffuse_albedo_buffer_);
-    command_buffer_->StorageBarrier(depth_buffer_);
-    command_buffer_->StorageBarrier(normal_buffer_);
-    command_buffer_->StorageBarrier(motion_vectors_buffer_);
+    command_buffer_->StorageBarrier(diffuse_albedo_image_);
+    command_buffer_->StorageBarrier(depth_image_);
+    command_buffer_->StorageBarrier(normal_image_);
+    command_buffer_->StorageBarrier(motion_vectors_image_);
 }
 
 void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
@@ -416,7 +427,7 @@ void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
     command_buffer_->BindPipeline(miss_pipeline_);
     command_buffer_->BindDescriptorSet(miss_sets_[bounce & 1]);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(radiance_buffer_);
+    command_buffer_->StorageBarrier(radiance_image_);
 }
 
 void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
@@ -434,9 +445,9 @@ void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
     command_buffer_->StorageBarrier(shadow_rays_buffer_);
     command_buffer_->StorageBarrier(shadow_pixel_indices_buffer_);
     command_buffer_->StorageBarrier(shadow_ray_counter_buffer_);
-    command_buffer_->StorageBarrier(direct_light_samples_buffer_);
-    command_buffer_->StorageBarrier(throughputs_buffer_);
-    command_buffer_->StorageBarrier(radiance_buffer_);
+    command_buffer_->StorageBarrier(direct_light_samples_image_);
+    command_buffer_->StorageBarrier(throughputs_image_);
+    command_buffer_->StorageBarrier(radiance_image_);
 }
 
 void RhiIntegrator::IntersectShadowRays()
@@ -460,7 +471,7 @@ void RhiIntegrator::AccumulateDirectSamples()
     command_buffer_->BindPipeline(accumulate_direct_pipeline_);
     command_buffer_->BindDescriptorSet(accumulate_direct_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(radiance_buffer_);
+    command_buffer_->StorageBarrier(radiance_image_);
 }
 
 void RhiIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
@@ -495,20 +506,20 @@ void RhiIntegrator::Denoise()
     command_buffer_->BindPipeline(denoiser_pipeline_);
     command_buffer_->BindDescriptorSet(denoiser_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(radiance_buffer_);
+    command_buffer_->StorageBarrier(radiance_image_);
 }
 
 void RhiIntegrator::CopyHistoryBuffers()
 {
+    assert(copy_history_pipeline_ && copy_history_set_);
     assert(command_buffer_ &&
            "RhiIntegrator::CopyHistoryBuffers(): command buffer is not initialized");
 
-    command_buffer_->CopyBuffer(
-        radiance_buffer_, 0, prev_radiance_buffer_, 0, width_ * height_ * sizeof(float4));
-    command_buffer_->CopyBuffer(
-        depth_buffer_, 0, prev_depth_buffer_, 0, width_ * height_ * sizeof(float));
-    command_buffer_->StorageBarrier(prev_radiance_buffer_);
-    command_buffer_->StorageBarrier(prev_depth_buffer_);
+    command_buffer_->BindPipeline(copy_history_pipeline_);
+    command_buffer_->BindDescriptorSet(copy_history_set_);
+    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
+    command_buffer_->StorageBarrier(prev_radiance_image_);
+    command_buffer_->StorageBarrier(prev_depth_image_);
 }
 
 void RhiIntegrator::ResolveRadiance()
@@ -573,19 +584,19 @@ gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 void RhiIntegrator::RebuildDescriptorSets()
 {
     reset_set_ = reset_pipeline_->CreateDescriptorSet();
-    reset_set_->BindBuffer(*radiance_buffer_, 0);
+    reset_set_->BindImage(*radiance_image_, 0);
 
     raygen_set_ = raygen_pipeline_->CreateDescriptorSet();
     raygen_set_->BindBuffer(*camera_buffer_, 0);
     raygen_set_->BindBuffer(*rays_buffers_[0], 1);
     raygen_set_->BindBuffer(*ray_counter_buffers_[0], 2);
     raygen_set_->BindBuffer(*pixel_indices_buffers_[0], 3);
-    raygen_set_->BindBuffer(*throughputs_buffer_, 4);
+    raygen_set_->BindImage(*throughputs_image_, 4);
     raygen_set_->BindBuffer(*sample_counter_buffer_, 5);
-    raygen_set_->BindBuffer(*diffuse_albedo_buffer_, 6);
-    raygen_set_->BindBuffer(*depth_buffer_, 7);
-    raygen_set_->BindBuffer(*normal_buffer_, 8);
-    raygen_set_->BindBuffer(*motion_vectors_buffer_, 9);
+    raygen_set_->BindImage(*diffuse_albedo_image_, 6);
+    raygen_set_->BindImage(*depth_image_, 7);
+    raygen_set_->BindImage(*normal_image_, 8);
+    raygen_set_->BindImage(*motion_vectors_image_, 9);
 
     for (uint32_t i = 0; i < 2; ++i)
     {
@@ -601,8 +612,8 @@ void RhiIntegrator::RebuildDescriptorSets()
         miss_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 1);
         miss_sets_[i]->BindBuffer(*pixel_indices_buffers_[i], 2);
         miss_sets_[i]->BindBuffer(*hits_buffer_, 3);
-        miss_sets_[i]->BindBuffer(*throughputs_buffer_, 4);
-        miss_sets_[i]->BindBuffer(*radiance_buffer_, 5);
+        miss_sets_[i]->BindImage(*throughputs_image_, 4);
+        miss_sets_[i]->BindImage(*radiance_image_, 5);
 
         clear_counter_sets_[i] = clear_counter_pipeline_->CreateDescriptorSet();
         clear_counter_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 0);
@@ -628,10 +639,10 @@ void RhiIntegrator::RebuildDescriptorSets()
         hit_surface_sets_[i]->BindBuffer(*shadow_rays_buffer_, 8);
         hit_surface_sets_[i]->BindBuffer(*shadow_pixel_indices_buffer_, 9);
         hit_surface_sets_[i]->BindBuffer(*shadow_ray_counter_buffer_, 10);
-        hit_surface_sets_[i]->BindBuffer(*direct_light_samples_buffer_, 11);
+        hit_surface_sets_[i]->BindImage(*direct_light_samples_image_, 11);
 
-        hit_surface_sets_[i]->BindBuffer(*throughputs_buffer_, 12);
-        hit_surface_sets_[i]->BindBuffer(*radiance_buffer_, 13);
+        hit_surface_sets_[i]->BindImage(*throughputs_image_, 12);
+        hit_surface_sets_[i]->BindImage(*radiance_image_, 13);
 
         hit_surface_sets_[i]->BindBuffer(*bounce_buffers_[i], 14);
         hit_surface_sets_[i]->BindBuffer(*sample_counter_buffer_, 15);
@@ -657,10 +668,10 @@ void RhiIntegrator::RebuildDescriptorSets()
     aov_set_->BindBuffer(*ray_counter_buffers_[0], 2);
     aov_set_->BindBuffer(*pixel_indices_buffers_[0], 3);
     aov_set_->BindBuffer(*hits_buffer_, 4);
-    aov_set_->BindBuffer(*diffuse_albedo_buffer_, 5);
-    aov_set_->BindBuffer(*depth_buffer_, 6);
-    aov_set_->BindBuffer(*normal_buffer_, 7);
-    aov_set_->BindBuffer(*motion_vectors_buffer_, 8);
+    aov_set_->BindImage(*diffuse_albedo_image_, 5);
+    aov_set_->BindImage(*depth_image_, 6);
+    aov_set_->BindImage(*normal_image_, 7);
+    aov_set_->BindImage(*motion_vectors_image_, 8);
     aov_set_->BindBuffer(*triangle_buffer_, 9);
     aov_set_->BindBuffer(*material_buffer_, 10);
     aov_set_->BindBuffer(*texture_buffer_, 11);
@@ -670,8 +681,8 @@ void RhiIntegrator::RebuildDescriptorSets()
     accumulate_direct_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);
     accumulate_direct_set_->BindBuffer(*shadow_pixel_indices_buffer_, 1);
     accumulate_direct_set_->BindBuffer(*shadow_hits_buffer_, 2);
-    accumulate_direct_set_->BindBuffer(*radiance_buffer_, 3);
-    accumulate_direct_set_->BindBuffer(*direct_light_samples_buffer_, 4);
+    accumulate_direct_set_->BindImage(*radiance_image_, 3);
+    accumulate_direct_set_->BindImage(*direct_light_samples_image_, 4);
 
     clear_shadow_counter_set_ = clear_counter_pipeline_->CreateDescriptorSet();
     clear_shadow_counter_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);
@@ -684,19 +695,25 @@ void RhiIntegrator::RebuildDescriptorSets()
 
     denoiser_set_ = denoiser_pipeline_->CreateDescriptorSet();
     denoiser_set_->BindBuffer(*camera_buffer_, 0);
-    denoiser_set_->BindBuffer(*radiance_buffer_, 1);
-    denoiser_set_->BindBuffer(*prev_radiance_buffer_, 2);
-    denoiser_set_->BindBuffer(*depth_buffer_, 3);
-    denoiser_set_->BindBuffer(*prev_depth_buffer_, 4);
-    denoiser_set_->BindBuffer(*motion_vectors_buffer_, 5);
+    denoiser_set_->BindImage(*radiance_image_, 1);
+    denoiser_set_->BindImage(*prev_radiance_image_, 2);
+    denoiser_set_->BindImage(*depth_image_, 3);
+    denoiser_set_->BindImage(*prev_depth_image_, 4);
+    denoiser_set_->BindImage(*motion_vectors_image_, 5);
+
+    copy_history_set_ = copy_history_pipeline_->CreateDescriptorSet();
+    copy_history_set_->BindImage(*radiance_image_, 0);
+    copy_history_set_->BindImage(*prev_radiance_image_, 1);
+    copy_history_set_->BindImage(*depth_image_, 2);
+    copy_history_set_->BindImage(*prev_depth_image_, 3);
 
     resolve_set_ = resolve_pipeline_->CreateDescriptorSet();
     resolve_set_->BindBuffer(*camera_buffer_, 0);
     resolve_set_->BindImage(*output_image_, 1);
-    resolve_set_->BindBuffer(*radiance_buffer_, 2);
+    resolve_set_->BindImage(*radiance_image_, 2);
     resolve_set_->BindBuffer(*sample_counter_buffer_, 3);
-    resolve_set_->BindBuffer(*diffuse_albedo_buffer_, 4);
-    resolve_set_->BindBuffer(*depth_buffer_, 5);
-    resolve_set_->BindBuffer(*normal_buffer_, 6);
-    resolve_set_->BindBuffer(*motion_vectors_buffer_, 7);
+    resolve_set_->BindImage(*diffuse_albedo_image_, 4);
+    resolve_set_->BindImage(*depth_image_, 5);
+    resolve_set_->BindImage(*normal_image_, 6);
+    resolve_set_->BindImage(*motion_vectors_image_, 7);
 }

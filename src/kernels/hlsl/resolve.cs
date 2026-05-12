@@ -26,19 +26,19 @@
 #include "frame_data.hlsli"
 
 // Output image
-RWTexture2D<float4>        g_Output               : register(u1);
+RWTexture2D<float4> g_Output : register(u1);
 
 // Radiance data
-RWStructuredBuffer<float4> g_Radiance             : register(u2);
+RWTexture2D<float4> g_Radiance : register(u2);
 
 // Sample counter data
-RWStructuredBuffer<uint>   g_SampleCounter        : register(u3);
+RWStructuredBuffer<uint> g_SampleCounter : register(u3);
 
 // AOV data
-RWStructuredBuffer<float4> g_DiffuseAlbedo        : register(u4);
-RWStructuredBuffer<float>  g_Depth                : register(u5);
-RWStructuredBuffer<float4> g_Normal               : register(u6);
-RWStructuredBuffer<float4> g_MotionVectors        : register(u7);
+RWTexture2D<float4> g_DiffuseAlbedo : register(u4);
+RWTexture2D<float> g_Depth : register(u5);
+RWTexture2D<float4> g_Normal : register(u6);
+RWTexture2D<float4> g_MotionVectors : register(u7);
 
 [numthreads(8, 8, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
@@ -51,32 +51,32 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         return;
     }
 
-    uint pixel_idx = dispatch_thread_id.y * width + dispatch_thread_id.x;
+    uint2 pixel_coord = dispatch_thread_id.xy;
     uint aov_index = g_RenderParams.x;
     if (aov_index == DIFFUSE_INDEX)
     {
-        g_Output[dispatch_thread_id.xy] = float4(saturate(g_DiffuseAlbedo[pixel_idx].xyz), 1.0f);
+        g_Output[pixel_coord] = float4(saturate(g_DiffuseAlbedo[pixel_coord].xyz), 1.0f);
     }
     else if (aov_index == DEPTH_INDEX)
     {
-        float depth_value = g_Depth[pixel_idx] * 0.1f;
-        g_Output[dispatch_thread_id.xy] = float4(depth_value.xxx, 1.0f);
+        float depth_value = g_Depth[pixel_coord] * 0.1f;
+        g_Output[pixel_coord] = float4(depth_value.xxx, 1.0f);
     }
     else if (aov_index == NORMAL_INDEX)
     {
-        float3 normal_value = g_Normal[pixel_idx].xyz * 0.5f + 0.5f;
-        g_Output[dispatch_thread_id.xy] = float4(normal_value, 1.0f);
+        float3 normal_value = g_Normal[pixel_coord].xyz * 0.5f + 0.5f;
+        g_Output[pixel_coord] = float4(normal_value, 1.0f);
     }
     else if (aov_index == MOTION_VECTORS_INDEX)
     {
-        g_Output[dispatch_thread_id.xy] = float4(g_MotionVectors[pixel_idx].xy, 0.0f, 1.0f);
+        g_Output[pixel_coord] = float4(g_MotionVectors[pixel_coord].xy, 0.0f, 1.0f);
     }
     else
     {
         float sample_count = max(float(g_SampleCounter[0]), 1.0f);
         float3 color = (g_RenderParams.y & RENDER_FLAG_DENOISER) != 0u
-                           ? g_Radiance[pixel_idx].xyz
-                           : g_Radiance[pixel_idx].xyz / sample_count;
-        g_Output[dispatch_thread_id.xy] = float4(Tonemap(color), 1.0f);
+                           ? g_Radiance[pixel_coord].xyz
+                           : g_Radiance[pixel_coord].xyz / sample_count;
+        g_Output[pixel_coord] = float4(Tonemap(color), 1.0f);
     }
 }

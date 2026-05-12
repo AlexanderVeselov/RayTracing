@@ -23,28 +23,29 @@
  *****************************************************************************/
 
 #include "common.hlsli"
+#include "frame_data.hlsli"
 
 // Ray data
-RWStructuredBuffer<Ray>    g_Rays                 : register(u1);
-RWStructuredBuffer<uint>   g_RayCounter           : register(u2);
-RWStructuredBuffer<uint>   g_PixelIndices         : register(u3);
+RWStructuredBuffer<Ray> g_Rays : register(u1);
+RWStructuredBuffer<uint> g_RayCounter : register(u2);
+RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 
 // Hit data
-RWStructuredBuffer<Hit>    g_Hits                 : register(u4);
+RWStructuredBuffer<Hit> g_Hits : register(u4);
 
 // AOV data
-RWStructuredBuffer<float4> g_DiffuseAlbedo        : register(u5);
-RWStructuredBuffer<float>  g_Depth                : register(u6);
-RWStructuredBuffer<float4> g_Normal               : register(u7);
-RWStructuredBuffer<float4> g_MotionVectors        : register(u8);
+RWTexture2D<float4> g_DiffuseAlbedo : register(u5);
+RWTexture2D<float> g_Depth : register(u6);
+RWTexture2D<float4> g_Normal : register(u7);
+RWTexture2D<float4> g_MotionVectors : register(u8);
 
 // Scene data
-StructuredBuffer<Triangle>       g_Triangles      : register(t9);
-StructuredBuffer<PackedMaterial> g_Materials      : register(t10);
+StructuredBuffer<Triangle> g_Triangles : register(t9);
+StructuredBuffer<PackedMaterial> g_Materials : register(t10);
 
 // Texture data
-StructuredBuffer<TextureInfo> g_Textures          : register(t11);
-StructuredBuffer<uint>        g_TextureData       : register(t12);
+StructuredBuffer<TextureInfo> g_Textures : register(t11);
+StructuredBuffer<uint> g_TextureData : register(t12);
 
 #include "material.hlsli"
 
@@ -76,6 +77,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
 
     uint pixel_idx = g_PixelIndices[ray_idx];
+    uint2 pixel_coord = PixelCoord(pixel_idx, g_RenderSize.x);
     Ray ray = g_Rays[ray_idx];
     Triangle tri = g_Triangles[hit.primitive_id];
     float3 position = InterpolateAttributes(
@@ -86,14 +88,14 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         InterpolateAttributes(tri.v1.normal.xyz, tri.v2.normal.xyz, tri.v3.normal.xyz, hit.bc));
     Material material = ApplyTextures(g_Materials[tri.material_index], texcoord, g_SceneCounts.w);
 
-    g_DiffuseAlbedo[pixel_idx] = float4(material.diffuse_albedo, 1.0f);
-    g_Depth[pixel_idx] = length(ray.origin.xyz - position);
-    g_Normal[pixel_idx] = float4(normal, 0.0f);
+    g_DiffuseAlbedo[pixel_coord] = float4(material.diffuse_albedo, 1.0f);
+    g_Depth[pixel_coord] = length(ray.origin.xyz - position);
+    g_Normal[pixel_coord] = float4(normal, 0.0f);
     float2 current_uv =
         ProjectScreen(position, g_CameraPositionFov.xyz, normalize(g_CameraFrontAspect.xyz),
             normalize(g_CameraUpAperture.xyz), g_CameraPositionFov.w, g_CameraFrontAspect.w);
     float2 prev_uv = ProjectScreen(position, g_PrevCameraPositionFov.xyz,
         normalize(g_PrevCameraFrontAspect.xyz), normalize(g_PrevCameraUpAperture.xyz),
         g_PrevCameraPositionFov.w, g_PrevCameraFrontAspect.w);
-    g_MotionVectors[pixel_idx] = float4(current_uv - prev_uv, 0.0f, 0.0f);
+    g_MotionVectors[pixel_coord] = float4(current_uv - prev_uv, 0.0f, 0.0f);
 }

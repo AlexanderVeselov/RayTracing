@@ -23,45 +23,46 @@
  *****************************************************************************/
 
 #include "common.hlsli"
+#include "frame_data.hlsli"
 
 // Incoming ray data
-RWStructuredBuffer<Ray>    g_IncomingRays         : register(u1);
-RWStructuredBuffer<uint>   g_IncomingPixelIndices : register(u2);
-RWStructuredBuffer<uint>   g_IncomingRayCounter   : register(u3);
+RWStructuredBuffer<Ray> g_IncomingRays : register(u1);
+RWStructuredBuffer<uint> g_IncomingPixelIndices : register(u2);
+RWStructuredBuffer<uint> g_IncomingRayCounter : register(u3);
 
 // Outgoing ray data
-RWStructuredBuffer<Ray>    g_OutgoingRays         : register(u4);
-RWStructuredBuffer<uint>   g_OutgoingPixelIndices : register(u5);
-RWStructuredBuffer<uint>   g_OutgoingRayCounter   : register(u6);
+RWStructuredBuffer<Ray> g_OutgoingRays : register(u4);
+RWStructuredBuffer<uint> g_OutgoingPixelIndices : register(u5);
+RWStructuredBuffer<uint> g_OutgoingRayCounter : register(u6);
 
 // Hit data
-RWStructuredBuffer<Hit>    g_Hits                 : register(u7);
+RWStructuredBuffer<Hit> g_Hits : register(u7);
 
 // Shadow ray data
-RWStructuredBuffer<Ray>    g_ShadowRays           : register(u8);
-RWStructuredBuffer<uint>   g_ShadowPixelIndices   : register(u9);
-RWStructuredBuffer<uint>   g_ShadowRayCounter     : register(u10);
-RWStructuredBuffer<float4> g_DirectLightSamples   : register(u11);
+RWStructuredBuffer<Ray> g_ShadowRays : register(u8);
+RWStructuredBuffer<uint> g_ShadowPixelIndices : register(u9);
+RWStructuredBuffer<uint> g_ShadowRayCounter : register(u10);
+RWTexture2D<float4> g_DirectLightSamples : register(u11);
 
 // Radiance and throughput data
-RWStructuredBuffer<float4> g_Throughputs          : register(u12);
-RWStructuredBuffer<float4> g_Radiance             : register(u13);
+RWTexture2D<float4> g_Throughputs : register(u12);
+RWTexture2D<float4> g_Radiance : register(u13);
 
 // Bounce and sample counters
-StructuredBuffer<uint>     g_Bounce               : register(t14);
-RWStructuredBuffer<uint>   g_SampleCounter        : register(u15);
+StructuredBuffer<uint> g_Bounce : register(t14);
+RWStructuredBuffer<uint> g_SampleCounter : register(u15);
 
 // Scene data
-StructuredBuffer<Triangle>       g_Triangles      : register(t16);
-StructuredBuffer<PackedMaterial> g_Materials      : register(t17);
-StructuredBuffer<Light>          g_Lights         : register(t18);
+StructuredBuffer<Triangle> g_Triangles : register(t16);
+StructuredBuffer<PackedMaterial> g_Materials : register(t17);
+StructuredBuffer<Light> g_Lights : register(t18);
 
 // Texture data
-StructuredBuffer<TextureInfo> g_Textures          : register(t19);
-StructuredBuffer<uint>        g_TextureData       : register(t20);
+StructuredBuffer<TextureInfo> g_Textures : register(t19);
+StructuredBuffer<uint> g_TextureData : register(t20);
 
-#include "material.hlsli"
 #include "light.hlsli"
+#include "material.hlsli"
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
@@ -82,6 +83,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint sample_idx = g_SampleCounter[0];
     uint pixel_x = pixel_idx % g_RenderSize.x;
     uint pixel_y = pixel_idx / g_RenderSize.x;
+    uint2 pixel_coord = uint2(pixel_x, pixel_y);
     uint bounce = g_Bounce[0];
 
     Ray incoming_ray = g_IncomingRays[ray_idx];
@@ -106,11 +108,13 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
 
     Material material = ApplyTextures(g_Materials[tri.material_index], texcoord, g_SceneCounts.w);
-    float3 throughput = g_Throughputs[pixel_idx].xyz;
+    float3 throughput = g_Throughputs[pixel_coord].xyz;
     if ((g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) == 0u &&
         dot(material.emission, 1.0f.xxx) > 0.0f)
     {
-        g_Radiance[pixel_idx].xyz += throughput * material.emission;
+        float4 radiance = g_Radiance[pixel_coord];
+        radiance.xyz += throughput * material.emission;
+        g_Radiance[pixel_coord] = radiance;
     }
 
     // Direct lighting
@@ -141,7 +145,8 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
             g_ShadowRays[shadow_ray_idx] = shadow_ray;
             g_ShadowPixelIndices[shadow_ray_idx] = pixel_idx;
-            g_DirectLightSamples[shadow_ray_idx] = float4(light_sample, 0.0f);
+            g_DirectLightSamples[PixelCoord(shadow_ray_idx, g_RenderSize.x)] =
+                float4(light_sample, 0.0f);
         }
     }
 
@@ -163,7 +168,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
             indirect_throughput = bxdf / pdf;
         }
 
-        g_Throughputs[pixel_idx] = float4(throughput * indirect_throughput, 0.0f);
+        g_Throughputs[pixel_coord] = float4(throughput * indirect_throughput, 0.0f);
 
         bool spawn_outgoing_ray = pdf > 0.0f;
 

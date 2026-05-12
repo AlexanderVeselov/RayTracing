@@ -94,6 +94,7 @@ class RhiIntegrator : public Integrator
     gpu::ComputePipelinePtr clear_sample_counter_pipeline_;
     gpu::ComputePipelinePtr increment_counter_pipeline_;
     gpu::ComputePipelinePtr denoiser_pipeline_;
+    gpu::ComputePipelinePtr copy_history_pipeline_;
     gpu::ComputePipelinePtr resolve_pipeline_;
 
     gpu::DescriptorSetPtr reset_set_;
@@ -109,6 +110,7 @@ class RhiIntegrator : public Integrator
     gpu::DescriptorSetPtr clear_sample_counter_set_;
     gpu::DescriptorSetPtr increment_counter_set_;
     gpu::DescriptorSetPtr denoiser_set_;
+    gpu::DescriptorSetPtr copy_history_set_;
     gpu::DescriptorSetPtr resolve_set_;
 
     gpu::BufferPtr camera_cpu_buffer_;
@@ -121,16 +123,16 @@ class RhiIntegrator : public Integrator
     gpu::BufferPtr shadow_ray_counter_buffer_;
     gpu::BufferPtr hits_buffer_;
     gpu::BufferPtr shadow_hits_buffer_;
-    gpu::BufferPtr throughputs_buffer_;
+    gpu::ImagePtr throughputs_image_;
     gpu::BufferPtr sample_counter_buffer_;
-    gpu::BufferPtr radiance_buffer_;
-    gpu::BufferPtr prev_radiance_buffer_;
-    gpu::BufferPtr diffuse_albedo_buffer_;
-    gpu::BufferPtr depth_buffer_;
-    gpu::BufferPtr prev_depth_buffer_;
-    gpu::BufferPtr normal_buffer_;
-    gpu::BufferPtr motion_vectors_buffer_;
-    gpu::BufferPtr direct_light_samples_buffer_;
+    gpu::ImagePtr radiance_image_;
+    gpu::ImagePtr prev_radiance_image_;
+    gpu::ImagePtr diffuse_albedo_image_;
+    gpu::ImagePtr depth_image_;
+    gpu::ImagePtr prev_depth_image_;
+    gpu::ImagePtr normal_image_;
+    gpu::ImagePtr motion_vectors_image_;
+    gpu::ImagePtr direct_light_samples_image_;
     std::array<gpu::BufferPtr, 2> bounce_buffers_;
 
     gpu::BufferPtr triangle_buffer_;

@@ -25,13 +25,13 @@
 #include "common.hlsli"
 
 // Shadow ray data
-RWStructuredBuffer<uint>   g_ShadowRayCounter     : register(u0);
-RWStructuredBuffer<uint>   g_ShadowPixelIndices   : register(u1);
-RWStructuredBuffer<uint>   g_ShadowHits           : register(u2);
-RWStructuredBuffer<float4> g_DirectLightSamples   : register(u4);
+RWStructuredBuffer<uint> g_ShadowRayCounter : register(u0);
+RWStructuredBuffer<uint> g_ShadowPixelIndices : register(u1);
+RWStructuredBuffer<uint> g_ShadowHits : register(u2);
+RWTexture2D<float4> g_DirectLightSamples : register(u4);
 
 // Radiance data
-RWStructuredBuffer<float4> g_Radiance             : register(u3);
+RWTexture2D<float4> g_Radiance : register(u3);
 
 [numthreads(256, 1, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
@@ -44,7 +44,13 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     if (g_ShadowHits[ray_idx] == INVALID_ID)
     {
+        uint width;
+        uint height;
+        g_Radiance.GetDimensions(width, height);
         uint pixel_idx = g_ShadowPixelIndices[ray_idx];
-        g_Radiance[pixel_idx].xyz += g_DirectLightSamples[ray_idx].xyz;
+        uint2 pixel_coord = PixelCoord(pixel_idx, width);
+        float4 radiance = g_Radiance[pixel_coord];
+        radiance.xyz += g_DirectLightSamples[PixelCoord(ray_idx, width)].xyz;
+        g_Radiance[pixel_coord] = radiance;
     }
 }

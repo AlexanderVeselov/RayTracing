@@ -184,6 +184,11 @@ float Luma(float3 color)
     return dot(color, float3(0.299f, 0.587f, 0.114f));
 }
 
+uint2 PixelCoord(uint pixel_idx, uint width)
+{
+    return uint2(pixel_idx % width, pixel_idx / width);
+}
+
 float GGX_D(float alpha, float n_dot_h)
 {
     float alpha2 = alpha * alpha;

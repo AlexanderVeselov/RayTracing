@@ -68,6 +68,7 @@ set(HLSL_KERNELS_SOURCES
     kernels/hlsl/clear_counter.cs
     kernels/hlsl/clear_sample_counter.cs
     kernels/hlsl/common.hlsli
+    kernels/hlsl/copy_history.cs
     kernels/hlsl/denoiser.cs
     kernels/hlsl/frame_data.hlsli
     kernels/hlsl/hit_surface.cs

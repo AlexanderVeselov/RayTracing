@@ -23,41 +23,27 @@
  *****************************************************************************/
 
 #include "common.hlsli"
-#include "frame_data.hlsli"
 
-// Ray data
-RWStructuredBuffer<uint> g_RayCounter : register(u1);
-RWStructuredBuffer<uint> g_PixelIndices : register(u2);
+// Radiance history data
+RWTexture2D<float4> g_Radiance : register(u0);
+RWTexture2D<float4> g_PrevRadiance : register(u1);
 
-// Hit data
-RWStructuredBuffer<Hit> g_Hits : register(u3);
+// Geometry history data
+RWTexture2D<float> g_Depth : register(u2);
+RWTexture2D<float> g_PrevDepth : register(u3);
 
-// Radiance and throughput data
-RWTexture2D<float4> g_Throughputs : register(u4);
-RWTexture2D<float4> g_Radiance : register(u5);
-
-[numthreads(256, 1, 1)]
+[numthreads(8, 8, 1)]
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
-    uint ray_idx = dispatch_thread_id.x;
-    if (ray_idx >= g_RayCounter[0])
+    uint width;
+    uint height;
+    g_Radiance.GetDimensions(width, height);
+    if (dispatch_thread_id.x >= width || dispatch_thread_id.y >= height)
     {
         return;
     }
 
-    Hit hit = g_Hits[ray_idx];
-    if (hit.primitive_id != INVALID_ID)
-    {
-        return;
-    }
-
-    uint pixel_idx = g_PixelIndices[ray_idx];
-    uint2 pixel_coord = PixelCoord(pixel_idx, g_RenderSize.x);
-    float3 throughput = g_Throughputs[pixel_coord].xyz;
-    float3 sky_radiance = (g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) != 0u
-                              ? 0.5f.xxx
-                              : float3(0.02f, 0.02f, 0.025f);
-    float4 radiance = g_Radiance[pixel_coord];
-    radiance.xyz += throughput * sky_radiance;
-    g_Radiance[pixel_coord] = radiance;
+    uint2 pixel_coord = dispatch_thread_id.xy;
+    g_PrevRadiance[pixel_coord] = g_Radiance[pixel_coord];
+    g_PrevDepth[pixel_coord] = g_Depth[pixel_coord];
 }
