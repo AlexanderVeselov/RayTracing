@@ -169,11 +169,14 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     auto const& lights = scene.GetLights();
     auto const& textures = scene.GetTextures();
     auto const& texture_data = scene.GetTextureData();
+    auto const& env_image = scene.GetEnvImage();
 
     triangle_count_ = static_cast<uint32_t>(triangles.size());
     node_count_ = static_cast<uint32_t>(nodes.size());
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = static_cast<uint32_t>(textures.size());
+    env_map_width_ = env_image.width;
+    env_map_height_ = env_image.height;
 
     gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
@@ -197,6 +200,9 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     texture_data_buffer_ = CreateGpuBuffer(texture_data.empty() ? nullptr : texture_data.data(),
         texture_data.size() * sizeof(uint32_t), sizeof(uint32_t), gpu::BufferFlags::kShaderResource,
         *upload_command_buffer, staging_buffers);
+    env_map_buffer_ = CreateGpuBuffer(env_image.data.empty() ? nullptr : env_image.data.data(),
+        env_image.data.size() * sizeof(uint32_t), sizeof(float) * 4,
+        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
 
     queue.Submit(std::move(upload_command_buffer));
     queue.WaitIdle();
@@ -316,8 +322,8 @@ void RhiIntegrator::UpdateFrameData()
     data.render_params[0] = static_cast<uint32_t>(aov_);
     data.render_params[1] = (enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u) |
                             (enable_denoiser_ ? kRenderFlagDenoiser : 0u);
-    data.render_params[2] = 0u;
-    data.render_params[3] = 0u;
+    data.render_params[2] = env_map_width_;
+    data.render_params[3] = env_map_height_;
 
     // Copy data to staging buffer
     void* mapped_data = camera_cpu_buffer_->Map();
@@ -633,6 +639,8 @@ void RhiIntegrator::RebuildDescriptorSets()
         miss_sets_[i]->BindBuffer(*hits_buffer_, 3);
         miss_sets_[i]->BindImage(*throughputs_image_, 4);
         miss_sets_[i]->BindImage(*radiance_image_, 5);
+        miss_sets_[i]->BindBuffer(*rays_buffers_[i], 6);
+        miss_sets_[i]->BindBuffer(*env_map_buffer_, 7);
 
         clear_counter_sets_[i] = clear_counter_pipeline_->CreateDescriptorSet();
         clear_counter_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 0);

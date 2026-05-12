@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 static const float EPS = 0.001f;
+static const float PI = 3.141592653f;
 static const float INV_PI = 0.318309886f;
 static const float INV_TWO_PI = 0.159154943f;
 static const float TWO_PI = 6.283185307f;

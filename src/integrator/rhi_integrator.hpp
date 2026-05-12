@@ -141,6 +141,7 @@ class RhiIntegrator : public Integrator
     gpu::BufferPtr light_buffer_;
     gpu::BufferPtr texture_buffer_;
     gpu::BufferPtr texture_data_buffer_;
+    gpu::BufferPtr env_map_buffer_;
 
     gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
     std::vector<gpu::ImageLayout> swapchain_image_layouts_;
@@ -148,4 +149,6 @@ class RhiIntegrator : public Integrator
     std::uint32_t node_count_ = 0u;
     std::uint32_t light_count_ = 0u;
     std::uint32_t texture_count_ = 0u;
+    std::uint32_t env_map_width_ = 0u;
+    std::uint32_t env_map_height_ = 0u;
 };
