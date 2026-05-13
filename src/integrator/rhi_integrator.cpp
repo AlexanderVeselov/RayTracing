@@ -220,13 +220,7 @@ void RhiIntegrator::SetCameraData(Camera const& camera)
     }
 
     camera_ = camera;
-    bool const had_camera_buffer = camera_cpu_buffer_ != nullptr;
     UpdateFrameData();
-
-    if (triangle_buffer_ && !had_camera_buffer)
-    {
-        RebuildDescriptorSets();
-    }
 
     prev_camera_ = camera;
 }
