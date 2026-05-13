@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2023 Alexander Veselov
+ Copyright(c) 2026 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -23,25 +23,51 @@
  *****************************************************************************/
 
 #include "render.hpp"
+#include "Utils/window.hpp"
+#include "bvh.hpp"
 #include "integrator/cl_pt_integrator.hpp"
 #include "integrator/gl_pt_integrator.hpp"
+#ifdef RAYTRACING_ENABLE_RHI
+#include "integrator/rhi_integrator.hpp"
+#endif
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
-#include "bvh.hpp"
-#include "Utils/window.hpp"
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_win32.h>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
-Render::Render(Window& window, RenderBackend backend, Scene& scene)
-    : window_(window)
-    , render_backend_(backend)
-    , scene_(scene)
-    , width_(window.GetWidth())
-    , height_(window.GetHeight())
+namespace
 {
+bool IsGlBackend(Render::RenderBackend backend)
+{
+    return backend == Render::RenderBackend::kOpenCL || backend == Render::RenderBackend::kOpenGL;
+}
+
+#ifdef RAYTRACING_ENABLE_RHI
+bool IsRhiBackend(Render::RenderBackend backend)
+{
+    return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
+}
+#endif
+} // namespace
+
+Render::Render(Window& window, RenderBackend backend, Scene& scene)
+    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()),
+      height_(window.GetHeight())
+{
+#ifdef RAYTRACING_ENABLE_RHI
+    if (render_backend_ == RenderBackend::kVulkan)
+    {
+        rhi_api_type_ = gpu::ApiType::kVulkan;
+    }
+    else if (render_backend_ == RenderBackend::kD3D12)
+    {
+        rhi_api_type_ = gpu::ApiType::kD3D12;
+    }
+#endif
+
     if (render_backend_ == RenderBackend::kOpenCL)
     {
         std::vector<cl::Platform> all_platforms;
@@ -54,7 +80,10 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
     }
 
-    framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
+    if (IsGlBackend(render_backend_))
+    {
+        framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
+    }
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
@@ -62,20 +91,31 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     // Build it right here
     acc_structure_->BuildCPU(scene_.GetTriangles());
 
-    // TODO, NOTE: this is done after building the acc structure because it reorders triangles
-    // Need to get rid of reordering
+    // TODO, NOTE: this is done after building the acc structure because it
+    // reorders triangles Need to get rid of reordering
     scene_.Finalize();
 
     // Create integrator
     if (render_backend_ == RenderBackend::kOpenCL)
     {
-        integrator_ = std::make_unique<CLPathTraceIntegrator>(width_, height_, *acc_structure_,
-            *cl_context_, framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<CLPathTraceIntegrator>(
+            width_, height_, *acc_structure_, *cl_context_, framebuffer_->GetGLImage());
     }
+    else if (render_backend_ == RenderBackend::kOpenGL)
+    {
+        integrator_ = std::make_unique<GLPathTraceIntegrator>(
+            width_, height_, *acc_structure_, framebuffer_->GetGLImage());
+    }
+#ifdef RAYTRACING_ENABLE_RHI
+    else if (IsRhiBackend(render_backend_))
+    {
+        integrator_ = std::make_unique<RhiIntegrator>(
+            width_, height_, *acc_structure_, window_.GetNativeHandle(), rhi_api_type_);
+    }
+#endif
     else
     {
-        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, *acc_structure_,
-            framebuffer_->GetGLImage());
+        throw std::runtime_error("Unsupported render backend");
     }
 
     // Upload scene data to the GPU
@@ -100,8 +140,11 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    glFinish();
-    window_.SwapBuffers();
+    if (IsGlBackend(render_backend_))
+    {
+        glFinish();
+        window_.SwapBuffers();
+    }
     prev_frame_time_ = start_frame_time_;
 }
 
@@ -115,8 +158,8 @@ void Render::ReloadKernels()
 
 void Render::DrawGUI()
 {
-    ImGui::Begin("PerformanceStats", nullptr,
-        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
+    ImGui::Begin(
+        "PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     {
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(350, 50));
@@ -133,7 +176,8 @@ void Render::DrawGUI()
             camera_controller_->SetAperture(gui_params_.camera_aperture);
         }
 
-        if (ImGui::SliderFloat("Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
+        if (ImGui::SliderFloat(
+                "Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
         {
             camera_controller_->SetFocusDistance(gui_params_.camera_focus_distance);
         }
@@ -150,8 +194,9 @@ void Render::DrawGUI()
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
-            integrator_->SetSamplerType(gui_params_.enable_blue_noise ?
-                Integrator::SamplerType::kBlueNoise : Integrator::SamplerType::kRandom);
+            integrator_->SetSamplerType(gui_params_.enable_blue_noise
+                                            ? Integrator::SamplerType::kBlueNoise
+                                            : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -160,7 +205,8 @@ void Render::DrawGUI()
         }
 
         static int aov_index = 0;
-        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
+        const char* aov_names[] = {
+            "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
             integrator_->SetAOV((Integrator::AOV)aov_index);
@@ -173,8 +219,11 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
-    glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (IsGlBackend(render_backend_))
+    {
+        glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 
     bool need_to_reset = false;
 
@@ -195,10 +244,13 @@ void Render::RenderFrame()
     }
 
     integrator_->Integrate();
-    framebuffer_->Present();
 
-    // Draw GUI
-    DrawGUI();
+    if (IsGlBackend(render_backend_))
+    {
+        framebuffer_->Present();
+        // Draw GUI
+        DrawGUI();
+    }
 
     FrameEnd();
 }

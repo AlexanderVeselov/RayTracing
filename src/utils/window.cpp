@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2023 Alexander Veselov
+ Copyright(c) 2026 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -163,6 +163,7 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
     : window_(nullptr, glfwDestroyWindow)
     , width_(width)
     , height_(height)
+    , has_graphics_context_(!no_api)
 {
     if (!glfwInit())
     {
@@ -184,9 +185,15 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
         throw std::runtime_error("Failed to create GLFW window!");
     }
 
-    glfwMakeContextCurrent(window_.get());
     glfwSetWindowUserPointer(window_.get(), this);
     glfwSetScrollCallback(window_.get(), ScrollCallback);
+
+    if (no_api)
+    {
+        return;
+    }
+
+    glfwMakeContextCurrent(window_.get());
 
     GLenum glew_status = glewInit();
 
@@ -205,17 +212,23 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
 
 Window::~Window()
 {
-    ImGui_ImplGlfw_Shutdown();
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui::DestroyContext();
+    if (has_graphics_context_)
+    {
+        ImGui_ImplGlfw_Shutdown();
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui::DestroyContext();
+    }
 }
 
 void Window::PollEvents()
 {
     glfwPollEvents();
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+    if (has_graphics_context_)
+    {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+    }
 }
 
 bool Window::ShouldClose() const
@@ -225,7 +238,7 @@ bool Window::ShouldClose() const
 
 bool Window::GetKey(KeyCode code) const
 {
-    if (ImGui::GetIO().WantCaptureKeyboard)
+    if (has_graphics_context_ && ImGui::GetIO().WantCaptureKeyboard)
     {
         return false;
     }
@@ -238,7 +251,7 @@ bool Window::GetKey(KeyCode code) const
 
 bool Window::GetMouseButton(MouseButton button) const
 {
-    if (ImGui::GetIO().WantCaptureMouse)
+    if (has_graphics_context_ && ImGui::GetIO().WantCaptureMouse)
     {
         return false;
     }
@@ -271,9 +284,12 @@ void* Window::GetNativeHandle() const
 
 void Window::SwapBuffers()
 {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    glfwSwapBuffers(window_.get());
+    if (has_graphics_context_)
+    {
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glfwSwapBuffers(window_.get());
+    }
 }
 
 void Window::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)

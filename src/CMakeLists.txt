@@ -18,6 +18,13 @@ set(INTEGRATOR_SOURCES
     integrator/gl_pt_integrator.hpp
 )
 
+if(RAYTRACING_ENABLE_RHI)
+    list(APPEND INTEGRATOR_SOURCES
+        integrator/rhi_integrator.cpp
+        integrator/rhi_integrator.hpp
+    )
+endif()
+
 set(COMMON_KERNELS_SOURCES
     kernels/common/bxdf.h
     kernels/common/constants.h
@@ -58,6 +65,28 @@ set(GLSL_KERNELS_SOURCES
     kernels/glsl/trace_bvh.comp
     kernels/glsl/visibility_buffer.vert
     kernels/glsl/visibility_buffer.frag
+)
+
+set(HLSL_KERNELS_SOURCES
+    kernels/hlsl/accumulate_direct_samples.cs
+    kernels/hlsl/aov.cs
+    kernels/hlsl/clear_counter.cs
+    kernels/hlsl/clear_sample_counter.cs
+    kernels/hlsl/common.hlsli
+    kernels/hlsl/copy_history.cs
+    kernels/hlsl/denoiser.cs
+    kernels/hlsl/frame_data.hlsli
+    kernels/hlsl/hit_surface.cs
+    kernels/hlsl/increment_counter.cs
+    kernels/hlsl/light.hlsli
+    kernels/hlsl/material.hlsli
+    kernels/hlsl/miss.cs
+    kernels/hlsl/raygeneration.cs
+    kernels/hlsl/reset.cs
+    kernels/hlsl/resolve.cs
+    kernels/hlsl/trace_bvh.cs
+    kernels/hlsl/trace_common.hlsli
+    kernels/hlsl/trace_shadow_bvh.cs
 )
 
 set(LOADERS_SOURCES
@@ -110,11 +139,18 @@ set(SOURCES
     ${MAIN_SOURCES}
 )
 
+if(RAYTRACING_ENABLE_RHI)
+    list(APPEND SOURCES ${HLSL_KERNELS_SOURCES})
+endif()
+
 source_group("gpu_wrappers" FILES ${GPU_WRAPPERS_SOURCES})
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
 source_group("kernels\\common" FILES ${COMMON_KERNELS_SOURCES})
 source_group("kernels\\cl" FILES ${CL_KERNELS_SOURCES})
 source_group("kernels\\glsl" FILES ${GLSL_KERNELS_SOURCES})
+if(RAYTRACING_ENABLE_RHI)
+    source_group("kernels\\hlsl" FILES ${HLSL_KERNELS_SOURCES})
+endif()
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
@@ -127,6 +163,10 @@ target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/
 target_compile_features(RayTracingApp PRIVATE cxx_std_17)
 
 target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU imgui CLI11)
+if(RAYTRACING_ENABLE_RHI)
+    target_compile_definitions(RayTracingApp PRIVATE RAYTRACING_ENABLE_RHI=1)
+    target_link_libraries(RayTracingApp PUBLIC GpuApi)
+endif()
 set_target_properties(RayTracingApp PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 )
@@ -135,3 +175,13 @@ add_custom_command(TARGET RayTracingApp POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${PROJECT_SOURCE_DIR}/3rdparty/glew-2.1.0/bin/x64/glew32.dll"
     $<TARGET_FILE_DIR:RayTracingApp>)
+
+if(RAYTRACING_ENABLE_RHI)
+    add_custom_command(TARGET RayTracingApp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${PROJECT_SOURCE_DIR}/3rdparty/GpuApi/third_party/dxc_2022_12_16/bin/x64/dxcompiler.dll"
+        $<TARGET_FILE_DIR:RayTracingApp>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${PROJECT_SOURCE_DIR}/3rdparty/GpuApi/third_party/dxc_2022_12_16/bin/x64/dxil.dll"
+        $<TARGET_FILE_DIR:RayTracingApp>)
+endif()

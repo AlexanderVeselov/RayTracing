@@ -171,4 +171,5 @@ private:
     std::vector<std::function<void(float)>> scroll_callbacks_;
     std::uint32_t width_ = ~0u;
     std::uint32_t height_ = ~0u;
+    bool has_graphics_context_ = false;
 };

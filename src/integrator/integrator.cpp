@@ -1,7 +1,7 @@
 /*****************************************************************************
  MIT License
 
- Copyright(c) 2023 Alexander Veselov
+ Copyright(c) 2026 Alexander Veselov
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
@@ -26,6 +26,8 @@
 
 void Integrator::Integrate()
 {
+    BeginFrame();
+
     if (request_reset_ || enable_denoiser_)
     {
         Reset();
@@ -56,6 +58,8 @@ void Integrator::Integrate()
         CopyHistoryBuffers();
     }
     ResolveRadiance();
+
+    EndFrame();
 }
 
 void Integrator::SetMaxBounces(std::uint32_t max_bounces)
