@@ -37,6 +37,7 @@
 #include <memory>
 
 class Window;
+class RhiIntegrator;
 class Render
 {
   public:
@@ -51,7 +52,7 @@ class Render
     };
 
     Render(Window& window, RenderBackend backend, Scene& scene);
-    ~Render() = default;
+    ~Render();
 
     void RenderFrame();
     double GetCurtime() const;
@@ -88,6 +89,12 @@ class Render
     std::shared_ptr<CLContext> cl_context_;
 #ifdef RAYTRACING_ENABLE_RHI
     gpu::ApiType rhi_api_type_ = gpu::ApiType::kVulkan;
+    std::unique_ptr<gpu::Api> rhi_api_;
+    gpu::DevicePtr rhi_device_;
+    gpu::SwapchainPtr rhi_swapchain_;
+    gpu::ImGuiRendererPtr rhi_imgui_renderer_;
+    gpu::CommandBufferPtr rhi_command_buffer_;
+    RhiIntegrator* rhi_integrator_ = nullptr;
 #endif
     // Integrator
     std::unique_ptr<Integrator> integrator_;

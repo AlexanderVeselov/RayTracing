@@ -28,15 +28,22 @@
 #include "integrator/cl_pt_integrator.hpp"
 #include "integrator/gl_pt_integrator.hpp"
 #ifdef RAYTRACING_ENABLE_RHI
+#include "gpu_command_buffer.hpp"
+#include "gpu_device.hpp"
+#include "gpu_imgui.hpp"
+#include "gpu_queue.hpp"
+#include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
 #endif
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
-#include <backends/imgui_impl_opengl3.h>
-#include <backends/imgui_impl_win32.h>
 #include <fstream>
+#ifdef RAYTRACING_ENABLE_RHI
+#include <imgui.h>
+#endif
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 namespace
 {
@@ -65,6 +72,22 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     else if (render_backend_ == RenderBackend::kD3D12)
     {
         rhi_api_type_ = gpu::ApiType::kD3D12;
+    }
+
+    if (IsRhiBackend(render_backend_))
+    {
+        rhi_api_.reset(gpu::Api::Create(rhi_api_type_));
+        if (!rhi_api_)
+        {
+            throw std::runtime_error("Failed to create GpuApi");
+        }
+
+        rhi_api_->SetShaderPath("src/kernels/hlsl");
+        rhi_device_ = rhi_api_->CreateDevice();
+        rhi_swapchain_ =
+            rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+        rhi_imgui_renderer_ =
+            rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     }
 #endif
 
@@ -109,8 +132,10 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 #ifdef RAYTRACING_ENABLE_RHI
     else if (IsRhiBackend(render_backend_))
     {
-        integrator_ = std::make_unique<RhiIntegrator>(
-            width_, height_, *acc_structure_, window_.GetNativeHandle(), rhi_api_type_);
+        auto rhi_integrator = std::make_unique<RhiIntegrator>(
+            width_, height_, *acc_structure_, *rhi_device_, *rhi_swapchain_);
+        rhi_integrator_ = rhi_integrator.get();
+        integrator_ = std::move(rhi_integrator);
     }
 #endif
     else
@@ -120,6 +145,16 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 
     // Upload scene data to the GPU
     integrator_->UploadGPUData(scene_, *acc_structure_);
+}
+
+Render::~Render()
+{
+#ifdef RAYTRACING_ENABLE_RHI
+    if (rhi_device_)
+    {
+        rhi_device_->GetQueue(gpu::QueueType::kGraphics).WaitIdle();
+    }
+#endif
 }
 
 double Render::GetCurtime() const
@@ -158,6 +193,7 @@ void Render::ReloadKernels()
 
 void Render::DrawGUI()
 {
+#ifdef RAYTRACING_ENABLE_RHI
     ImGui::Begin(
         "PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     {
@@ -213,6 +249,7 @@ void Render::DrawGUI()
         }
     }
     ImGui::End();
+#endif
 }
 
 void Render::RenderFrame()
@@ -224,6 +261,14 @@ void Render::RenderFrame()
         glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
     }
+
+#ifdef RAYTRACING_ENABLE_RHI
+    if (IsRhiBackend(render_backend_))
+    {
+        rhi_imgui_renderer_->NewFrame();
+        DrawGUI();
+    }
+#endif
 
     bool need_to_reset = false;
 
@@ -243,13 +288,29 @@ void Render::RenderFrame()
         integrator_->RequestReset();
     }
 
-    integrator_->Integrate();
+#ifdef RAYTRACING_ENABLE_RHI
+    if (IsRhiBackend(render_backend_))
+    {
+        gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
+        rhi_command_buffer_ = queue.CreateCommandBuffer();
+        rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
+        integrator_->Integrate();
+        rhi_imgui_renderer_->Render(*rhi_command_buffer_);
+        rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
+            gpu::ImageLayout::kRenderTarget, gpu::ImageLayout::kPresent);
+        rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
+        queue.Submit(std::move(rhi_command_buffer_));
+        rhi_swapchain_->Present();
+    }
+    else
+#endif
+    {
+        integrator_->Integrate();
+    }
 
     if (IsGlBackend(render_backend_))
     {
         framebuffer_->Present();
-        // Draw GUI
-        DrawGUI();
     }
 
     FrameEnd();

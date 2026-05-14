@@ -53,6 +53,8 @@ class Integrator
         : width_(width), height_(height), acc_structure_(acc_structure)
     {
     }
+    virtual ~Integrator() = default;
+
     void Integrate();
     virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;

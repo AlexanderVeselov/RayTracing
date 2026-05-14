@@ -159,10 +159,13 @@ source_group("utils" FILES ${UTILS_SOURCES})
 add_executable(RayTracingApp ${SOURCES})
 
 target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(RayTracingApp PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader ${CMAKE_SOURCE_DIR}/3rdparty/glm)
+target_include_directories(RayTracingApp PRIVATE
+    ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader
+    ${CMAKE_SOURCE_DIR}/3rdparty/glm
+    ${CMAKE_SOURCE_DIR}/3rdparty/stb)
 target_compile_features(RayTracingApp PRIVATE cxx_std_17)
 
-target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU imgui CLI11)
+target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU CLI11)
 if(RAYTRACING_ENABLE_RHI)
     target_compile_definitions(RayTracingApp PRIVATE RAYTRACING_ENABLE_RHI=1)
     target_link_libraries(RayTracingApp PUBLIC GpuApi)

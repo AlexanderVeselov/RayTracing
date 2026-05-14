@@ -22,9 +22,9 @@
 
 #include <GLFW/glfw3.h>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
-#include <functional>
 
 enum class KeyCode
 {
@@ -142,7 +142,7 @@ enum class MouseButton
 
 class Window
 {
-public:
+  public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
@@ -151,8 +151,18 @@ public:
 
     // Returns HWND in the case of WIN32 platform
     void* GetNativeHandle() const;
-    std::uint32_t GetWidth() const { return width_; }
-    std::uint32_t GetHeight() const { return height_; }
+    GLFWwindow* GetGlfwWindow() const
+    {
+        return window_.get();
+    }
+    std::uint32_t GetWidth() const
+    {
+        return width_;
+    }
+    std::uint32_t GetHeight() const
+    {
+        return height_;
+    }
 
     void GetMousePos(int& x, int& y) const;
     void SetMousePos(int x, int y) const;
@@ -162,12 +172,15 @@ public:
     bool GetKey(KeyCode code) const;
     bool GetMouseButton(MouseButton button) const;
     void SwapBuffers();
-    void AddScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
+    void AddScrollCallback(std::function<void(float)> callback)
+    {
+        scroll_callbacks_.push_back(callback);
+    }
 
-private:
+  private:
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-    std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> window_;
+    std::unique_ptr<GLFWwindow, void (*)(GLFWwindow*)> window_;
     std::vector<std::function<void(float)>> scroll_callbacks_;
     std::uint32_t width_ = ~0u;
     std::uint32_t height_ = ~0u;

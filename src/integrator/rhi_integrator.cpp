@@ -66,18 +66,10 @@ inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 } // namespace
 
 RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStructure& acc_structure,
-    void* window_native_handle, gpu::ApiType api_type)
-    : Integrator(width, height, acc_structure), api_(gpu::Api::Create(api_type))
+    gpu::Device& device, gpu::Swapchain& swapchain)
+    : Integrator(width, height, acc_structure), device_(device), swapchain_(swapchain)
 {
-    if (!api_)
-    {
-        throw std::runtime_error("Failed to create GpuApi");
-    }
-    api_->SetShaderPath("src/kernels/hlsl");
-
-    device_ = api_->CreateDevice();
-    swapchain_ = device_->CreateSwapchain(window_native_handle, width_, height_, 3);
-    output_image_ = device_->CreateImage(width_, height_, swapchain_->GetFormat(),
+    output_image_ = device_.CreateImage(width_, height_, swapchain_.GetFormat(),
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     uint32_t num_pixels = width_ * height_;
@@ -95,28 +87,28 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     shadow_ray_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
     hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(Hit), sizeof(Hit));
     shadow_hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(uint32_t), sizeof(uint32_t));
-    throughputs_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+    throughputs_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     sample_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
-    radiance_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+    radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_radiance_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+    prev_radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    diffuse_albedo_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA8_UNorm,
+    diffuse_albedo_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA8_UNorm,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    depth_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
+    depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_depth_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
+    prev_depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    normal_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+    normal_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    motion_vectors_image_ = device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+    motion_vectors_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     direct_light_samples_image_ =
-        device_->CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
             gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
     upload_command_buffer->TransitionBarrier(
@@ -146,19 +138,25 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
     queue.WaitIdle();
 
     camera_cpu_buffer_ = CreateStagingBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData));
-    camera_buffer_ = device_->CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
+    camera_buffer_ = device_.CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
-    swapchain_image_layouts_.resize(swapchain_->GetImageCount(), gpu::ImageLayout::kUndefined);
+    swapchain_image_layouts_.resize(swapchain_.GetImageCount(), gpu::ImageLayout::kUndefined);
 
     CreateKernels();
 }
 
 RhiIntegrator::~RhiIntegrator()
 {
-    if (device_)
-    {
-        device_->GetQueue(gpu::QueueType::kGraphics).WaitIdle();
-    }
+}
+
+void RhiIntegrator::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
+{
+    command_buffer_ = &command_buffer;
+}
+
+void RhiIntegrator::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
+{
+    swapchain_image_layouts_[swapchain_.GetCurrentImageIndex()] = layout;
 }
 
 void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
@@ -178,7 +176,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     env_map_width_ = env_image.width;
     env_map_height_ = env_image.height;
 
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
+    gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
 
@@ -327,38 +325,31 @@ void RhiIntegrator::UpdateFrameData()
 
 void RhiIntegrator::CreateKernels()
 {
-    reset_pipeline_ = device_->CreateComputePipeline("reset.cs");
-    raygen_pipeline_ = device_->CreateComputePipeline("raygeneration.cs");
-    trace_pipeline_ = device_->CreateComputePipeline("trace_bvh.cs");
-    trace_shadow_pipeline_ = device_->CreateComputePipeline("trace_shadow_bvh.cs");
-    aov_pipeline_ = device_->CreateComputePipeline("aov.cs");
-    miss_pipeline_ = device_->CreateComputePipeline("miss.cs");
-    hit_surface_pipeline_ = device_->CreateComputePipeline("hit_surface.cs");
-    accumulate_direct_pipeline_ = device_->CreateComputePipeline("accumulate_direct_samples.cs");
-    clear_counter_pipeline_ = device_->CreateComputePipeline("clear_counter.cs");
-    clear_sample_counter_pipeline_ = device_->CreateComputePipeline("clear_sample_counter.cs");
-    increment_counter_pipeline_ = device_->CreateComputePipeline("increment_counter.cs");
-    denoiser_pipeline_ = device_->CreateComputePipeline("denoiser.cs");
-    copy_history_pipeline_ = device_->CreateComputePipeline("copy_history.cs");
-    resolve_pipeline_ = device_->CreateComputePipeline("resolve.cs");
+    reset_pipeline_ = device_.CreateComputePipeline("reset.cs");
+    raygen_pipeline_ = device_.CreateComputePipeline("raygeneration.cs");
+    trace_pipeline_ = device_.CreateComputePipeline("trace_bvh.cs");
+    trace_shadow_pipeline_ = device_.CreateComputePipeline("trace_shadow_bvh.cs");
+    aov_pipeline_ = device_.CreateComputePipeline("aov.cs");
+    miss_pipeline_ = device_.CreateComputePipeline("miss.cs");
+    hit_surface_pipeline_ = device_.CreateComputePipeline("hit_surface.cs");
+    accumulate_direct_pipeline_ = device_.CreateComputePipeline("accumulate_direct_samples.cs");
+    clear_counter_pipeline_ = device_.CreateComputePipeline("clear_counter.cs");
+    clear_sample_counter_pipeline_ = device_.CreateComputePipeline("clear_sample_counter.cs");
+    increment_counter_pipeline_ = device_.CreateComputePipeline("increment_counter.cs");
+    denoiser_pipeline_ = device_.CreateComputePipeline("denoiser.cs");
+    copy_history_pipeline_ = device_.CreateComputePipeline("copy_history.cs");
+    resolve_pipeline_ = device_.CreateComputePipeline("resolve.cs");
 }
 
 void RhiIntegrator::BeginFrame()
 {
-    assert(!command_buffer_ &&
-           "RhiIntegrator::BeginFrame(): command buffer from previous frame was not submitted");
-
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
-    command_buffer_ = queue.CreateCommandBuffer();
+    assert(command_buffer_ && "RhiIntegrator::BeginFrame(): command buffer is not set");
 }
 
 void RhiIntegrator::EndFrame()
 {
-    assert(command_buffer_ && "RhiIntegrator::EndFrame(): no command buffer to submit");
-
-    gpu::Queue& queue = device_->GetQueue(gpu::QueueType::kGraphics);
-    queue.Submit(std::move(command_buffer_));
-    swapchain_->Present();
+    assert(command_buffer_ && "RhiIntegrator::EndFrame(): command buffer is not set");
+    command_buffer_ = nullptr;
 }
 
 void RhiIntegrator::Reset()
@@ -545,8 +536,8 @@ void RhiIntegrator::ResolveRadiance()
     assert(
         command_buffer_ && "RhiIntegrator::ResolveRadiance(): command buffer is not initialized");
 
-    gpu::ImagePtr swapchain_image = swapchain_->GetCurrentImage();
-    uint32_t const swapchain_image_index = swapchain_->GetCurrentImageIndex();
+    gpu::ImagePtr swapchain_image = swapchain_.GetCurrentImage();
+    uint32_t const swapchain_image_index = swapchain_.GetCurrentImageIndex();
 
     command_buffer_->TransitionBarrier(
         output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
@@ -560,15 +551,15 @@ void RhiIntegrator::ResolveRadiance()
         swapchain_image_layouts_[swapchain_image_index], gpu::ImageLayout::kCopyDst);
     command_buffer_->CopyImage(swapchain_image, output_image_);
     command_buffer_->TransitionBarrier(
-        swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kPresent);
-    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kPresent;
+        swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kRenderTarget);
+    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kRenderTarget;
 }
 
 gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
     gpu::BufferPtr buffer =
-        device_->CreateBuffer(allocation_size, stride, gpu::BufferFlags::kCpuAccess);
+        device_.CreateBuffer(allocation_size, stride, gpu::BufferFlags::kCpuAccess);
     if (data)
     {
         void* mapped_data = buffer->Map();
@@ -583,7 +574,7 @@ gpu::BufferPtr RhiIntegrator::CreateGpuBuffer(void const* data, size_t size, uin
     std::vector<gpu::BufferPtr>& staging_buffers)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
-    gpu::BufferPtr buffer = device_->CreateBuffer(allocation_size, stride, flags);
+    gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, stride, flags);
     if (data && size > 0)
     {
         gpu::BufferPtr staging_buffer = CreateStagingBuffer(data, size, stride);
@@ -596,7 +587,7 @@ gpu::BufferPtr RhiIntegrator::CreateGpuBuffer(void const* data, size_t size, uin
 gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
-    return device_->CreateBuffer(
+    return device_.CreateBuffer(
         allocation_size, stride, gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kStorage);
 }
 

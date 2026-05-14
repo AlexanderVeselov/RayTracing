@@ -26,7 +26,6 @@
 
 #include "integrator.hpp"
 
-#include "gpu_api.hpp"
 #include "gpu_buffer.hpp"
 #include "gpu_types.hpp"
 
@@ -38,8 +37,11 @@ class RhiIntegrator : public Integrator
 {
   public:
     RhiIntegrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure,
-        void* window_native_handle, gpu::ApiType api_type);
+        gpu::Device& device, gpu::Swapchain& swapchain);
     ~RhiIntegrator();
+
+    void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
+    void SetCurrentSwapchainImageLayout(gpu::ImageLayout layout);
 
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
@@ -76,11 +78,10 @@ class RhiIntegrator : public Integrator
     void UpdateFrameData();
     void RebuildDescriptorSets();
 
-    std::unique_ptr<gpu::Api> api_;
-    gpu::DevicePtr device_;
-    gpu::SwapchainPtr swapchain_;
+    gpu::Device& device_;
+    gpu::Swapchain& swapchain_;
     gpu::ImagePtr output_image_;
-    gpu::CommandBufferPtr command_buffer_;
+    gpu::CommandBuffer* command_buffer_ = nullptr;
 
     gpu::ComputePipelinePtr reset_pipeline_;
     gpu::ComputePipelinePtr raygen_pipeline_;
