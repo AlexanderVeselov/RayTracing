@@ -35,7 +35,7 @@
 
 class RhiIntegrator : public Integrator
 {
-  public:
+public:
     RhiIntegrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure,
         gpu::Device& device, gpu::Swapchain& swapchain);
     ~RhiIntegrator();
@@ -49,7 +49,7 @@ class RhiIntegrator : public Integrator
     void SetAOV(AOV aov) override;
     void EnableDenoiser(bool enable) override;
 
-  protected:
+protected:
     void BeginFrame() override;
     void EndFrame() override;
     void CreateKernels() override;
@@ -68,11 +68,26 @@ class RhiIntegrator : public Integrator
     void CopyHistoryBuffers() override;
     void ResolveRadiance() override;
 
-  private:
+private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, std::size_t size, std::uint32_t stride);
-    gpu::BufferPtr CreateGpuBuffer(void const* data, std::size_t size, std::uint32_t stride,
-        gpu::BufferFlags flags, gpu::CommandBuffer& upload_command_buffer,
-        std::vector<gpu::BufferPtr>& staging_buffers);
+
+    template<class T>
+    gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer,
+        gpu::CommandBufferPtr& upload_command_buffer,
+        std::vector<gpu::BufferPtr>& staging_buffers)
+    {
+        size_t allocation_size = std::max<size_t>(cpu_buffer.size() * sizeof(T), sizeof(T));
+        gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
+        if (!cpu_buffer.empty())
+        {
+            gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(),
+                cpu_buffer.size() * sizeof(T), sizeof(T));
+            upload_command_buffer->CopyBuffer(staging_buffer, 0, buffer,
+                0, cpu_buffer.size() * sizeof(T));
+            staging_buffers.push_back(std::move(staging_buffer));
+        }
+        return buffer;
+    }
     gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
     void UpdateFrameData();
@@ -136,8 +151,6 @@ class RhiIntegrator : public Integrator
     gpu::ImagePtr direct_light_samples_image_;
     std::array<gpu::BufferPtr, 2> bounce_buffers_;
 
-    gpu::BufferPtr triangle_buffer_;
-    gpu::BufferPtr node_buffer_;
     gpu::BufferPtr vertex_buffer_;
     gpu::BufferPtr index_buffer_;
     gpu::BufferPtr triangle_material_index_buffer_;
@@ -146,6 +159,10 @@ class RhiIntegrator : public Integrator
     gpu::BufferPtr texture_buffer_;
     gpu::BufferPtr texture_data_buffer_;
     gpu::BufferPtr env_map_buffer_;
+
+    // Acceleration structure buffers
+    gpu::BufferPtr rt_triangles_buffer_;
+    gpu::BufferPtr nodes_buffer_;
 
     gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
     std::vector<gpu::ImageLayout> swapchain_image_layouts_;

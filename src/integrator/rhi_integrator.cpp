@@ -131,8 +131,9 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, AccelerationStruct
         gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
     for (uint32_t bounce = 0; bounce < bounce_buffers_.size(); ++bounce)
     {
-        bounce_buffers_[bounce] = CreateGpuBuffer(&bounce, sizeof(bounce), sizeof(bounce),
-            gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
+        // Holds a single value. TODO: change to root constants when supported by the RHI.
+        std::vector<uint32_t> initial_bounce_data = { bounce };
+        bounce_buffers_[bounce] = CreateGpuBuffer(initial_bounce_data, upload_command_buffer, staging_buffers);
     }
     queue.Submit(std::move(upload_command_buffer));
     queue.WaitIdle();
@@ -161,8 +162,6 @@ void RhiIntegrator::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
 
 void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
-    auto const& triangles = acc_structure.GetTriangles();
-    auto const& nodes = acc_structure.GetNodes();
     auto const& vertices = scene.GetVertices();
     auto const& indices = scene.GetIndices();
     auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
@@ -172,7 +171,10 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     auto const& texture_data = scene.GetTextureData();
     auto const& env_image = scene.GetEnvImage();
 
-    triangle_count_ = static_cast<uint32_t>(triangles.size());
+    auto const& rt_triangles = acc_structure.GetTriangles();
+    auto const& nodes = acc_structure.GetNodes();
+
+    triangle_count_ = static_cast<uint32_t>(rt_triangles.size());
     node_count_ = static_cast<uint32_t>(nodes.size());
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = static_cast<uint32_t>(textures.size());
@@ -183,37 +185,17 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
 
-    triangle_buffer_ = CreateGpuBuffer(triangles.empty() ? nullptr : triangles.data(),
-        triangles.size() * sizeof(RTTriangle), sizeof(RTTriangle),
-        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
-    vertex_buffer_ = CreateGpuBuffer(vertices.empty() ? nullptr : vertices.data(),
-        vertices.size() * sizeof(Vertex), sizeof(Vertex), gpu::BufferFlags::kShaderResource,
-        *upload_command_buffer, staging_buffers);
-    index_buffer_ = CreateGpuBuffer(indices.empty() ? nullptr : indices.data(),
-        indices.size() * sizeof(uint32_t), sizeof(uint32_t), gpu::BufferFlags::kShaderResource,
-        *upload_command_buffer, staging_buffers);
-    triangle_material_index_buffer_ = CreateGpuBuffer(
-        triangle_material_indices.empty() ? nullptr : triangle_material_indices.data(),
-        triangle_material_indices.size() * sizeof(uint32_t), sizeof(uint32_t),
-        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
-    node_buffer_ = CreateGpuBuffer(nodes.empty() ? nullptr : nodes.data(),
-        nodes.size() * sizeof(LinearBVHNode), sizeof(LinearBVHNode),
-        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
-    material_buffer_ = CreateGpuBuffer(materials.empty() ? nullptr : materials.data(),
-        materials.size() * sizeof(PackedMaterial), sizeof(PackedMaterial),
-        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
-    light_buffer_ = CreateGpuBuffer(lights.empty() ? nullptr : lights.data(),
-        lights.size() * sizeof(Light), sizeof(Light), gpu::BufferFlags::kShaderResource,
-        *upload_command_buffer, staging_buffers);
-    texture_buffer_ = CreateGpuBuffer(textures.empty() ? nullptr : textures.data(),
-        textures.size() * sizeof(Texture), sizeof(Texture), gpu::BufferFlags::kShaderResource,
-        *upload_command_buffer, staging_buffers);
-    texture_data_buffer_ = CreateGpuBuffer(texture_data.empty() ? nullptr : texture_data.data(),
-        texture_data.size() * sizeof(uint32_t), sizeof(uint32_t), gpu::BufferFlags::kShaderResource,
-        *upload_command_buffer, staging_buffers);
-    env_map_buffer_ = CreateGpuBuffer(env_image.data.empty() ? nullptr : env_image.data.data(),
-        env_image.data.size() * sizeof(uint32_t), sizeof(float) * 4,
-        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
+    vertex_buffer_ = CreateGpuBuffer(vertices, upload_command_buffer, staging_buffers);
+    index_buffer_ = CreateGpuBuffer(indices, upload_command_buffer, staging_buffers);
+    triangle_material_index_buffer_ = CreateGpuBuffer(triangle_material_indices, upload_command_buffer, staging_buffers);
+    material_buffer_ = CreateGpuBuffer(materials, upload_command_buffer, staging_buffers);
+    light_buffer_ = CreateGpuBuffer(lights, upload_command_buffer, staging_buffers);
+    texture_buffer_ = CreateGpuBuffer(textures, upload_command_buffer, staging_buffers);
+    texture_data_buffer_ = CreateGpuBuffer(texture_data, upload_command_buffer, staging_buffers);
+    env_map_buffer_ = CreateGpuBuffer(env_image.data, upload_command_buffer, staging_buffers);
+
+    rt_triangles_buffer_ = CreateGpuBuffer(rt_triangles, upload_command_buffer, staging_buffers);
+    nodes_buffer_ = CreateGpuBuffer(nodes, upload_command_buffer, staging_buffers);
 
     queue.Submit(std::move(upload_command_buffer));
     queue.WaitIdle();
@@ -582,21 +564,6 @@ gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size,
     return buffer;
 }
 
-gpu::BufferPtr RhiIntegrator::CreateGpuBuffer(void const* data, size_t size, uint32_t stride,
-    gpu::BufferFlags flags, gpu::CommandBuffer& upload_command_buffer,
-    std::vector<gpu::BufferPtr>& staging_buffers)
-{
-    size_t allocation_size = std::max<size_t>(size, stride);
-    gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, stride, flags);
-    if (data && size > 0)
-    {
-        gpu::BufferPtr staging_buffer = CreateStagingBuffer(data, size, stride);
-        upload_command_buffer.CopyBuffer(staging_buffer, 0, buffer, 0, size);
-        staging_buffers.push_back(std::move(staging_buffer));
-    }
-    return buffer;
-}
-
 gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
@@ -627,8 +594,8 @@ void RhiIntegrator::RebuildDescriptorSets()
         trace_sets_[i]->BindBuffer(*rays_buffers_[i], 0);
         trace_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 1);
         trace_sets_[i]->BindBuffer(*hits_buffer_, 2);
-        trace_sets_[i]->BindBuffer(*triangle_buffer_, 3);
-        trace_sets_[i]->BindBuffer(*node_buffer_, 4);
+        trace_sets_[i]->BindBuffer(*rt_triangles_buffer_, 3);
+        trace_sets_[i]->BindBuffer(*nodes_buffer_, 4);
 
         miss_sets_[i] = miss_pipeline_->CreateDescriptorSet();
         miss_sets_[i]->BindBuffer(*camera_buffer_, 0);
@@ -686,8 +653,8 @@ void RhiIntegrator::RebuildDescriptorSets()
     trace_shadow_set_->BindBuffer(*shadow_rays_buffer_, 0);
     trace_shadow_set_->BindBuffer(*shadow_ray_counter_buffer_, 1);
     trace_shadow_set_->BindBuffer(*shadow_hits_buffer_, 2);
-    trace_shadow_set_->BindBuffer(*triangle_buffer_, 3);
-    trace_shadow_set_->BindBuffer(*node_buffer_, 4);
+    trace_shadow_set_->BindBuffer(*rt_triangles_buffer_, 3);
+    trace_shadow_set_->BindBuffer(*nodes_buffer_, 4);
 
     aov_set_ = aov_pipeline_->CreateDescriptorSet();
     aov_set_->BindBuffer(*camera_buffer_, 0);
