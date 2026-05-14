@@ -22,38 +22,38 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 64) in;
+layout(local_size_x = 64) in;
 
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
 
-layout(std430, binding = 0) buffer Rays 
+layout(std430, binding = 0) buffer Rays
 {
     Ray rays[];
 };
 
-layout(std430, binding = 1) buffer RayCounter 
+layout(std430, binding = 1) buffer RayCounter
 {
     uint ray_counter[];
 };
 
-layout(std430, binding = 2) buffer RTTriangles 
+layout(std430, binding = 2) buffer RTTriangles
 {
     RTTriangle triangles[];
 };
 
-layout(std430, binding = 3) buffer BVHNodes 
+layout(std430, binding = 3) buffer BVHNodes
 {
     LinearBVHNode nodes[];
 };
 
 #ifdef SHADOW_RAYS
-layout(std430, binding = 4) buffer ShadowHits 
+layout(std430, binding = 4) buffer ShadowHits
 {
     uint shadow_hits[];
 };
 #else
-layout(std430, binding = 4) buffer Hits 
+layout(std430, binding = 4) buffer Hits
 {
     Hit hits[];
 };
@@ -61,8 +61,8 @@ layout(std430, binding = 4) buffer Hits
 
 bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
 {
-    float3 e1 = triangle.position2 - triangle.position1;
-    float3 e2 = triangle.position3 - triangle.position1;
+    float3 e1 = triangle.position2.xyz - triangle.position1.xyz;
+    float3 e2 = triangle.position3.xyz - triangle.position1.xyz;
     // Calculate planes normal vector
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
@@ -74,7 +74,7 @@ bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
     }
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle.position1;
+    float3 tvec = ray.origin.xyz - triangle.position1.xyz;
     float u = dot(tvec, pvec) * inv_det;
 
     if (u < 0.0f || u > 1.0f)
@@ -116,11 +116,9 @@ float min3(float3 val)
     return min(min(val.x, val.y), val.z);
 }
 
-bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool RayBounds(float3 aabb_min, float3 aabb_max, float3 ray_origin, float3 ray_inv_dir, float t_min,
+    float t_max)
 {
-    float3 aabb_min = bounds.pos[0];
-    float3 aabb_max = bounds.pos[1];
-
     float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
     float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
 
@@ -167,7 +165,8 @@ void main()
     {
         LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bmin.xyz, node.bmax.xyz, ray.origin.xyz, ray_inv_dir, ray.origin.w,
+                ray.direction.w))
         {
             // Leaf node
             if (int(node.num_primitives_axis >> 16) > 0)
@@ -177,7 +176,7 @@ void main()
                 {
                     if (RayTriangle(ray, triangles[node.offset + i], hit.bc, hit.t))
                     {
-                        hit.primitive_id = node.offset + i;
+                        hit.primitive_id = triangles[node.offset + i].prim_id;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;

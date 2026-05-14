@@ -26,30 +26,36 @@
 #define LIGHT_H
 
 #include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/utils.h"
 
 float3 Light_Sample(
 #ifdef GLSL
-    SceneInfo scene_info, float3 position, float3 normal, float s, out float3 outgoing, out float pdf)
+    SceneInfo scene_info, float3 position, float3 normal, float s, out float3 outgoing,
+    out float pdf)
 #else
-    __global Light* analytic_lights, SceneInfo scene_info, float3 position, float3 normal, float s, float3* outgoing, float* pdf)
+    __global Light* analytic_lights, SceneInfo scene_info, float3 position, float3 normal, float s,
+    float3* outgoing, float* pdf)
 #endif
 {
     // Fetch random light
 #ifdef GLSL
-    int light_idx = clamp(int(s * float(scene_info.analytic_light_count)), 0, int(scene_info.analytic_light_count) - 1);
+    int light_idx = clamp(int(s * float(scene_info.analytic_light_count)), 0,
+        int(scene_info.analytic_light_count) - 1);
 #else
-    int light_idx = clamp((int)(s * (float)scene_info.analytic_light_count), 0, (int)scene_info.analytic_light_count - 1);
+    int light_idx = clamp((int)(s * (float)scene_info.analytic_light_count), 0,
+        (int)scene_info.analytic_light_count - 1);
 #endif
     Light light = analytic_lights[light_idx];
 
     // Compute light selection pdf
     OUT(pdf) = 1.0f / scene_info.analytic_light_count;
 
-    float3 light_radiance = light.radiance;
+    float3 light_radiance = light.radiance.xyz;
 
     if (light.type == LIGHT_TYPE_POINT)
     {
-        float3 to_light = light.origin - position;
+        float3 to_light = light.origin.xyz - position;
 
         // Compute light attenuation
         float sq_length = dot(to_light, to_light);
@@ -58,7 +64,7 @@ float3 Light_Sample(
     }
     else // (light.type == LIGHT_TYPE_DIRECTIONAL)
     {
-        OUT(outgoing) = light.origin * MAX_RENDER_DIST;
+        OUT(outgoing) = light.origin.xyz * MAX_RENDER_DIST;
     }
 
     return light_radiance;

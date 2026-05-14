@@ -138,6 +138,9 @@ class RhiIntegrator : public Integrator
 
     gpu::BufferPtr triangle_buffer_;
     gpu::BufferPtr node_buffer_;
+    gpu::BufferPtr vertex_buffer_;
+    gpu::BufferPtr index_buffer_;
+    gpu::BufferPtr triangle_material_index_buffer_;
     gpu::BufferPtr material_buffer_;
     gpu::BufferPtr light_buffer_;
     gpu::BufferPtr texture_buffer_;

@@ -22,44 +22,26 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "src/kernels/common/shared_structures.h"
+#include "src/kernels/common/light.h"
 #include "src/kernels/common/material.h"
 #include "src/kernels/common/sampling.h"
-#include "src/kernels/common/light.h"
+#include "src/kernels/common/shared_structures.h"
 
-__kernel void HitSurface
-(
+__kernel void HitSurface(
     // Input
-    __global Ray*            incoming_rays,
-    __global uint*           incoming_ray_counter,
-    __global uint*           incoming_pixel_indices,
-    __global Hit*            hits,
-    __global Triangle*       triangles,
-    __global Light*          analytic_lights,
-    __global uint*           emissive_indices,
-    __global PackedMaterial* materials,
-    __global Texture*        textures,
-    __global uint*           texture_data,
-    uint bounce,
-    uint width,
-    uint height,
-    __global uint* sample_counter,
-    SceneInfo scene_info,
+    __global Ray* incoming_rays, __global uint* incoming_ray_counter,
+    __global uint* incoming_pixel_indices, __global Hit* hits, __global Vertex* vertices,
+    __global uint* indices, __global uint* material_ids, __global Light* analytic_lights,
+    __global uint* emissive_indices, __global PackedMaterial* materials, __global Texture* textures,
+    __global uint* texture_data, uint bounce, uint width, uint height,
+    __global uint* sample_counter, SceneInfo scene_info,
     // Blue noise sampler
-    __global int* sobol_256spp_256d,
-    __global int* scramblingTile,
-    __global int* rankingTile,
+    __global int* sobol_256spp_256d, __global int* scramblingTile, __global int* rankingTile,
     // Output
-    __global float3* throughputs,
-    __global Ray*    outgoing_rays,
-    __global uint*   outgoing_ray_counter,
-    __global uint*   outgoing_pixel_indices,
-    __global Ray*    shadow_rays,
-    __global uint*   shadow_ray_counter,
-    __global uint*   shadow_pixel_indices,
-    __global float3* direct_light_samples,
-    __global float4* result_radiance
-)
+    __global float3* throughputs, __global Ray* outgoing_rays, __global uint* outgoing_ray_counter,
+    __global uint* outgoing_pixel_indices, __global Ray* shadow_rays,
+    __global uint* shadow_ray_counter, __global uint* shadow_pixel_indices,
+    __global float3* direct_light_samples, __global float4* result_radiance)
 {
     uint incoming_ray_idx = get_global_id(0);
     uint num_incoming_rays = incoming_ray_counter[0];
@@ -85,20 +67,24 @@ __kernel void HitSurface
     int x = pixel_idx % width;
     int y = pixel_idx / width;
 
-    Triangle triangle = triangles[hit.primitive_id];
+    uint index_offset = hit.primitive_id * 3;
+    Vertex v1 = vertices[indices[index_offset + 0]];
+    Vertex v2 = vertices[indices[index_offset + 1]];
+    Vertex v3 = vertices[indices[index_offset + 2]];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    float3 position =
+        InterpolateAttributes(v1.position.xyz, v2.position.xyz, v3.position.xyz, hit.bc);
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position, triangle.v3.position - triangle.v1.position));
+    float3 geometry_normal =
+        normalize(cross(v2.position.xyz - v1.position.xyz, v3.position.xyz - v1.position.xyz));
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    float2 texcoord =
+        InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    float3 normal =
+        normalize(InterpolateAttributes(v1.normal.xyz, v2.normal.xyz, v3.normal.xyz, hit.bc));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    PackedMaterial packed_material = materials[material_ids[hit.primitive_id]];
     Material material;
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
@@ -113,16 +99,19 @@ __kernel void HitSurface
 
     // Direct lighting
     {
-        float s_light = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
+        float s_light =
+            SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_LIGHT, BLUE_NOISE_BUFFERS);
         float3 outgoing;
         float pdf;
-        float3 light_radiance = Light_Sample(analytic_lights, scene_info, position, normal, s_light, &outgoing, &pdf);
+        float3 light_radiance =
+            Light_Sample(analytic_lights, scene_info, position, normal, s_light, &outgoing, &pdf);
 
         float distance_to_light = length(outgoing);
         outgoing = normalize(outgoing);
 
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
+        float3 light_sample =
+            light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
 
         bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
 
@@ -150,7 +139,8 @@ __kernel void HitSurface
         float2 s;
         s.x = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_U, BLUE_NOISE_BUFFERS);
         s.y = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_V, BLUE_NOISE_BUFFERS);
-        float s1 = SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
+        float s1 =
+            SampleRandom(x, y, sample_idx, bounce, SAMPLE_TYPE_BXDF_LAYER, BLUE_NOISE_BUFFERS);
 
         float pdf = 0.0f;
         float3 throughput = 0.0f;
@@ -182,5 +172,4 @@ __kernel void HitSurface
             outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
         }
     }
-
 }

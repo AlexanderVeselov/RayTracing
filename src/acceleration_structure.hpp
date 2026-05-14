@@ -30,9 +30,9 @@
 class CLContext;
 class AccelerationStructure
 {
-public:
-    virtual void BuildCPU(std::vector<Triangle> & triangles) = 0;
+  public:
+    virtual void BuildCPU(
+        std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) = 0;
     virtual std::vector<LinearBVHNode> const& GetNodes() const = 0;
-    //virtual void IntersectRays(cl::Buffer const& rays_buffer, cl::Buffer const& ray_counter_buffer,
-    //    std::uint32_t max_num_rays, cl::Buffer const& hits_buffer, bool closest_hit = true) = 0;
+    virtual std::vector<RTTriangle> const& GetTriangles() const = 0;
 };

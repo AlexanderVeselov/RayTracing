@@ -161,8 +161,11 @@ void RhiIntegrator::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
 
 void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
-    auto const& triangles = scene.GetTriangles();
+    auto const& triangles = acc_structure.GetTriangles();
     auto const& nodes = acc_structure.GetNodes();
+    auto const& vertices = scene.GetVertices();
+    auto const& indices = scene.GetIndices();
+    auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
     auto const& materials = scene.GetMaterials();
     auto const& lights = scene.GetLights();
     auto const& textures = scene.GetTextures();
@@ -181,8 +184,18 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     std::vector<gpu::BufferPtr> staging_buffers;
 
     triangle_buffer_ = CreateGpuBuffer(triangles.empty() ? nullptr : triangles.data(),
-        triangles.size() * sizeof(Triangle), sizeof(Triangle), gpu::BufferFlags::kShaderResource,
+        triangles.size() * sizeof(RTTriangle), sizeof(RTTriangle),
+        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
+    vertex_buffer_ = CreateGpuBuffer(vertices.empty() ? nullptr : vertices.data(),
+        vertices.size() * sizeof(Vertex), sizeof(Vertex), gpu::BufferFlags::kShaderResource,
         *upload_command_buffer, staging_buffers);
+    index_buffer_ = CreateGpuBuffer(indices.empty() ? nullptr : indices.data(),
+        indices.size() * sizeof(uint32_t), sizeof(uint32_t), gpu::BufferFlags::kShaderResource,
+        *upload_command_buffer, staging_buffers);
+    triangle_material_index_buffer_ = CreateGpuBuffer(
+        triangle_material_indices.empty() ? nullptr : triangle_material_indices.data(),
+        triangle_material_indices.size() * sizeof(uint32_t), sizeof(uint32_t),
+        gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
     node_buffer_ = CreateGpuBuffer(nodes.empty() ? nullptr : nodes.data(),
         nodes.size() * sizeof(LinearBVHNode), sizeof(LinearBVHNode),
         gpu::BufferFlags::kShaderResource, *upload_command_buffer, staging_buffers);
@@ -659,12 +672,14 @@ void RhiIntegrator::RebuildDescriptorSets()
         hit_surface_sets_[i]->BindBuffer(*bounce_buffers_[i], 14);
         hit_surface_sets_[i]->BindBuffer(*sample_counter_buffer_, 15);
 
-        hit_surface_sets_[i]->BindBuffer(*triangle_buffer_, 16);
-        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 17);
-        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 18);
+        hit_surface_sets_[i]->BindBuffer(*vertex_buffer_, 16);
+        hit_surface_sets_[i]->BindBuffer(*index_buffer_, 17);
+        hit_surface_sets_[i]->BindBuffer(*triangle_material_index_buffer_, 18);
+        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 19);
+        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 20);
 
-        hit_surface_sets_[i]->BindBuffer(*texture_buffer_, 19);
-        hit_surface_sets_[i]->BindBuffer(*texture_data_buffer_, 20);
+        hit_surface_sets_[i]->BindBuffer(*texture_buffer_, 21);
+        hit_surface_sets_[i]->BindBuffer(*texture_data_buffer_, 22);
     }
 
     trace_shadow_set_ = trace_shadow_pipeline_->CreateDescriptorSet();
@@ -684,10 +699,12 @@ void RhiIntegrator::RebuildDescriptorSets()
     aov_set_->BindImage(*depth_image_, 6);
     aov_set_->BindImage(*normal_image_, 7);
     aov_set_->BindImage(*motion_vectors_image_, 8);
-    aov_set_->BindBuffer(*triangle_buffer_, 9);
-    aov_set_->BindBuffer(*material_buffer_, 10);
-    aov_set_->BindBuffer(*texture_buffer_, 11);
-    aov_set_->BindBuffer(*texture_data_buffer_, 12);
+    aov_set_->BindBuffer(*vertex_buffer_, 9);
+    aov_set_->BindBuffer(*index_buffer_, 10);
+    aov_set_->BindBuffer(*triangle_material_index_buffer_, 11);
+    aov_set_->BindBuffer(*material_buffer_, 12);
+    aov_set_->BindBuffer(*texture_buffer_, 13);
+    aov_set_->BindBuffer(*texture_data_buffer_, 14);
 
     accumulate_direct_set_ = accumulate_direct_pipeline_->CreateDescriptorSet();
     accumulate_direct_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);

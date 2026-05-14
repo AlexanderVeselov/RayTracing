@@ -25,11 +25,11 @@
 #extension GL_ARB_gpu_shader_int64 : enable
 #extension GL_ARB_bindless_texture : enable
 
-layout (local_size_x = 32) in;
+layout(local_size_x = 32) in;
 
 #include "src/kernels/common/constants.h"
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/sampling.h"
+#include "src/kernels/common/shared_structures.h"
 
 uniform uint bounce;
 uniform uint width;
@@ -127,8 +127,8 @@ layout(std430, binding = 15) buffer Materials
     PackedMaterial materials[];
 };
 
-#include "src/kernels/common/material.h"
 #include "src/kernels/common/light.h"
+#include "src/kernels/common/material.h"
 
 void main()
 {
@@ -158,17 +158,17 @@ void main()
 
     Triangle triangle = triangles[hit.primitive_id];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    float3 position = InterpolateAttributes(
+        triangle.v1.position.xyz, triangle.v2.position.xyz, triangle.v3.position.xyz, hit.bc);
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position,
-        triangle.v3.position - triangle.v1.position));
+    float3 geometry_normal = normalize(cross(triangle.v2.position.xyz - triangle.v1.position.xyz,
+        triangle.v3.position.xyz - triangle.v1.position.xyz));
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    float2 texcoord = InterpolateAttributes2(
+        triangle.v1.texcoord.xy, triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    float3 normal = normalize(InterpolateAttributes(
+        triangle.v1.normal.xyz, triangle.v2.normal.xyz, triangle.v3.normal.xyz, hit.bc));
 
     PackedMaterial packed_material = materials[triangle.mtlIndex];
     Material material;
@@ -196,7 +196,8 @@ void main()
         outgoing = normalize(outgoing);
 
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample = light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
+        float3 light_sample =
+            light_radiance * hit_throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f);
 
         bool spawn_shadow_ray = (pdf > 0.0f) && (dot(light_sample, light_sample) > 0.0f);
 
@@ -256,5 +257,4 @@ void main()
             outgoing_pixel_indices[outgoing_ray_idx] = pixel_idx;
         }
     }
-
 }

@@ -54,9 +54,12 @@ struct Hit
 
 struct Vertex
 {
-    float4 position;
-    float4 texcoord;
-    float4 normal;
+    float3 position;
+    float position_padding;
+    float2 texcoord;
+    float2 texcoord_padding;
+    float3 normal;
+    float normal_padding;
 };
 
 struct Triangle
@@ -68,15 +71,24 @@ struct Triangle
     uint3 padding;
 };
 
-struct Bounds3
+struct RTTriangle
 {
-    float4 pmin;
-    float4 pmax;
+    float3 position1;
+    float position1_padding;
+    float3 position2;
+    float position2_padding;
+    float3 position3;
+    float position3_padding;
+    uint primitive_id;
+    uint3 padding;
 };
 
 struct LinearBVHNode
 {
-    Bounds3 bounds;
+    float3 bmin;
+    float bmin_padding;
+    float3 bmax;
+    float bmax_padding;
     uint offset;
     uint num_primitives_axis;
     uint2 padding;
@@ -104,8 +116,10 @@ struct Material
 
 struct Light
 {
-    float4 origin;
-    float4 radiance;
+    float3 origin;
+    float origin_padding;
+    float3 radiance;
+    float radiance_padding;
     uint type;
     uint3 padding;
 };

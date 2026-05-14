@@ -112,7 +112,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
-    acc_structure_->BuildCPU(scene_.GetTriangles());
+    acc_structure_->BuildCPU(scene_.GetVertices(), scene_.GetIndices());
 
     // TODO, NOTE: this is done after building the acc structure because it
     // reorders triangles Need to get rid of reordering

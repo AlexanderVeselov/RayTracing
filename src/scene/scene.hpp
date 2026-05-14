@@ -24,38 +24,71 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
 #include "kernels/common/shared_structures.h"
 #include "loaders/image_loader.hpp"
-#include <vector>
+#include "mathlib/mathlib.hpp"
 #include <unordered_map>
+#include <vector>
 
 class CLContext;
 class Scene
 {
-public:
+  public:
     Scene(const char* filename, float scale, bool flip_yz);
 
-    std::vector<Triangle>& GetTriangles() { return triangles_; }
-    std::vector<Triangle> const& GetTriangles() const { return triangles_; }
-    std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
-    std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
-    std::vector<Texture> const& GetTextures() const { return textures_; }
-    std::vector<std::uint32_t> const& GetTextureData() const { return texture_data_; }
-    std::vector<Light> const& GetLights() const { return lights_; }
-    SceneInfo const& GetSceneInfo() const { return scene_info_; }
-    Image const& GetEnvImage() const { return env_image_; }
+    std::vector<Vertex> const& GetVertices() const
+    {
+        return vertices_;
+    }
+    std::vector<std::uint32_t> const& GetIndices() const
+    {
+        return indices_;
+    }
+    std::vector<std::uint32_t> const& GetTriangleMaterialIndices() const
+    {
+        return triangle_material_indices_;
+    }
+    std::vector<std::uint32_t> const& GetEmissiveIndices() const
+    {
+        return emissive_indices_;
+    }
+    std::vector<PackedMaterial> const& GetMaterials() const
+    {
+        return materials_;
+    }
+    std::vector<Texture> const& GetTextures() const
+    {
+        return textures_;
+    }
+    std::vector<std::uint32_t> const& GetTextureData() const
+    {
+        return texture_data_;
+    }
+    std::vector<Light> const& GetLights() const
+    {
+        return lights_;
+    }
+    SceneInfo const& GetSceneInfo() const
+    {
+        return scene_info_;
+    }
+    Image const& GetEnvImage() const
+    {
+        return env_image_;
+    }
     void Finalize();
     void AddPointLight(float3 origin, float3 radiance);
     void AddDirectionalLight(float3 direction, float3 radiance);
 
-private:
+  private:
     void Load(char const* filename, float scale, bool flip_yz);
     // Returns texture index in textures_
     std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
-    std::vector<Triangle> triangles_;
+    std::vector<Vertex> vertices_;
+    std::vector<std::uint32_t> indices_;
+    std::vector<std::uint32_t> triangle_material_indices_;
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;

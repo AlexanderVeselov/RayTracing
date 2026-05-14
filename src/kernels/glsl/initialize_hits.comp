@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 32, local_size_y = 32) in;
+layout(local_size_x = 32, local_size_y = 32) in;
 
 #include "src/kernels/common/constants.h"
 #include "src/kernels/common/shared_structures.h"
@@ -30,12 +30,12 @@ layout (local_size_x = 32, local_size_y = 32) in;
 uniform uint width;
 uniform uint height;
 
-layout(std430, binding = 0) buffer Rays 
+layout(std430, binding = 0) buffer Rays
 {
     Ray rays[];
 };
 
-layout(std430, binding = 1) buffer RTTriangles 
+layout(std430, binding = 1) buffer RTTriangles
 {
     RTTriangle triangles[];
 };
@@ -49,8 +49,8 @@ layout(binding = 0) uniform usampler2D geometry_info_sampler;
 
 bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
 {
-    float3 e1 = triangle.position2 - triangle.position1;
-    float3 e2 = triangle.position3 - triangle.position1;
+    float3 e1 = triangle.position2.xyz - triangle.position1.xyz;
+    float3 e2 = triangle.position3.xyz - triangle.position1.xyz;
     // Calculate planes normal vector
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
@@ -62,7 +62,7 @@ bool RayTriangle(Ray ray, RTTriangle triangle, out float2 bc, out float out_t)
     }
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle.position1;
+    float3 tvec = ray.origin.xyz - triangle.position1.xyz;
     float u = dot(tvec, pvec) * inv_det;
 
     if (u < 0.0f || u > 1.0f)

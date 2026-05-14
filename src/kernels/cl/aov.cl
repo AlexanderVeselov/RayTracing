@@ -22,46 +22,37 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/material.h"
 #include "src/kernels/common/sampling.h"
-#include "src/kernels/common/light.h"
+#include "src/kernels/common/shared_structures.h"
 
-float2 ProjectScreen(float3 position, Camera camera)
+float2 ProjectScreen(float3 position, KernelCamera camera)
 {
-    float3 d = normalize(position - camera.position);
+    float3 camera_position = camera.position_fov.xyz;
+    float3 camera_front = camera.front_aspect.xyz;
+    float3 camera_up = camera.up_aperture.xyz;
+    float3 d = normalize(position - camera_position);
 
-    float3 ipd = d / dot(camera.front, d);
-    float angle = tan(0.5f * camera.fov);
+    float3 ipd = d / dot(camera_front, d);
+    float angle = tan(0.5f * camera.position_fov.w);
 
-    float3 right = cross(camera.front, camera.up);
-    float u = dot(right, ipd) / (angle * camera.aspect_ratio);
-    float v = dot(camera.up, ipd) / (angle);
+    float3 right = cross(camera_front, camera_up);
+    float u = dot(right, ipd) / (angle * camera.front_aspect.w);
+    float v = dot(camera_up, ipd) / (angle);
 
     return (float2)(u, v) * 0.5f + 0.5f;
 }
 
-__kernel void GenerateAOV
-(
+__kernel void GenerateAOV(
     // Input
-    __global Ray*            rays,
-    __global uint*           ray_counter,
-    __global uint*           pixel_indices,
-    __global Hit*            hits,
-    __global Triangle*       triangles,
-    __global PackedMaterial* materials,
-    __global Texture*        textures,
-    __global uint*           texture_data,
-    uint width,
-    uint height,
-    Camera camera,
-    Camera prev_camera,
+    __global Ray* rays, __global uint* ray_counter, __global uint* pixel_indices,
+    __global Hit* hits, __global Vertex* vertices, __global uint* indices,
+    __global uint* material_ids, __global PackedMaterial* materials, __global Texture* textures,
+    __global uint* texture_data, uint width, uint height, KernelCamera camera,
+    KernelCamera prev_camera,
     // Output
-    __global float3* diffuse_albedo,
-    __global float*  depth_buffer,
-    __global float3* normal_buffer,
-    __global float2* velocity_buffer
-)
+    __global float3* diffuse_albedo, __global float* depth_buffer, __global float3* normal_buffer,
+    __global float2* velocity_buffer)
 {
     uint ray_idx = get_global_id(0);
     uint num_rays = ray_counter[0];
@@ -86,25 +77,30 @@ __kernel void GenerateAOV
     int x = pixel_idx % width;
     int y = pixel_idx / width;
 
-    Triangle triangle = triangles[hit.primitive_id];
+    uint index_offset = hit.primitive_id * 3;
+    Vertex v1 = vertices[indices[index_offset + 0]];
+    Vertex v2 = vertices[indices[index_offset + 1]];
+    Vertex v3 = vertices[indices[index_offset + 2]];
 
-    float3 position = InterpolateAttributes(triangle.v1.position,
-        triangle.v2.position, triangle.v3.position, hit.bc);
+    float3 position =
+        InterpolateAttributes(v1.position.xyz, v2.position.xyz, v3.position.xyz, hit.bc);
 
-    float3 geometry_normal = normalize(cross(triangle.v2.position - triangle.v1.position, triangle.v3.position - triangle.v1.position));
+    float3 geometry_normal =
+        normalize(cross(v2.position.xyz - v1.position.xyz, v3.position.xyz - v1.position.xyz));
 
-    float2 texcoord = InterpolateAttributes2(triangle.v1.texcoord.xy,
-        triangle.v2.texcoord.xy, triangle.v3.texcoord.xy, hit.bc);
+    float2 texcoord =
+        InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
 
-    float3 normal = normalize(InterpolateAttributes(triangle.v1.normal,
-        triangle.v2.normal, triangle.v3.normal, hit.bc));
+    float3 normal =
+        normalize(InterpolateAttributes(v1.normal.xyz, v2.normal.xyz, v3.normal.xyz, hit.bc));
 
-    PackedMaterial packed_material = materials[triangle.mtlIndex];
+    PackedMaterial packed_material = materials[material_ids[hit.primitive_id]];
     Material material;
     ApplyTextures(packed_material, &material, texcoord, textures, texture_data);
 
     diffuse_albedo[pixel_idx] = material.diffuse_albedo;
     depth_buffer[pixel_idx] = length(ray.origin.xyz - position);
     normal_buffer[pixel_idx] = normal;
-    velocity_buffer[pixel_idx] = ProjectScreen(position, camera) - ProjectScreen(position, prev_camera);
+    velocity_buffer[pixel_idx] =
+        ProjectScreen(position, camera) - ProjectScreen(position, prev_camera);
 }
