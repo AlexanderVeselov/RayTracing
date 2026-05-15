@@ -26,7 +26,7 @@
 
 #include "Scene/scene.hpp"
 #include "acceleration_structure.hpp"
-#include "utils/blue_noise_sampler.hpp"
+#include "blue_noise_sampler.h"
 #include "utils/cl_exception.hpp"
 
 #include <GL/glew.h>
@@ -194,9 +194,7 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width,
     AccelerationStructure& acc_structure,
     CLContext& cl_context,
     unsigned int output_image)
-    : Integrator(width, height, acc_structure)
-    , cl_context_(cl_context)
-    , gl_interop_image_(output_image)
+    : Integrator(width, height, acc_structure), cl_context_(cl_context), gl_interop_image_(output_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -264,8 +262,12 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width,
         velocity_buffer_ = CreateBuffer(num_rays * sizeof(cl_float2));
     }
 
-    output_image_ = std::make_unique<cl::ImageGL>(
-        cl_context.GetContext(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, gl_interop_image_, &status);
+    output_image_ = std::make_unique<cl::ImageGL>(cl_context.GetContext(),
+        CL_MEM_WRITE_ONLY,
+        GL_TEXTURE_2D,
+        0,
+        gl_interop_image_,
+        &status);
     ThrowIfFailed(status, "Failed to create output image");
 
     CreateKernels();
@@ -299,23 +301,20 @@ void CLPathTraceIntegrator::CreateKernels()
     miss_kernel_ = cl_context_.CreateKernel("miss.cl", "Miss", definitions);
     aov_kernel_ = cl_context_.CreateKernel("aov.cl", "GenerateAOV");
     hit_surface_kernel_ = cl_context_.CreateKernel("hit_surface.cl", "HitSurface", definitions);
-    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel(
-        "accumulate_direct_samples.cl", "AccumulateDirectSamples", definitions);
+    accumulate_direct_samples_kernel_ = cl_context_.CreateKernel("accumulate_direct_samples.cl",
+        "AccumulateDirectSamples",
+        definitions);
     clear_counter_kernel_ = cl_context_.CreateKernel("clear_counter.cl", "ClearCounter");
-    increment_counter_kernel_ =
-        cl_context_.CreateKernel("increment_counter.cl", "IncrementCounter");
-    resolve_kernel_ =
-        cl_context_.CreateKernel("resolve_radiance.cl", "ResolveRadiance", definitions);
+    increment_counter_kernel_ = cl_context_.CreateKernel("increment_counter.cl", "IncrementCounter");
+    resolve_kernel_ = cl_context_.CreateKernel("resolve_radiance.cl", "ResolveRadiance", definitions);
 
     if (enable_denoiser_)
     {
-        temporal_accumulation_kernel_ =
-            cl_context_.CreateKernel("denoiser.cl", "TemporalAccumulation");
+        temporal_accumulation_kernel_ = cl_context_.CreateKernel("denoiser.cl", "TemporalAccumulation");
     }
 
     intersect_kernel_ = cl_context_.CreateKernel("trace_bvh.cl", "TraceBvh");
-    intersect_shadow_kernel_ =
-        cl_context_.CreateKernel("trace_bvh.cl", "TraceBvh", {"SHADOW_RAYS"});
+    intersect_shadow_kernel_ = cl_context_.CreateKernel("trace_bvh.cl", "TraceBvh", {"SHADOW_RAYS"});
 
     // Setup kernels
     cl_mem output_image_mem = (*output_image_)();
@@ -346,16 +345,15 @@ void CLPathTraceIntegrator::CreateKernels()
     // Setup hit surface kernel
 
     // Setup accumulate direct samples kernel
-    accumulate_direct_samples_kernel_->SetArgument(
-        args::AccumulateDirectSamples::kShadowHitsBuffer, shadow_hits_buffer_);
-    accumulate_direct_samples_kernel_->SetArgument(
-        args::AccumulateDirectSamples::kShadowRayCounterBuffer, shadow_ray_counter_buffer_);
-    accumulate_direct_samples_kernel_->SetArgument(
-        args::AccumulateDirectSamples::kShadowPixelIndicesBuffer, shadow_pixel_indices_buffer_);
-    accumulate_direct_samples_kernel_->SetArgument(
-        args::AccumulateDirectSamples::kDirectLightSamplesBuffer, direct_light_samples_buffer_);
-    accumulate_direct_samples_kernel_->SetArgument(
-        args::AccumulateDirectSamples::kRadianceBuffer, radiance_buffer_);
+    accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kShadowHitsBuffer,
+        shadow_hits_buffer_);
+    accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kShadowRayCounterBuffer,
+        shadow_ray_counter_buffer_);
+    accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kShadowPixelIndicesBuffer,
+        shadow_pixel_indices_buffer_);
+    accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kDirectLightSamplesBuffer,
+        direct_light_samples_buffer_);
+    accumulate_direct_samples_kernel_->SetArgument(args::AccumulateDirectSamples::kRadianceBuffer, radiance_buffer_);
 
     // Setup resolve kernel
     resolve_kernel_->SetArgument(args::Resolve::kWidth, &width_, sizeof(width_));
@@ -373,20 +371,13 @@ void CLPathTraceIntegrator::CreateKernels()
     if (enable_denoiser_)
     {
         // Setup temporal accumulation kernel
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kWidth, &width_, sizeof(width_));
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kHeight, &height_, sizeof(height_));
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kRadiance, radiance_buffer_);
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kPrevRadiance, prev_radiance_buffer_);
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kDepth, depth_buffer_);
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
-        temporal_accumulation_kernel_->SetArgument(
-            args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kWidth, &width_, sizeof(width_));
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kHeight, &height_, sizeof(height_));
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kRadiance, radiance_buffer_);
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kPrevRadiance, prev_radiance_buffer_);
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kDepth, depth_buffer_);
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kPrevDepth, prev_depth_buffer_);
+        temporal_accumulation_kernel_->SetArgument(args::TemporalAccumulation::kMotionVectors, velocity_buffer_);
     }
 }
 
@@ -398,8 +389,7 @@ void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void CLPathTraceIntegrator::UploadGPUData(
-    Scene const& scene, AccelerationStructure const& acc_structure)
+void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
     // Create scene buffers
     auto const& vertices = scene.GetVertices();
@@ -607,20 +597,17 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     std::uint32_t outgoing_idx = (bounce + 1) & 1;
 
     // Incoming rays
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kIncomingRayBuffer, rays_buffer_[incoming_idx]);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kIncomingPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kIncomingRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kIncomingRayBuffer, rays_buffer_[incoming_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kIncomingPixelIndicesBuffer,
+        pixel_indices_buffer_[incoming_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kIncomingRayCounterBuffer, ray_counter_buffer_[incoming_idx]);
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kHitsBuffer, hits_buffer_);
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kVertexBuffer, vertex_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kIndexBuffer, index_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialIDsBuffer, material_ids_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kAnalyticLightsBuffer, analytic_light_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kAnalyticLightsBuffer, analytic_light_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kEmissiveIndicesBuffer, emissive_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kMaterialsBuffer, material_buffer_);
     hit_surface_kernel_->SetArgument(args::HitSurface::kTexturesBuffer, texture_buffer_);
@@ -630,35 +617,26 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     hit_surface_kernel_->SetArgument(args::HitSurface::kWidth, &width_, sizeof(width_));
     hit_surface_kernel_->SetArgument(args::HitSurface::kHeight, &height_, sizeof(height_));
 
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kSampleCounterBuffer, sample_counter_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kSceneInfo, &scene_info_, sizeof(scene_info_));
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSampleCounterBuffer, sample_counter_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kSceneInfo, &scene_info_, sizeof(scene_info_));
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kSobolBuffer, sampler_sobol_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kScramblingTileBuffer, sampler_scrambling_tile_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kRankingTileBuffer, sampler_ranking_tile_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kScramblingTileBuffer, sampler_scrambling_tile_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kRankingTileBuffer, sampler_ranking_tile_buffer_);
 
     hit_surface_kernel_->SetArgument(args::HitSurface::kThroughputsBuffer, throughputs_buffer_);
 
     // Outgoing rays
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kOutgoingRayBuffer, rays_buffer_[outgoing_idx]);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kOutgoingPixelIndicesBuffer, pixel_indices_buffer_[outgoing_idx]);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kOutgoingRayCounterBuffer, ray_counter_buffer_[outgoing_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kOutgoingRayBuffer, rays_buffer_[outgoing_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kOutgoingPixelIndicesBuffer,
+        pixel_indices_buffer_[outgoing_idx]);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kOutgoingRayCounterBuffer, ray_counter_buffer_[outgoing_idx]);
 
     // Shadow
     hit_surface_kernel_->SetArgument(args::HitSurface::kShadowRayBuffer, shadow_rays_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kShadowRayCounterBuffer, shadow_ray_counter_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kShadowPixelIndicesBuffer, shadow_pixel_indices_buffer_);
-    hit_surface_kernel_->SetArgument(
-        args::HitSurface::kDirectLightSamplesBuffer, direct_light_samples_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kShadowRayCounterBuffer, shadow_ray_counter_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kShadowPixelIndicesBuffer, shadow_pixel_indices_buffer_);
+    hit_surface_kernel_->SetArgument(args::HitSurface::kDirectLightSamplesBuffer, direct_light_samples_buffer_);
 
     // Output radiance
     hit_surface_kernel_->SetArgument(args::HitSurface::kRadianceBuffer, radiance_buffer_);
@@ -694,10 +672,8 @@ void CLPathTraceIntegrator::Denoise()
 void CLPathTraceIntegrator::CopyHistoryBuffers()
 {
     // Copy to the history
-    cl_context_.CopyBuffer(
-        radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
-    cl_context_.CopyBuffer(
-        depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
+    cl_context_.CopyBuffer(radiance_buffer_, prev_radiance_buffer_, 0, 0, width_ * height_ * sizeof(cl_float4));
+    cl_context_.CopyBuffer(depth_buffer_, prev_depth_buffer_, 0, 0, width_ * height_ * sizeof(cl_float));
 }
 
 void CLPathTraceIntegrator::ResolveRadiance()

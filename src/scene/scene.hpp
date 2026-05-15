@@ -39,10 +39,7 @@ public:
 
     std::vector<Vertex> const& GetVertices() const { return vertices_; }
     std::vector<std::uint32_t> const& GetIndices() const { return indices_; }
-    std::vector<std::uint32_t> const& GetTriangleMaterialIndices() const
-    {
-        return triangle_material_indices_;
-    }
+    std::vector<std::uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
     std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Texture> const& GetTextures() const { return textures_; }

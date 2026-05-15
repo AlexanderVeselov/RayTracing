@@ -33,8 +33,7 @@ class Bvh : public AccelerationStructure
 public:
     Bvh() = default;
 
-    void BuildCPU(
-        std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) override;
+    void BuildCPU(std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) override;
     std::vector<LinearBVHNode> const& GetNodes() const override { return nodes_; }
     std::vector<RTTriangle> const& GetTriangles() const override { return rt_triangles_; }
 

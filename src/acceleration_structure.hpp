@@ -32,8 +32,7 @@ class CLContext;
 class AccelerationStructure
 {
 public:
-    virtual void BuildCPU(
-        std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) = 0;
+    virtual void BuildCPU(std::vector<Vertex> const& vertices, std::vector<std::uint32_t> const& indices) = 0;
     virtual std::vector<LinearBVHNode> const& GetNodes() const = 0;
     virtual std::vector<RTTriangle> const& GetTriangles() const = 0;
 };

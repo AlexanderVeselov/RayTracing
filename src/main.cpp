@@ -86,8 +86,7 @@ int main(int argc, char** argv)
         cli_app.add_option("--scene", scene_path, "Scene path");
         cli_app.add_option("--scale", scene_scale, "Scene scale");
         cli_app.add_option("--flip_yz", flip_yz, "Flip Y and Z axis");
-        auto backend_transform =
-            CLI::CheckedTransformer(CreateBackendMap(), CLI::ignore_case).description("");
+        auto backend_transform = CLI::CheckedTransformer(CreateBackendMap(), CLI::ignore_case).description("");
         cli_app.add_option("--backend", backend, GetBackendHelpText())
             ->type_name(GetBackendTypeName())
             ->transform(backend_transform);
@@ -109,8 +108,7 @@ int main(int argc, char** argv)
         // Create the window
         bool no_window_api = false;
 #ifdef RAYTRACING_ENABLE_RHI
-        no_window_api =
-            backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
+        no_window_api = backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
 #endif
         Window window(window_width, window_height, "RayTracing", no_window_api);
 

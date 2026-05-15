@@ -119,10 +119,7 @@ public:
     float4 operator-(float s) const { return float4(x - s, y - s, z - s, w - s); }
     float4 operator*(float s) const { return float4(x * s, y * s, z * s, w * s); }
     float4 operator/(float s) const { return float4(x / s, y / s, z / s, w / s); }
-    friend float4 operator*(const float4& a, float b)
-    {
-        return float4(a.x * b, a.y * b, a.z * b, a.w * b);
-    }
+    friend float4 operator*(const float4& a, float b) { return float4(a.x * b, a.y * b, a.z * b, a.w * b); }
 
     // Vector operators
     friend float4 operator+(const float4& lhs, const float4& rhs)
@@ -205,14 +202,8 @@ public:
     float2 operator-(const float2& other) { return float2(x - other.x, y - other.y); }
     float2 operator*(const float2& other) { return float2(x * other.x, y * other.y); }
     float2 operator/(const float2& other) { return float2(x / other.x, y / other.y); }
-    friend float2 operator+(const float2& lhs, const float2& rhs)
-    {
-        return float2(lhs.x + rhs.x, lhs.y + rhs.y);
-    }
-    friend float2 operator-(const float2& lhs, const float2& rhs)
-    {
-        return float2(lhs.x - rhs.x, lhs.y - rhs.y);
-    }
+    friend float2 operator+(const float2& lhs, const float2& rhs) { return float2(lhs.x + rhs.x, lhs.y + rhs.y); }
+    friend float2 operator-(const float2& lhs, const float2& rhs) { return float2(lhs.x - rhs.x, lhs.y - rhs.y); }
 
     float2 operator+=(const float2& other)
     {
@@ -296,9 +287,7 @@ public:
 
     float3 Corner(int corner) const
     {
-        return float3((*this)[(corner & 1)].x,
-            (*this)[(corner & 2) ? 1 : 0].y,
-            (*this)[(corner & 4) ? 1 : 0].z);
+        return float3((*this)[(corner & 1)].x, (*this)[(corner & 2) ? 1 : 0].y, (*this)[(corner & 4) ? 1 : 0].z);
     }
 
     float3 Diagonal() const { return max - min; }
@@ -361,10 +350,8 @@ inline Bounds3 Union(const Bounds3& b1, const Bounds3& b2)
 
 struct Matrix
 {
-    static Matrix LookAtLH(
-        const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));
-    static Matrix LookAtRH(
-        const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));
+    static Matrix LookAtLH(const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));
+    static Matrix LookAtRH(const float3& eye, const float3& target, const float3& up = float3(0.0f, 0.0f, 1.0f));
     static Matrix PerspectiveFovLH(float fov, float aspect, float nearZ, float farZ);
     static Matrix PerspectiveFovRH(float fov, float aspect, float nearZ, float farZ);
     static Matrix OrthoLH(float width, float height, float nearZ, float farZ);

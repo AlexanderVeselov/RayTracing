@@ -71,9 +71,7 @@ void CameraController::Update(float dt)
     float speed = speed_ * (window_.GetKey(KeyCode::kLeftShift) ? 5.0f : 1.0f);
 
     // Compute new camera vectors
-    float3 front = float3(std::cosf(yaw_) * std::sinf(pitch_),
-        std::sinf(yaw_) * std::sinf(pitch_),
-        std::cosf(pitch_));
+    float3 front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
     camera_data_.front_aspect.x = front.x;
     camera_data_.front_aspect.y = front.y;
     camera_data_.front_aspect.z = front.z;
@@ -85,8 +83,7 @@ void CameraController::Update(float dt)
     camera_data_.up_aperture.z = camera_up.z;
     // Move the camera
     float3 position = camera_data_.position_fov.xyz();
-    position +=
-        (front * (float)frontback + right * (float)strafe + camera_up * (float)updown) * dt * speed;
+    position += (front * (float)frontback + right * (float)strafe + camera_up * (float)updown) * dt * speed;
     camera_data_.position_fov.x = position.x;
     camera_data_.position_fov.y = position.y;
     camera_data_.position_fov.z = position.z;

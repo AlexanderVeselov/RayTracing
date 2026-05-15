@@ -80,14 +80,13 @@ private:
         std::vector<gpu::BufferPtr>& staging_buffers)
     {
         size_t allocation_size = std::max<size_t>(cpu_buffer.size() * sizeof(T), sizeof(T));
-        gpu::BufferPtr buffer =
-            device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
+        gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
         if (!cpu_buffer.empty())
         {
-            gpu::BufferPtr staging_buffer =
-                CreateStagingBuffer(cpu_buffer.data(), cpu_buffer.size() * sizeof(T), sizeof(T));
-            upload_command_buffer->CopyBuffer(
-                staging_buffer, 0, buffer, 0, cpu_buffer.size() * sizeof(T));
+            gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(),
+                cpu_buffer.size() * sizeof(T),
+                sizeof(T));
+            upload_command_buffer->CopyBuffer(staging_buffer, 0, buffer, 0, cpu_buffer.size() * sizeof(T));
             staging_buffers.push_back(std::move(staging_buffer));
         }
         return buffer;

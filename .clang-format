@@ -11,7 +11,10 @@ AccessModifierOffset: -4
 IndentCaseLabels: false
 
 # Line length
-ColumnLimit: 100
+ColumnLimit: 120
+PenaltyBreakBeforeFirstCallParameter: 100000000
+PenaltyBreakOpenParenthesis: 100000000
+PenaltyBreakAssignment: 100000000
 
 # Braces
 BreakBeforeBraces: Allman
@@ -53,3 +56,4 @@ MaxEmptyLinesToKeep: 1
 Cpp11BracedListStyle: true
 
 IndentAccessModifiers: false
+SortIncludes: false

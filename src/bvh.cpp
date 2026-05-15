@@ -77,8 +77,7 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::u
     assert(off == totalNodes);
 
     std::cout << "BVH nodes: " << totalNodes << ", tris in buffer: " << rt_triangles_.size() << " ("
-              << (rt_triangles_.size() * sizeof(RTTriangle) / (1024.0 * 1024.0)) << " MiB)"
-              << std::endl;
+              << (rt_triangles_.size() * sizeof(RTTriangle) / (1024.0 * 1024.0)) << " MiB)" << std::endl;
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
@@ -142,8 +141,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
         std::nth_element(&primitiveInfo[start],
             &primitiveInfo[mid],
             &primitiveInfo[end - 1] + 1,
-            [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b)
-            { return a.centroid[dim] < b.centroid[dim]; });
+            [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b) { return a.centroid[dim] < b.centroid[dim]; });
     }
     else
     {

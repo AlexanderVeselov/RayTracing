@@ -109,8 +109,7 @@ std::string ReadShader(char const* filename, std::vector<std::string> const& def
     return source;
 }
 
-GLuint CreateShader(
-    char const* filename, GLenum shader_type, std::vector<std::string> const& definitions)
+GLuint CreateShader(char const* filename, GLenum shader_type, std::vector<std::string> const& definitions)
 {
     std::string shader_folder = "src/kernels/glsl/";
     std::string source = ReadShader((shader_folder + filename).c_str(), definitions);
@@ -141,8 +140,7 @@ GLuint CreateShader(
         info_log.resize(log_length);
         glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
 
-        throw std::runtime_error(
-            ("Failed to compile shader " + std::string(filename) + "\n" + std::string(info_log))
+        throw std::runtime_error(("Failed to compile shader " + std::string(filename) + "\n" + std::string(info_log))
                 .c_str());
     }
 

@@ -163,10 +163,7 @@ public:
     bool GetKey(KeyCode code) const;
     bool GetMouseButton(MouseButton button) const;
     void SwapBuffers();
-    void AddScrollCallback(std::function<void(float)> callback)
-    {
-        scroll_callbacks_.push_back(callback);
-    }
+    void AddScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
 
 private:
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);

@@ -54,8 +54,8 @@ unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
     r = clamp(r, 0.0f, 1.0f);
     g = clamp(g, 0.0f, 1.0f);
     b = clamp(b, 0.0f, 1.0f);
-    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8)
-        | ((unsigned int)(b * 255.0f) << 16) | (texture_index << 24);
+    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8) | ((unsigned int)(b * 255.0f) << 16)
+        | (texture_index << 24);
 }
 
 unsigned int PackRGBE(float r, float g, float b)
@@ -79,8 +79,8 @@ unsigned int PackRGBE(float r, float g, float b)
     {
         int e;
         v = frexp(v, &e) * 256.0f / v;
-        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8)
-            | ((unsigned int)(b * v) << 16) | ((e + 128) << 24);
+        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8) | ((unsigned int)(b * v) << 16)
+            | ((e + 128) << 24);
     }
 }
 
@@ -103,24 +103,28 @@ float3 UnpackRGBE(unsigned int rgbe)
     }
 }
 
-unsigned int PackRoughnessMetalness(
-    float roughness, std::uint32_t roughness_idx, float metalness, std::uint32_t metalness_idx)
+unsigned int PackRoughnessMetalness(float roughness,
+    std::uint32_t roughness_idx,
+    float metalness,
+    std::uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
     roughness = clamp(roughness, 0.0f, 1.0f);
     metalness = clamp(metalness, 0.0f, 1.0f);
-    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8)
-        | ((unsigned int)(metalness * 255.0f) << 16) | (metalness_idx << 24);
+    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8) | ((unsigned int)(metalness * 255.0f) << 16)
+        | (metalness_idx << 24);
 }
 
-unsigned int PackIorEmissionIdxTransparency(
-    float ior, std::uint32_t emission_idx, float transparency, std::uint32_t transparency_idx)
+unsigned int PackIorEmissionIdxTransparency(float ior,
+    std::uint32_t emission_idx,
+    float transparency,
+    std::uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);
     ior = clamp(ior, 0.0f, 10.0f);
     transparency = clamp(transparency, 0.0f, 1.0f);
-    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
-        | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
+    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16)
+        | (transparency_idx << 24);
 }
 }  // namespace
 
@@ -135,8 +139,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     std::vector<tinyobj::material_t> materials;
     std::string warn;
     std::string err;
-    bool success = tinyobj::LoadObj(
-        &attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
+    bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, path_to_folder.c_str());
 
     if (!success)
     {
@@ -168,8 +171,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
                 ? kInvalidTextureIndex
                 : LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
 
-        out_material.emission =
-            PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
+        out_material.emission = PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
 
         out_material.roughness_metalness = PackRoughnessMetalness(in_material.roughness,
             in_material.roughness_texname.empty()
@@ -276,8 +278,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             indices_.push_back(base_vertex_index + 1);
             indices_.push_back(base_vertex_index + 2);
 
-            if (shape.mesh.material_ids[face] >= 0
-                && shape.mesh.material_ids[face] < materials_.size())
+            if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
             {
                 triangle_material_indices_.push_back(shape.mesh.material_ids[face]);
             }

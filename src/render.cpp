@@ -63,11 +63,7 @@ bool IsRhiBackend(Render::RenderBackend backend)
 }  // namespace
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
-    : window_(window)
-    , render_backend_(backend)
-    , scene_(scene)
-    , width_(window.GetWidth())
-    , height_(window.GetHeight())
+    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()), height_(window.GetHeight())
 {
 #ifdef RAYTRACING_ENABLE_RHI
     if (render_backend_ == RenderBackend::kVulkan)
@@ -89,10 +85,8 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 
         rhi_api_->SetShaderPath("src/kernels/hlsl");
         rhi_device_ = rhi_api_->CreateDevice();
-        rhi_swapchain_ =
-            rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
-        rhi_imgui_renderer_ =
-            rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
+        rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+        rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     }
 #endif
 
@@ -126,19 +120,27 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     // Create integrator
     if (render_backend_ == RenderBackend::kOpenCL)
     {
-        integrator_ = std::make_unique<CLPathTraceIntegrator>(
-            width_, height_, *acc_structure_, *cl_context_, framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<CLPathTraceIntegrator>(width_,
+            height_,
+            *acc_structure_,
+            *cl_context_,
+            framebuffer_->GetGLImage());
     }
     else if (render_backend_ == RenderBackend::kOpenGL)
     {
-        integrator_ = std::make_unique<GLPathTraceIntegrator>(
-            width_, height_, *acc_structure_, framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_,
+            height_,
+            *acc_structure_,
+            framebuffer_->GetGLImage());
     }
 #ifdef RAYTRACING_ENABLE_RHI
     else if (IsRhiBackend(render_backend_))
     {
-        auto rhi_integrator = std::make_unique<RhiIntegrator>(
-            width_, height_, *acc_structure_, *rhi_device_, *rhi_swapchain_);
+        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_,
+            height_,
+            *acc_structure_,
+            *rhi_device_,
+            *rhi_swapchain_);
         rhi_integrator_ = rhi_integrator.get();
         integrator_ = std::move(rhi_integrator);
     }
@@ -199,8 +201,7 @@ void Render::ReloadKernels()
 void Render::DrawGUI()
 {
 #ifdef RAYTRACING_ENABLE_RHI
-    ImGui::Begin(
-        "PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
+    ImGui::Begin("PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     {
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(350, 50));
@@ -218,8 +219,7 @@ void Render::DrawGUI()
             camera_controller_->SetAperture(gui_params_.camera_aperture);
         }
 
-        if (ImGui::SliderFloat(
-                "Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
+        if (ImGui::SliderFloat("Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
         {
             camera_controller_->SetFocusDistance(gui_params_.camera_focus_distance);
         }
@@ -236,9 +236,8 @@ void Render::DrawGUI()
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
-            integrator_->SetSamplerType(gui_params_.enable_blue_noise
-                    ? Integrator::SamplerType::kBlueNoise
-                    : Integrator::SamplerType::kRandom);
+            integrator_->SetSamplerType(gui_params_.enable_blue_noise ? Integrator::SamplerType::kBlueNoise
+                                                                      : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -247,8 +246,7 @@ void Render::DrawGUI()
         }
 
         static int aov_index = 0;
-        const char* aov_names[] = {
-            "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
+        const char* aov_names[] = {"Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
             integrator_->SetAOV((Integrator::AOV)aov_index);
