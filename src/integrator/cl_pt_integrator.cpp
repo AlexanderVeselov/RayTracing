@@ -191,10 +191,9 @@ cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
 
 CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width,
     std::uint32_t height,
-    AccelerationStructure& acc_structure,
     CLContext& cl_context,
     unsigned int output_image)
-    : Integrator(width, height, acc_structure), cl_context_(cl_context), gl_interop_image_(output_image)
+    : Integrator(width, height), cl_context_(cl_context), gl_interop_image_(output_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -447,8 +446,8 @@ void CLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     scene_info_ = scene.GetSceneInfo();
 
     // Upload BVH data
-    auto const& nodes = acc_structure_.GetNodes();
-    auto const& rt_triangles = acc_structure_.GetTriangles();
+    auto const& nodes = acc_structure.GetNodes();
+    auto const& rt_triangles = acc_structure.GetTriangles();
 
     nodes_buffer_ = UploadBuffer(nodes);
     rt_triangles_buffer_ = UploadBuffer(rt_triangles);
@@ -533,8 +532,6 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     ///@TODO: use indirect dispatch
     cl_context_.ExecuteKernel(kernel, max_num_rays);
 
-    // acc_structure_.IntersectRays(rays_buffer_[incoming_idx], ray_counter_buffer_[incoming_idx],
-    //     max_num_rays, hits_buffer_);
 }
 
 void CLPathTraceIntegrator::ComputeAOVs()

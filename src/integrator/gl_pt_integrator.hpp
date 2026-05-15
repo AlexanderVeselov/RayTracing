@@ -34,7 +34,6 @@ class GLPathTraceIntegrator : public Integrator
 public:
     GLPathTraceIntegrator(std::uint32_t width,
         std::uint32_t height,
-        AccelerationStructure& acc_structure,
         std::uint32_t out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;

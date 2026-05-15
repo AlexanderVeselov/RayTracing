@@ -32,7 +32,6 @@ class CLPathTraceIntegrator : public Integrator
 public:
     CLPathTraceIntegrator(std::uint32_t width,
         std::uint32_t height,
-        AccelerationStructure& acc_structure,
         CLContext& cl_context,
         unsigned int out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;

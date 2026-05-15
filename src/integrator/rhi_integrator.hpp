@@ -37,7 +37,6 @@ class RhiIntegrator : public Integrator
 public:
     RhiIntegrator(std::uint32_t width,
         std::uint32_t height,
-        AccelerationStructure& acc_structure,
         gpu::Device& device,
         gpu::Swapchain& swapchain);
     ~RhiIntegrator() = default;

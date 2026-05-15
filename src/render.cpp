@@ -122,7 +122,6 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     {
         integrator_ = std::make_unique<CLPathTraceIntegrator>(width_,
             height_,
-            *acc_structure_,
             *cl_context_,
             framebuffer_->GetGLImage());
     }
@@ -130,7 +129,6 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     {
         integrator_ = std::make_unique<GLPathTraceIntegrator>(width_,
             height_,
-            *acc_structure_,
             framebuffer_->GetGLImage());
     }
 #ifdef RAYTRACING_ENABLE_RHI
@@ -138,7 +136,6 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     {
         auto rhi_integrator = std::make_unique<RhiIntegrator>(width_,
             height_,
-            *acc_structure_,
             *rhi_device_,
             *rhi_swapchain_);
         rhi_integrator_ = rhi_integrator.get();
