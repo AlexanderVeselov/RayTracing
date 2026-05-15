@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include <memory>
-
 #include "acceleration_structure.hpp"
+
+#include <memory>
 
 class Bvh : public AccelerationStructure
 {

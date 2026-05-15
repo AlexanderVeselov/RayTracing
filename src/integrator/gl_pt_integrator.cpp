@@ -24,6 +24,7 @@
 
 #include "gl_pt_integrator.hpp"
 
+#include "scene/scene.hpp"
 #include "acceleration_structure.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"

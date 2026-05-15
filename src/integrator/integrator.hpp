@@ -24,9 +24,8 @@
 
 #pragma once
 
+#include "kernels/common/shared_structures.h"
 #include <memory>
-
-#include "gpu_wrappers/cl_context.hpp"
 
 class Scene;
 class CameraController;

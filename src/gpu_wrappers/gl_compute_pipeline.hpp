@@ -24,11 +24,10 @@
 
 #pragma once
 
-#include <GL/glew.h>
-
-#include <vector>
-
 #include "mathlib/mathlib.hpp"
+
+#include <GL/glew.h>
+#include <vector>
 
 class ComputePipeline
 {

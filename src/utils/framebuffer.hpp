@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include <memory>
-
 #include "gpu_wrappers/gl_graphics_pipeline.hpp"
 #include "mathlib/mathlib.hpp"
+
+#include <memory>
 
 class Framebuffer
 {

@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include <memory>
-
 #include "kernels/common/shared_structures.h"
 #include "mathlib/mathlib.hpp"
+
+#include <memory>
 
 class Window;
 

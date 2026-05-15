@@ -24,10 +24,10 @@
 
 #include "gl_compute_pipeline.hpp"
 
+#include "gl_shader_utils.hpp"
+
 #include <cstring>
 #include <stdexcept>
-
-#include "gl_shader_utils.hpp"
 
 ComputePipeline::ComputePipeline(char const* cs_source, std::vector<std::string> const& definitions)
 {

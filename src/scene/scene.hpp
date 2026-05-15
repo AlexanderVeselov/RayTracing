@@ -24,12 +24,12 @@
 
 #pragma once
 
-#include <unordered_map>
-#include <vector>
-
 #include "kernels/common/shared_structures.h"
 #include "loaders/image_loader.hpp"
 #include "mathlib/mathlib.hpp"
+
+#include <unordered_map>
+#include <vector>
 
 class CLContext;
 class Scene

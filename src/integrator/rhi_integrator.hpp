@@ -24,13 +24,13 @@
 
 #pragma once
 
-#include <array>
-#include <memory>
-#include <vector>
-
 #include "gpu_buffer.hpp"
 #include "gpu_types.hpp"
 #include "integrator.hpp"
+
+#include <array>
+#include <memory>
+#include <vector>
 
 class RhiIntegrator : public Integrator
 {

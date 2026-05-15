@@ -40,10 +40,6 @@ BreakInheritanceList: BeforeComma
 PointerAlignment: Left   # int* ptr
 ReferenceAlignment: Left
 
-# Includes
-SortIncludes: true
-IncludeBlocks: Regroup
-
 # Comments
 ReflowComments: false
 

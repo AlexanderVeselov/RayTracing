@@ -24,13 +24,13 @@
 
 #include "cl_context.hpp"
 
+#include "render.hpp"
+#include "utils/cl_exception.hpp"
+
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-
-#include "render.hpp"
-#include "utils/cl_exception.hpp"
 
 #ifdef WIN32
 #define NOMINMAX

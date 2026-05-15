@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include <vector>
-
 #include "kernels/common/shared_structures.h"
+
+#include <vector>
 
 class CLContext;
 class AccelerationStructure

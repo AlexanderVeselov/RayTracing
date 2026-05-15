@@ -24,10 +24,10 @@
 
 #include "camera_controller.hpp"
 
-#include <iostream>
-
 #include "render.hpp"
 #include "utils/window.hpp"
+
+#include <iostream>
 
 CameraController::CameraController(Window& window)
     : window_(window), pitch_(MATH_PIDIV2), yaw_(MATH_PIDIV2), speed_(1.0f), up_(0.0f, 0.0f, 1.0f)

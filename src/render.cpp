@@ -36,10 +36,10 @@
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
 #endif
-#include <fstream>
-
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
+
+#include <fstream>
 #ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
 #endif

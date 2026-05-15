@@ -24,12 +24,12 @@
 
 #include "cl_pt_integrator.hpp"
 
-#include <GL/glew.h>
-
 #include "Scene/scene.hpp"
-#include "Utils/blue_noise_sampler.hpp"
 #include "acceleration_structure.hpp"
+#include "utils/blue_noise_sampler.hpp"
 #include "utils/cl_exception.hpp"
+
+#include <GL/glew.h>
 
 namespace args
 {

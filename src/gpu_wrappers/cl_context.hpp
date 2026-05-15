@@ -24,15 +24,14 @@
 
 #pragma once
 
-#include <GL/glew.h>
+#include "scene/scene.hpp"
 
+#include <GL/glew.h>
 #include <CL/cl.hpp>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "scene/scene.hpp"
 
 class CLKernel;
 

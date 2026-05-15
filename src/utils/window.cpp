@@ -22,9 +22,9 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include <GL/glew.h>
 #include "window.hpp"
 
-#include <GL/glew.h>
 #ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
 #endif

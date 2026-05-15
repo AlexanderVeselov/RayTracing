@@ -22,9 +22,14 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include <GL/glew.h>
-
 #define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
+#include "mathlib/mathlib.hpp"
+#include "render.hpp"
+#include "scene.hpp"
+#include "utils/cl_exception.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <ctime>
@@ -33,12 +38,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-
-#include "mathlib/mathlib.hpp"
-#include "render.hpp"
-#include "scene.hpp"
-#include "tiny_obj_loader.h"
-#include "utils/cl_exception.hpp"
 
 #undef max
 

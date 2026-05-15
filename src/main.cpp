@@ -22,13 +22,13 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include <iostream>
-#include <map>
-#include <string>
-
 #include "CLI/CLI.hpp"
 #include "render.hpp"
 #include "utils/window.hpp"
+
+#include <iostream>
+#include <map>
+#include <string>
 
 namespace
 {

@@ -24,10 +24,6 @@
 
 #include "rhi_integrator.hpp"
 
-#include <algorithm>
-#include <cstring>
-#include <stdexcept>
-
 #include "acceleration_structure.hpp"
 #include "gpu_command_buffer.hpp"
 #include "gpu_descriptor_set.hpp"
@@ -37,6 +33,10 @@
 #include "gpu_queue.hpp"
 #include "gpu_swapchain.hpp"
 #include "scene/scene.hpp"
+
+#include <algorithm>
+#include <cstring>
+#include <stdexcept>
 
 namespace
 {

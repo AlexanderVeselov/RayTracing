@@ -24,12 +24,12 @@
 
 #include "gl_graphics_pipeline.hpp"
 
+#include "gl_shader_utils.hpp"
+
 #include <cassert>
 #include <cstring>
 #include <fstream>
 #include <stdexcept>
-
-#include "gl_shader_utils.hpp"
 
 GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc const& pipeline_desc) : desc_(pipeline_desc)
 {
