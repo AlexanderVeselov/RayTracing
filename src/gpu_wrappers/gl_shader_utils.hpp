@@ -28,6 +28,5 @@
 #include <string>
 #include <vector>
 
-GLuint CreateShader(char const* filename,
-    GLenum shader_type,
+GLuint CreateShader(char const* filename, GLenum shader_type,
     std::vector<std::string> const& definitions = std::vector<std::string>());

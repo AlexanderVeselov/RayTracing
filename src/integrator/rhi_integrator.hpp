@@ -35,10 +35,7 @@
 class RhiIntegrator : public Integrator
 {
 public:
-    RhiIntegrator(std::uint32_t width,
-        std::uint32_t height,
-        gpu::Device& device,
-        gpu::Swapchain& swapchain);
+    RhiIntegrator(std::uint32_t width, std::uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
     ~RhiIntegrator() = default;
 
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
@@ -74,8 +71,7 @@ private:
     gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
     template <class T>
-    gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer,
-        gpu::CommandBufferPtr& upload_command_buffer,
+    gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
         std::vector<gpu::BufferPtr>& staging_buffers)
     {
         size_t allocation_size = std::max<size_t>(cpu_buffer.size() * sizeof(T), sizeof(T));

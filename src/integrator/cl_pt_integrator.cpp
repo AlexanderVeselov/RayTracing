@@ -189,9 +189,7 @@ cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
     return buffer;
 }
 
-CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width,
-    std::uint32_t height,
-    CLContext& cl_context,
+CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, CLContext& cl_context,
     unsigned int output_image)
     : Integrator(width, height), cl_context_(cl_context), gl_interop_image_(output_image)
 {
@@ -531,7 +529,6 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 
     ///@TODO: use indirect dispatch
     cl_context_.ExecuteKernel(kernel, max_num_rays);
-
 }
 
 void CLPathTraceIntegrator::ComputeAOVs()

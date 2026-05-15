@@ -81,12 +81,8 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::u
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
-    const std::vector<std::uint32_t>& src_indices,
-    std::vector<BVHPrimitiveInfo>& primitiveInfo,
-    unsigned start,
-    unsigned end,
-    unsigned* totalNodes,
-    std::vector<RTTriangle>& orderedTris)
+    const std::vector<std::uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitiveInfo, unsigned start,
+    unsigned end, unsigned* totalNodes, std::vector<RTTriangle>& orderedTris)
 {
     BVHBuildNode* node = new BVHBuildNode;
     (*totalNodes)++;

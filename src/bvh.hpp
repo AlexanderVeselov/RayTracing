@@ -75,12 +75,8 @@ public:
     };
 
 private:
-    BVHBuildNode* RecursiveBuild(const std::vector<Vertex>& vertices,
-        const std::vector<std::uint32_t>& src_indices,
-        std::vector<BVHPrimitiveInfo>& primitiveInfo,
-        unsigned int start,
-        unsigned int end,
-        unsigned int* totalNodes,
+    BVHBuildNode* RecursiveBuild(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>& src_indices,
+        std::vector<BVHPrimitiveInfo>& primitiveInfo, unsigned int start, unsigned int end, unsigned int* totalNodes,
         std::vector<RTTriangle>& orderedTris);
 
     unsigned int FlattenBVHTree(BVHBuildNode* node, unsigned int* offset);

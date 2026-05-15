@@ -109,11 +109,8 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     ThrowIfFailed(status, "Failed to read buffer");
 }
 
-void CLContext::CopyBuffer(const cl::Buffer& src_buffer,
-    const cl::Buffer& dst_buffer,
-    std::size_t src_offset,
-    std::size_t dst_offset,
-    std::size_t size) const
+void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer, std::size_t src_offset,
+    std::size_t dst_offset, std::size_t size) const
 {
     cl_int status = queue_.enqueueCopyBuffer(src_buffer, dst_buffer, src_offset, dst_offset, size);
     ThrowIfFailed(status, "Failed to copy buffer");
@@ -141,8 +138,7 @@ void CLContext::ReleaseGLObject(cl_mem mem)
     ThrowIfFailed(status, "Failed to release GL object");
 }
 
-std::shared_ptr<CLKernel> CLContext::CreateKernel(const char* filename,
-    char const* kernel_name,
+std::shared_ptr<CLKernel> CLContext::CreateKernel(const char* filename, char const* kernel_name,
     std::vector<std::string> const& definitions)
 {
     std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(*this,
@@ -177,9 +173,7 @@ void CLContext::ReloadKernels()
     }
 }
 
-CLKernel::CLKernel(CLContext const& cl_context,
-    const char* filename,
-    char const* kernel_name,
+CLKernel::CLKernel(CLContext const& cl_context, const char* filename, char const* kernel_name,
     std::vector<std::string> const& definitions)
     : context_(cl_context), filename_(filename), kernel_name_(kernel_name), definitions_(definitions)
 {

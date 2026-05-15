@@ -30,10 +30,7 @@
 class CLPathTraceIntegrator : public Integrator
 {
 public:
-    CLPathTraceIntegrator(std::uint32_t width,
-        std::uint32_t height,
-        CLContext& cl_context,
-        unsigned int out_image);
+    CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, CLContext& cl_context, unsigned int out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void SetSamplerType(SamplerType sampler_type) override;

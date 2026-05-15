@@ -103,9 +103,7 @@ float3 UnpackRGBE(unsigned int rgbe)
     }
 }
 
-unsigned int PackRoughnessMetalness(float roughness,
-    std::uint32_t roughness_idx,
-    float metalness,
+unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx, float metalness,
     std::uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
@@ -115,9 +113,7 @@ unsigned int PackRoughnessMetalness(float roughness,
         | (metalness_idx << 24);
 }
 
-unsigned int PackIorEmissionIdxTransparency(float ior,
-    std::uint32_t emission_idx,
-    float transparency,
+unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_idx, float transparency,
     std::uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);

@@ -65,10 +65,7 @@ inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 
 }  // namespace
 
-RhiIntegrator::RhiIntegrator(uint32_t width,
-    uint32_t height,
-    gpu::Device& device,
-    gpu::Swapchain& swapchain)
+RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain)
     : Integrator(width, height), device_(device), swapchain_(swapchain)
 {
     output_image_ = device_.CreateImage(width_,

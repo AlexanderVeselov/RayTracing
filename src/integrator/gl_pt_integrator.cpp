@@ -49,9 +49,7 @@ GLuint CreateBuffer(std::size_t size)
 }
 }  // namespace
 
-GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width,
-    std::uint32_t height,
-    std::uint32_t out_image)
+GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, std::uint32_t out_image)
     : Integrator(width, height), out_image_(out_image)
 {
     std::uint32_t num_rays = width_ * height_;

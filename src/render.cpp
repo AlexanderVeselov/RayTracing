@@ -127,17 +127,12 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     }
     else if (render_backend_ == RenderBackend::kOpenGL)
     {
-        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_,
-            height_,
-            framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, framebuffer_->GetGLImage());
     }
 #ifdef RAYTRACING_ENABLE_RHI
     else if (IsRhiBackend(render_backend_))
     {
-        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_,
-            height_,
-            *rhi_device_,
-            *rhi_swapchain_);
+        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
         rhi_integrator_ = rhi_integrator.get();
         integrator_ = std::move(rhi_integrator);
     }
