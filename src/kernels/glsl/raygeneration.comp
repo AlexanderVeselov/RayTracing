@@ -22,11 +22,11 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 256) in;
+layout(local_size_x = 256) in;
 
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
 #include "src/kernels/common/sampling.h"
+#include "src/kernels/common/shared_structures.h"
 
 uniform uint width;
 uniform uint height;
@@ -37,22 +37,22 @@ layout(std140, binding = 0) uniform SampleCounter
     uint sample_counter;
 };
 
-layout(std430, binding = 0) buffer Rays 
+layout(std430, binding = 0) buffer Rays
 {
     Ray rays[];
 };
 
-layout(std430, binding = 1) buffer RayCounter 
+layout(std430, binding = 1) buffer RayCounter
 {
     uint ray_counter[];
 };
 
-layout(std430, binding = 2) buffer PixelIndices 
+layout(std430, binding = 2) buffer PixelIndices
 {
     uint pixel_indices[];
 };
 
-layout(std430, binding = 3) buffer Throughputs 
+layout(std430, binding = 3) buffer Throughputs
 {
     vec3 throughputs[];
 };
@@ -84,14 +84,18 @@ void main()
     float y = (pixel_y + 0.5f) * inv_height;
 #endif
 
-    float angle = tan(0.5f * camera.fov);
-    x = (x * 2.0f - 1.0f) * angle * camera.aspect_ratio;
+    float3 camera_position = camera.position_fov.xyz;
+    float3 camera_front = camera.front_aspect.xyz;
+    float3 camera_up = camera.up_aperture.xyz;
+
+    float angle = tan(0.5f * camera.position_fov.w);
+    x = (x * 2.0f - 1.0f) * angle * camera.front_aspect.w;
     y = (y * 2.0f - 1.0f) * angle;
 
-    float3 dir = normalize(x * cross(camera.front, camera.up) + y * camera.up + camera.front);
+    float3 dir = normalize(x * cross(camera_front, camera_up) + y * camera_up + camera_front);
 
     Ray ray;
-    ray.origin.xyz = camera.position;
+    ray.origin.xyz = camera_position;
     ray.origin.w = 0.0;
     ray.direction.xyz = dir;
     ray.direction.w = MAX_RENDER_DIST;
@@ -99,10 +103,10 @@ void main()
     rays[ray_idx] = ray;
     pixel_indices[ray_idx] = pixel_idx;
     throughputs[pixel_idx] = float3(1.0f, 1.0f, 1.0f);
-    //diffuse_albedo[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
-    //depth_buffer[pixel_idx] = MAX_RENDER_DIST;
-    //normal_buffer[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
-    //velocity_buffer[pixel_idx] = float2(0.0f, 0.0f);
+    // diffuse_albedo[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
+    // depth_buffer[pixel_idx] = MAX_RENDER_DIST;
+    // normal_buffer[pixel_idx] = float3(0.0f, 0.0f, 0.0f);
+    // velocity_buffer[pixel_idx] = float2(0.0f, 0.0f);
 
     // Write to global ray counter
     if (ray_idx == 0)

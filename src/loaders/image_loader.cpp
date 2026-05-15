@@ -24,8 +24,9 @@
 
 #include "image_loader.hpp"
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <cassert>
+
+#include "stb_image.h"
 
 bool LoadSTB(const char* filename, Image& result)
 {

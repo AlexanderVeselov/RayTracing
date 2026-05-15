@@ -40,19 +40,11 @@
 #define LIGHT_TYPE_DIRECTIONAL 1
 
 #ifdef GLSL
-#define STRUCT_BEGIN(x)                                                                            \
-    struct x                                                                                       \
-    {
-#define STRUCT_END(x)                                                                              \
-    }                                                                                              \
-    ;
+#define STRUCT_BEGIN(x) struct x {
+#define STRUCT_END(x) };
 #else
-#define STRUCT_BEGIN(x)                                                                            \
-    typedef struct x                                                                               \
-    {
-#define STRUCT_END(x)                                                                              \
-    }                                                                                              \
-    x;
+#define STRUCT_BEGIN(x) typedef struct x {
+#define STRUCT_END(x) } x;
 #endif
 
 STRUCT_BEGIN(Ray)
@@ -78,10 +70,8 @@ STRUCT_BEGIN(PackedMaterial)
 unsigned int diffuse_albedo;  // 24 bit - RGB, 8 bit - texture index
 unsigned int specular_albedo; // 24 bit - RGB, 8 bit - texture index
 unsigned int emission;        // 32 bit - RGBE
-unsigned int
-    roughness_metalness; // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
-unsigned int ior_emission_idx_transparency; // 8 bit - ior, 8 bit - emission texture idx, 16 bit -
-                                            // transparency + texture idx
+unsigned int roughness_metalness; // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
+unsigned int ior_emission_idx_transparency; // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
 STRUCT_END(PackedMaterial)
 
 STRUCT_BEGIN(Light)
@@ -101,22 +91,9 @@ STRUCT_END(Texture)
 STRUCT_BEGIN(Vertex)
 float4 position;
 float2 texcoord;
-float2 texcoord_padding;
+unsigned int padding[2];
 float4 normal;
 STRUCT_END(Vertex)
-
-STRUCT_BEGIN(Triangle)
-#ifdef __cplusplus
-Triangle(Vertex v1, Vertex v2, Vertex v3, unsigned int mtlIndex)
-    : v1(v1), v2(v2), v3(v3), mtlIndex(mtlIndex)
-{
-}
-#endif
-
-Vertex v1, v2, v3;
-unsigned int mtlIndex;
-unsigned int padding[3];
-STRUCT_END(Triangle)
 
 STRUCT_BEGIN(RTTriangle)
 float4 position1;
@@ -135,21 +112,11 @@ unsigned int padding[2];
 STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)
-float3 position;
-float fov;
-float3 front;
-float aspect_ratio;
-float3 up;
-float aperture;
-float focus_distance;
+float4 position_fov; // x, y, z - position, w - fov
+float4 front_aspect; // x, y, z - front, w - aspect ratio
+float4 up_aperture;  // x, y, z - up, w - aperture
+float  focus_distance;
 unsigned int padding[3];
 STRUCT_END(Camera)
-
-STRUCT_BEGIN(KernelCamera)
-float4 position_fov;
-float4 front_aspect;
-float4 up_aperture;
-float4 lens;
-STRUCT_END(KernelCamera)
 
 #endif // SHARED_STRUCTURES_HPP

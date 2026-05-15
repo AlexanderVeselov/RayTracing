@@ -10,34 +10,35 @@ from http://www.flipcode.com/archives/HDR_Image_Reader.shtml
 
 #define _CRT_SECURE_NO_WARNINGS
 #include <cmath>
-#include <memory>
 #include <cstdio>
+#include <memory>
 
 typedef unsigned char RGBE[4];
-#define R			0
-#define G			1
-#define B			2
-#define E			3
+#define R 0
+#define G 1
+#define B 2
+#define E 3
 
-#define  MINELEN	8				// minimum scanline length for encoding
-#define  MAXELEN	0x7fff			// maximum scanline length for encoding
+#define MINELEN 8       // minimum scanline length for encoding
+#define MAXELEN 0x7fff  // maximum scanline length for encoding
 
-static void WorkOnRGBE(RGBE *scan, int len, float *cols);
-static bool Decrunch(RGBE *scanline, int len, FILE *file);
-static bool OldDecrunch(RGBE *scanline, int len, FILE *file);
+static void WorkOnRGBE(RGBE* scan, int len, float* cols);
+static bool Decrunch(RGBE* scanline, int len, FILE* file);
+static bool OldDecrunch(RGBE* scanline, int len, FILE* file);
 
-bool LoadHDR(const char *fileName, Image &res)
+bool LoadHDR(const char* fileName, Image& res)
 {
     int i;
     char str[200];
-    FILE *file;
+    FILE* file;
 
     file = fopen(fileName, "rb");
     if (!file)
         return false;
 
     fread(str, 10, 1, file);
-    if (memcmp(str, "#?RADIANCE", 10)) {  // check RADIANCE renderer format
+    if (memcmp(str, "#?RADIANCE", 10))
+    {  // check RADIANCE renderer format
         fclose(file);
         return false;
     }
@@ -47,7 +48,8 @@ bool LoadHDR(const char *fileName, Image &res)
     char cmd[200];
     i = 0;
     char c = 0, oldc;
-    while (true) {
+    while (true)
+    {
         oldc = c;
         c = fgetc(file);
         if (c == 0xa && oldc == 0xa)
@@ -57,7 +59,8 @@ bool LoadHDR(const char *fileName, Image &res)
 
     char reso[200];
     i = 0;
-    while (true) {
+    while (true)
+    {
         c = fgetc(file);
         reso[i++] = c;
         if (c == 0xa)
@@ -77,14 +80,14 @@ bool LoadHDR(const char *fileName, Image &res)
     res.data.resize(w * h * 4);
     float* cols = (float*)res.data.data();
 
-    RGBE *scanline = new RGBE[w];
+    RGBE* scanline = new RGBE[w];
     if (!scanline)
     {
         fclose(file);
         return false;
     }
 
-    // convert image 
+    // convert image
     for (int y = h - 1; y >= 0; y--)
     {
         if (Decrunch(scanline, w, file) == false)
@@ -106,7 +109,7 @@ float ConvertComponent(int expo, int val)
     return v * d;
 }
 
-void WorkOnRGBE(RGBE *scan, int len, float *cols)
+void WorkOnRGBE(RGBE* scan, int len, float* cols)
 {
     while (len-- > 0)
     {
@@ -119,9 +122,9 @@ void WorkOnRGBE(RGBE *scan, int len, float *cols)
     }
 }
 
-bool Decrunch(RGBE *scanline, int len, FILE *file)
+bool Decrunch(RGBE* scanline, int len, FILE* file)
 {
-    int  i, j;
+    int i, j;
 
     if (len < MINELEN || len > MAXELEN)
     {
@@ -152,7 +155,8 @@ bool Decrunch(RGBE *scanline, int len, FILE *file)
         for (j = 0; j < len;)
         {
             unsigned char code = fgetc(file);
-            if (code > 128) { // run
+            if (code > 128)
+            {  // run
                 code &= 127;
                 unsigned char val = fgetc(file);
                 while (code--)
@@ -160,8 +164,8 @@ bool Decrunch(RGBE *scanline, int len, FILE *file)
                     scanline[j++][i] = val;
                 }
             }
-            else 
-            {	// non-run
+            else
+            {  // non-run
                 while (code--)
                 {
                     scanline[j++][i] = fgetc(file);
@@ -173,7 +177,7 @@ bool Decrunch(RGBE *scanline, int len, FILE *file)
     return feof(file) ? false : true;
 }
 
-bool OldDecrunch(RGBE *scanline, int len, FILE *file)
+bool OldDecrunch(RGBE* scanline, int len, FILE* file)
 {
     int rshift = 0;
 
@@ -186,9 +190,8 @@ bool OldDecrunch(RGBE *scanline, int len, FILE *file)
         if (feof(file))
             return false;
 
-        if (scanline[0][R] == 1 &&
-            scanline[0][G] == 1 &&
-            scanline[0][B] == 1) {
+        if (scanline[0][R] == 1 && scanline[0][G] == 1 && scanline[0][B] == 1)
+        {
             for (unsigned char i = scanline[0][E] << rshift; i > 0; i--)
             {
                 memcpy(&scanline[0][0], &scanline[-1][0], 4);
@@ -197,7 +200,8 @@ bool OldDecrunch(RGBE *scanline, int len, FILE *file)
             }
             rshift += 8;
         }
-        else {
+        else
+        {
             scanline++;
             len--;
             rshift = 0;

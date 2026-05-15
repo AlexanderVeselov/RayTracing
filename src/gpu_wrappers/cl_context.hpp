@@ -24,13 +24,15 @@
 
 #pragma once
 
-#include "scene/scene.hpp"
 #include <GL/glew.h>
+
 #include <CL/cl.hpp>
 #include <memory>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "scene/scene.hpp"
 
 class CLKernel;
 
@@ -38,13 +40,17 @@ class CLContext
 {
 public:
     CLContext(const cl::Platform& platform);
-    std::shared_ptr<CLKernel> CreateKernel(const char* filename, char const* kernel_name,
+    std::shared_ptr<CLKernel> CreateKernel(const char* filename,
+        char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
-    void CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer,
-        std::size_t src_offset, std::size_t dst_offset, std::size_t size) const;
+    void CopyBuffer(const cl::Buffer& src_buffer,
+        const cl::Buffer& dst_buffer,
+        std::size_t src_offset,
+        std::size_t dst_offset,
+        std::size_t size) const;
     void ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const;
     void Finish() const { queue_.finish(); }
     void AcquireGLObject(cl_mem mem);
@@ -61,13 +67,14 @@ private:
     cl::CommandQueue queue_;
     std::vector<std::weak_ptr<CLKernel>> kernels_;
     std::string kernels_path_;
-
 };
 
 class CLKernel
 {
 public:
-    CLKernel(CLContext const& cl_context, const char* filename, char const* kernel_name,
+    CLKernel(CLContext const& cl_context,
+        const char* filename,
+        char const* kernel_name,
         std::vector<std::string> const& definitions = std::vector<std::string>());
     void Reload();
 

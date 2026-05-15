@@ -24,23 +24,26 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
 #include <GL/glew.h>
+
 #include <vector>
+
+#include "mathlib/mathlib.hpp"
 
 class ComputePipeline
 {
 public:
-    ComputePipeline(char const* vs_source, std::vector<std::string> const& definitions = std::vector<std::string>());
+    ComputePipeline(char const* vs_source,
+        std::vector<std::string> const& definitions = std::vector<std::string>());
     void Bind() const { glUseProgram(shader_program_); }
     GLuint GetProgram() const { return shader_program_; }
     void BindConstant(char const* name, std::uint32_t value);
     void BindConstant(char const* name, float value);
     void BindConstant(char const* name, float3 value);
+    void BindConstant(char const* name, float4 value);
     ~ComputePipeline();
 
 private:
     GLuint shader_;
     GLuint shader_program_;
-
 };

@@ -40,7 +40,7 @@ class Window;
 class RhiIntegrator;
 class Render
 {
-  public:
+public:
     enum class RenderBackend
     {
         kOpenCL,
@@ -57,23 +57,17 @@ class Render
     void RenderFrame();
     double GetCurtime() const;
     double GetDeltaTime() const;
-    Window& GetWindow() const
-    {
-        return window_;
-    }
+    Window& GetWindow() const { return window_; }
 
-    std::shared_ptr<CLContext> GetCLContext() const
-    {
-        return cl_context_;
-    }
+    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
 
-  private:
+private:
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
     void ReloadKernels();
 
-  private:
+private:
     // Window
     Window& window_;
     RenderBackend render_backend_;

@@ -23,23 +23,22 @@
  *****************************************************************************/
 
 #include "mathlib.hpp"
+
 #include "kernels/common/shared_structures.h"
 
-void Bounds3::Project(float3 axis, float &mins, float &maxs) const
+void Bounds3::Project(float3 axis, float& mins, float& maxs) const
 {
     mins = CL_FLT_MAX;
     maxs = -CL_FLT_MAX;
 
-    float3 points[8] = {
-        min,
+    float3 points[8] = {min,
         float3(min.x, min.y, max.z),
         float3(min.x, max.y, min.z),
         float3(min.x, max.y, max.z),
         float3(max.x, min.y, min.z),
         float3(max.x, min.y, max.z),
         float3(max.x, max.y, min.z),
-        max
-    };
+        max};
 
     for (size_t i = 0; i < 8; ++i)
     {

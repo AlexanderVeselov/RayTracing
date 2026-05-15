@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #include "render.hpp"
+
 #include "Utils/window.hpp"
 #include "bvh.hpp"
 #include "integrator/cl_pt_integrator.hpp"
@@ -35,9 +36,10 @@
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
 #endif
+#include <fstream>
+
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
-#include <fstream>
 #ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
 #endif
@@ -58,11 +60,14 @@ bool IsRhiBackend(Render::RenderBackend backend)
     return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
 }
 #endif
-} // namespace
+}  // namespace
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
-    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()),
-      height_(window.GetHeight())
+    : window_(window)
+    , render_backend_(backend)
+    , scene_(scene)
+    , width_(window.GetWidth())
+    , height_(window.GetHeight())
 {
 #ifdef RAYTRACING_ENABLE_RHI
     if (render_backend_ == RenderBackend::kVulkan)
@@ -200,7 +205,8 @@ void Render::DrawGUI()
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(350, 50));
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-            1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            1000.0f / ImGui::GetIO().Framerate,
+            ImGui::GetIO().Framerate);
         ImGui::Text("Press \"R\" to reload kernels");
     }
     ImGui::End();
@@ -231,8 +237,8 @@ void Render::DrawGUI()
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             integrator_->SetSamplerType(gui_params_.enable_blue_noise
-                                            ? Integrator::SamplerType::kBlueNoise
-                                            : Integrator::SamplerType::kRandom);
+                    ? Integrator::SamplerType::kBlueNoise
+                    : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -297,7 +303,8 @@ void Render::RenderFrame()
         integrator_->Integrate();
         rhi_imgui_renderer_->Render(*rhi_command_buffer_);
         rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
-            gpu::ImageLayout::kRenderTarget, gpu::ImageLayout::kPresent);
+            gpu::ImageLayout::kRenderTarget,
+            gpu::ImageLayout::kPresent);
         rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
         queue.Submit(std::move(rhi_command_buffer_));
         rhi_swapchain_->Present();

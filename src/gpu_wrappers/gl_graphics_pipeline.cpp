@@ -23,14 +23,15 @@
  *****************************************************************************/
 
 #include "gl_graphics_pipeline.hpp"
-#include "gl_shader_utils.hpp"
-#include <cstring>
-#include <stdexcept>
-#include <fstream>
-#include <cassert>
 
-GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc const& pipeline_desc)
-    : desc_(pipeline_desc)
+#include <cassert>
+#include <cstring>
+#include <fstream>
+#include <stdexcept>
+
+#include "gl_shader_utils.hpp"
+
+GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc const& pipeline_desc) : desc_(pipeline_desc)
 {
     vertex_shader_ = CreateShader(desc_.vs_filename, GL_VERTEX_SHADER);
     fragment_shader_ = CreateShader(desc_.fs_filename, GL_FRAGMENT_SHADER);

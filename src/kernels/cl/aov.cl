@@ -26,7 +26,7 @@
 #include "src/kernels/common/sampling.h"
 #include "src/kernels/common/shared_structures.h"
 
-float2 ProjectScreen(float3 position, KernelCamera camera)
+float2 ProjectScreen(float3 position, Camera camera)
 {
     float3 camera_position = camera.position_fov.xyz;
     float3 camera_front = camera.front_aspect.xyz;
@@ -48,8 +48,7 @@ __kernel void GenerateAOV(
     __global Ray* rays, __global uint* ray_counter, __global uint* pixel_indices,
     __global Hit* hits, __global Vertex* vertices, __global uint* indices,
     __global uint* material_ids, __global PackedMaterial* materials, __global Texture* textures,
-    __global uint* texture_data, uint width, uint height, KernelCamera camera,
-    KernelCamera prev_camera,
+    __global uint* texture_data, uint width, uint height, Camera camera, Camera prev_camera,
     // Output
     __global float3* diffuse_albedo, __global float* depth_buffer, __global float3* normal_buffer,
     __global float2* velocity_buffer)

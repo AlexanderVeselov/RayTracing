@@ -25,13 +25,6 @@
 #include <GL/glew.h>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
-
-#include "mathlib/mathlib.hpp"
-#include "render.hpp"
-#include "scene.hpp"
-#include "utils/cl_exception.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <ctime>
@@ -40,6 +33,12 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+
+#include "mathlib/mathlib.hpp"
+#include "render.hpp"
+#include "scene.hpp"
+#include "tiny_obj_loader.h"
+#include "utils/cl_exception.hpp"
 
 #undef max
 
@@ -56,8 +55,8 @@ unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
     r = clamp(r, 0.0f, 1.0f);
     g = clamp(g, 0.0f, 1.0f);
     b = clamp(b, 0.0f, 1.0f);
-    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8) |
-           ((unsigned int)(b * 255.0f) << 16) | (texture_index << 24);
+    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8)
+        | ((unsigned int)(b * 255.0f) << 16) | (texture_index << 24);
 }
 
 unsigned int PackRGBE(float r, float g, float b)
@@ -81,8 +80,8 @@ unsigned int PackRGBE(float r, float g, float b)
     {
         int e;
         v = frexp(v, &e) * 256.0f / v;
-        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8) |
-               ((unsigned int)(b * v) << 16) | ((e + 128) << 24);
+        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8)
+            | ((unsigned int)(b * v) << 16) | ((e + 128) << 24);
     }
 }
 
@@ -111,8 +110,8 @@ unsigned int PackRoughnessMetalness(
     assert(roughness_idx < 256 && metalness_idx < 256);
     roughness = clamp(roughness, 0.0f, 1.0f);
     metalness = clamp(metalness, 0.0f, 1.0f);
-    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8) |
-           ((unsigned int)(metalness * 255.0f) << 16) | (metalness_idx << 24);
+    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8)
+        | ((unsigned int)(metalness * 255.0f) << 16) | (metalness_idx << 24);
 }
 
 unsigned int PackIorEmissionIdxTransparency(
@@ -121,10 +120,10 @@ unsigned int PackIorEmissionIdxTransparency(
     assert(emission_idx < 256 && transparency_idx < 256);
     ior = clamp(ior, 0.0f, 10.0f);
     transparency = clamp(transparency, 0.0f, 1.0f);
-    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) |
-           ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
+    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
+        | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
 }
-} // namespace
+}  // namespace
 
 void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
@@ -156,16 +155,16 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         auto const& in_material = materials[material_idx];
 
         // Convert from sRGB to linear
-        out_material.diffuse_albedo = PackAlbedo(pow(in_material.diffuse[0], kGamma), // R
-            pow(in_material.diffuse[1], kGamma),                                      // G
-            pow(in_material.diffuse[2], kGamma),                                      // B
+        out_material.diffuse_albedo = PackAlbedo(pow(in_material.diffuse[0], kGamma),  // R
+            pow(in_material.diffuse[1], kGamma),                                       // G
+            pow(in_material.diffuse[2], kGamma),                                       // B
             in_material.diffuse_texname.empty()
                 ? kInvalidTextureIndex
                 : LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
 
-        out_material.specular_albedo = PackAlbedo(pow(in_material.specular[0], kGamma), // R
-            pow(in_material.specular[1], kGamma),                                       // G
-            pow(in_material.specular[2], kGamma),                                       // B
+        out_material.specular_albedo = PackAlbedo(pow(in_material.specular[0], kGamma),  // R
+            pow(in_material.specular[1], kGamma),                                        // G
+            pow(in_material.specular[2], kGamma),                                        // B
             in_material.specular_texname.empty()
                 ? kInvalidTextureIndex
                 : LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
@@ -192,7 +191,8 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
                 : LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
     }
 
-    auto flip_vector = [](auto& vec, bool do_flip) {
+    auto flip_vector = [](auto& vec, bool do_flip)
+    {
         if (do_flip)
         {
             std::swap(vec.y, vec.z);
@@ -277,8 +277,8 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             indices_.push_back(base_vertex_index + 1);
             indices_.push_back(base_vertex_index + 2);
 
-            if (shape.mesh.material_ids[face] >= 0 &&
-                shape.mesh.material_ids[face] < materials_.size())
+            if (shape.mesh.material_ids[face] >= 0
+                && shape.mesh.material_ids[face] < materials_.size())
             {
                 triangle_material_indices_.push_back(shape.mesh.material_ids[face]);
             }
@@ -316,8 +316,8 @@ std::size_t Scene::LoadTexture(char const* filename)
         assert(!"Not implemented yet!");
         success = LoadHDR(filename, image);
     }
-    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0 ||
-             strcmp(file_extension, ".png") == 0)
+    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0
+        || strcmp(file_extension, ".png") == 0)
     {
         success = LoadSTB(filename, image);
     }

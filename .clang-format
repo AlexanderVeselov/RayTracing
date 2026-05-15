@@ -1,10 +1,59 @@
-BasedOnStyle: Microsoft
+# Base style
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+
+# Indentation
 IndentWidth: 4
-ContinuationIndentWidth: 4
-ConstructorInitializerIndentWidth: 4
 TabWidth: 4
 UseTab: Never
+AccessModifierOffset: -4
+IndentCaseLabels: false
+
+# Line length
 ColumnLimit: 100
+
+# Braces
+BreakBeforeBraces: Allman
+
+# Functions and control flow
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Function arguments formatting
+BinPackArguments: false
+BinPackParameters: false
+
+# Alignment
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
 AlignAfterOpenBracket: DontAlign
-PointerAlignment: Left
-ReferenceAlignment: Pointer
+AlignOperands: false
+
+# Line breaking
+BreakBeforeBinaryOperators: NonAssignment
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+
+# Pointers and references
+PointerAlignment: Left   # int* ptr
+ReferenceAlignment: Left
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Regroup
+
+# Comments
+ReflowComments: false
+
+# Namespaces
+NamespaceIndentation: Inner
+
+# Empty lines
+MaxEmptyLinesToKeep: 1
+
+# Braced lists
+Cpp11BracedListStyle: true
+
+IndentAccessModifiers: false

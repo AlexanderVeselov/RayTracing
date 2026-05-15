@@ -24,14 +24,17 @@
 
 #pragma once
 
-#include "integrator.hpp"
 #include "gpu_wrappers/cl_context.hpp"
+#include "integrator.hpp"
 
 class CLPathTraceIntegrator : public Integrator
 {
 public:
-    CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-        AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int out_image);
+    CLPathTraceIntegrator(std::uint32_t width,
+        std::uint32_t height,
+        AccelerationStructure& acc_structure,
+        CLContext& cl_context,
+        unsigned int out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void SetSamplerType(SamplerType sampler_type) override;
@@ -58,13 +61,16 @@ protected:
 private:
     cl::Buffer CreateBuffer(size_t size);
 
-    template<class T>
+    template <class T>
     cl::Buffer UploadBuffer(std::vector<T> const& cpu_buffer)
     {
         cl_int status;
         assert(!cpu_buffer.empty());
-        cl::Buffer buffer(cl_context_.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            cpu_buffer.size() * sizeof(T), (void*)cpu_buffer.data(), &status);
+        cl::Buffer buffer(cl_context_.GetContext(),
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            cpu_buffer.size() * sizeof(T),
+            (void*)cpu_buffer.data(),
+            &status);
         ThrowIfFailed(status, "Failed to upload buffer");
         return buffer;
     }
@@ -89,7 +95,7 @@ private:
     std::shared_ptr<CLKernel> intersect_shadow_kernel_;
 
     // Internal buffers
-    cl::Buffer rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    cl::Buffer rays_buffer_[2];  // 2 buffers for incoming-outgoing rays
     cl::Buffer shadow_rays_buffer_;
     cl::Buffer pixel_indices_buffer_[2];
     cl::Buffer shadow_pixel_indices_buffer_;
@@ -131,5 +137,4 @@ private:
     cl::Buffer sampler_ranking_tile_buffer_;
 
     std::unique_ptr<cl::Image> output_image_;
-
 };

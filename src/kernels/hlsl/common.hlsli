@@ -62,15 +62,6 @@ struct Vertex
     float normal_padding;
 };
 
-struct Triangle
-{
-    Vertex v1;
-    Vertex v2;
-    Vertex v3;
-    uint material_index;
-    uint3 padding;
-};
-
 struct RTTriangle
 {
     float3 position1;

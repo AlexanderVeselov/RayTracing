@@ -22,13 +22,13 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "CLI/CLI.hpp"
-#include "render.hpp"
-#include "utils/window.hpp"
-
 #include <iostream>
 #include <map>
 #include <string>
+
+#include "CLI/CLI.hpp"
+#include "render.hpp"
+#include "utils/window.hpp"
 
 namespace
 {
@@ -62,7 +62,7 @@ char const* GetBackendTypeName()
     return "opencl|opengl";
 #endif
 }
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv)
 {

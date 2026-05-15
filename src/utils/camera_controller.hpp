@@ -24,9 +24,10 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
-#include "kernels/common/shared_structures.h"
 #include <memory>
+
+#include "kernels/common/shared_structures.h"
+#include "mathlib/mathlib.hpp"
 
 class Window;
 
@@ -39,8 +40,16 @@ public:
     void OnEndFrame() { is_changed_ = false; }
     Camera const& GetData() const { return camera_data_; }
 
-    void SetAperture(float aperture) { camera_data_.aperture = aperture; is_changed_ = true; }
-    void SetFocusDistance(float focus_distance) { camera_data_.focus_distance = focus_distance; is_changed_ = true; }
+    void SetAperture(float aperture)
+    {
+        camera_data_.up_aperture.w = aperture;
+        is_changed_ = true;
+    }
+    void SetFocusDistance(float focus_distance)
+    {
+        camera_data_.focus_distance = focus_distance;
+        is_changed_ = true;
+    }
 
 private:
     Window& window_;

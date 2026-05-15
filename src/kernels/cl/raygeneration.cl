@@ -64,7 +64,7 @@ unsigned int HashUInt32(unsigned int x)
 
 __kernel void RayGeneration(
     // Input
-    uint width, uint height, KernelCamera camera, __global uint* sample_counter,
+    uint width, uint height, Camera camera, __global uint* sample_counter,
     // Output
     __global Ray* rays, __global uint* ray_counter, __global uint* pixel_indices,
     __global float3* throughputs, __global float3* diffuse_albedo, __global float* depth_buffer,
@@ -105,7 +105,7 @@ __kernel void RayGeneration(
     float3 dir = normalize(x * cross(camera_front, camera_up) + y * camera_up + camera_front);
 
     // Simple Depth of Field
-    float3 point_aimed = camera_position + camera.lens.x * dir;
+    float3 point_aimed = camera_position + camera.focus_distance * dir;
     float2 dof_dir = PointInHexagon(&seed);
     float r = camera.up_aperture.w;
     float3 new_pos = camera_position + dof_dir.x * r * cross(camera_front, camera_up) +

@@ -1,18 +1,18 @@
 /*****************************************************************************
  MIT License
- 
+
  Copyright(c) 2026 Alexander Veselov
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this softwareand associated documentation files(the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and /or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions :
- 
+
  The above copyright noticeand this permission notice shall be included in all
  copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
@@ -23,20 +23,23 @@
  *****************************************************************************/
 
 #include "cl_context.hpp"
-#include "utils/cl_exception.hpp"
-#include "render.hpp"
-#include <iostream>
-#include <vector>
-#include <string>
+
 #include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "render.hpp"
+#include "utils/cl_exception.hpp"
 
 #ifdef WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
- // Use discrete GPU by default.
-extern "C" {
+// Use discrete GPU by default.
+extern "C"
+{
     __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
@@ -45,21 +48,20 @@ extern "C" {
 #endif
 
 CLContext::CLContext(const cl::Platform& platform)
-    : platform_(platform)
-    , kernels_path_("src/kernels/cl/")
+    : platform_(platform), kernels_path_("src/kernels/cl/")
 {
     std::cout << "Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
 
-    cl_context_properties props[] =
-    {
-        // OpenCL platform
-        CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
+    cl_context_properties props[] = {// OpenCL platform
+        CL_CONTEXT_PLATFORM,
+        (cl_context_properties)platform(),
         // OpenGL context
-        CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+        CL_GL_CONTEXT_KHR,
+        (cl_context_properties)wglGetCurrentContext(),
         // HDC used to create the OpenGL context
-        CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
-        0
-    };
+        CL_WGL_HDC_KHR,
+        (cl_context_properties)wglGetCurrentDC(),
+        0};
 
     platform.getDevices(CL_DEVICE_TYPE_ALL, &devices_);
     if (devices_.empty())
@@ -71,15 +73,25 @@ CLContext::CLContext(const cl::Platform& platform)
     {
         std::cout << "Device: " << std::endl;
         std::cout << devices_[i].getInfo<CL_DEVICE_NAME>() << std::endl;
-        std::cout << "Status: " << (devices_[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available") << std::endl;
-        std::cout << "Max compute units: " << devices_[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
-        std::cout << "Max workgroup size: " << devices_[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << std::endl;
-        std::cout << "Max constant buffer size: " << devices_[i].getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << std::endl;
-        //std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
-        std::cout << "Image support: " << (devices_[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
-        std::cout << "2D Image max width: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << std::endl;
-        std::cout << "2D Image max height: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << std::endl;
-        std::cout << "Preferred vector width: " << devices_[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
+        std::cout << "Status: "
+                  << (devices_[i].getInfo<CL_DEVICE_AVAILABLE>() ? "Available" : "Not available")
+                  << std::endl;
+        std::cout << "Max compute units: " << devices_[i].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()
+                  << std::endl;
+        std::cout << "Max workgroup size: " << devices_[i].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>()
+                  << std::endl;
+        std::cout << "Max constant buffer size: "
+                  << devices_[i].getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() << std::endl;
+        // std::cout << "Extensions: " << platform_devices[i].getInfo<CL_DEVICE_EXTENSIONS>() <<
+        // std::endl;
+        std::cout << "Image support: "
+                  << (devices_[i].getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << std::endl;
+        std::cout << "2D Image max width: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>()
+                  << std::endl;
+        std::cout << "2D Image max height: " << devices_[i].getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>()
+                  << std::endl;
+        std::cout << "Preferred vector width: "
+                  << devices_[i].getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>() << std::endl;
     }
 
     cl_int status;
@@ -90,7 +102,6 @@ CLContext::CLContext(const cl::Platform& platform)
     ThrowIfFailed(status, "Failed to create queue");
 
     std::cout << "Successfully created context " << std::endl;
-
 }
 
 void CLContext::WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const
@@ -105,8 +116,11 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     ThrowIfFailed(status, "Failed to read buffer");
 }
 
-void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer,
-    std::size_t src_offset, std::size_t dst_offset, std::size_t size) const
+void CLContext::CopyBuffer(const cl::Buffer& src_buffer,
+    const cl::Buffer& dst_buffer,
+    std::size_t src_offset,
+    std::size_t dst_offset,
+    std::size_t size) const
 {
     cl_int status = queue_.enqueueCopyBuffer(src_buffer, dst_buffer, src_offset, dst_offset, size);
     ThrowIfFailed(status, "Failed to copy buffer");
@@ -114,7 +128,8 @@ void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_b
 
 void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
 {
-    cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
+    cl_int status = queue_.enqueueNDRangeKernel(
+        kernel.GetKernel(), cl::NullRange, cl::NDRange(work_size), cl::NullRange, 0);
     ThrowIfFailed(status, ("Failed to enqueue kernel " + kernel.GetName()).c_str());
 }
 
@@ -130,10 +145,11 @@ void CLContext::ReleaseGLObject(cl_mem mem)
     ThrowIfFailed(status, "Failed to release GL object");
 }
 
-std::shared_ptr<CLKernel> CLContext::CreateKernel(const char* filename, char const* kernel_name,
-    std::vector<std::string> const& definitions)
+std::shared_ptr<CLKernel> CLContext::CreateKernel(
+    const char* filename, char const* kernel_name, std::vector<std::string> const& definitions)
 {
-    std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(*this, (kernels_path_ + filename).c_str(), kernel_name, definitions);
+    std::shared_ptr<CLKernel> kernel = std::make_shared<CLKernel>(
+        *this, (kernels_path_ + filename).c_str(), kernel_name, definitions);
     kernels_.push_back(kernel);
     return kernel;
 }
@@ -143,8 +159,10 @@ void CLContext::ReloadKernels()
     try
     {
         // Erase expired kernels
-        kernels_.erase(std::remove_if(kernels_.begin(), kernels_.end(),
-            [](std::weak_ptr<CLKernel> ptr) { return ptr.expired(); }), kernels_.end());
+        kernels_.erase(std::remove_if(kernels_.begin(),
+                           kernels_.end(),
+                           [](std::weak_ptr<CLKernel> ptr) { return ptr.expired(); }),
+            kernels_.end());
 
         // Reload remaining
         for (auto kernel : kernels_)
@@ -160,7 +178,9 @@ void CLContext::ReloadKernels()
     }
 }
 
-CLKernel::CLKernel(CLContext const& cl_context, const char* filename, char const* kernel_name,
+CLKernel::CLKernel(CLContext const& cl_context,
+    const char* filename,
+    char const* kernel_name,
     std::vector<std::string> const& definitions)
     : context_(cl_context)
     , filename_(filename)
@@ -180,7 +200,8 @@ void CLKernel::Reload()
     }
 
     // std::istreambuf_iterator s should be wrapped by brackets (wat?)
-    std::string source((std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
+    std::string source(
+        (std::istreambuf_iterator<char>(input_file)), (std::istreambuf_iterator<char>()));
 
     cl_int status;
     cl::Program program(context_.GetContext(), source, false, &status);
@@ -194,7 +215,10 @@ void CLKernel::Reload()
     }
 
     status = program.build(build_options.c_str());
-    ThrowIfFailed(status, ("Error building " + std::string(filename_) + ": " + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(context_.GetDevices()[0])).c_str());
+    ThrowIfFailed(status,
+        ("Error building " + std::string(filename_) + ": "
+            + program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(context_.GetDevices()[0]))
+            .c_str());
 
     kernel_ = cl::Kernel(program, kernel_name_.c_str(), &status);
     ThrowIfFailed(status, ("Failed to create kernel " + std::string(kernel_name_)).c_str());
@@ -204,23 +228,28 @@ void CLKernel::Reload()
     {
         bool is_buffer = arg.second.arg_type == KernelArg::ArgType::kBuffer;
         // For cl_mem, this function takes a reference
-        cl_int status = kernel_.setArg(arg.first, arg.second.size, (void*)(is_buffer ? &arg.second.data : arg.second.data));
-        ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg.first)).c_str());
+        cl_int status = kernel_.setArg(
+            arg.first, arg.second.size, (void*)(is_buffer ? &arg.second.data : arg.second.data));
+        ThrowIfFailed(status,
+            (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg.first))
+                .c_str());
     }
 }
 
 void CLKernel::SetArgument(std::uint32_t arg_index, void const* data, std::size_t size)
 {
-    kernel_args_[arg_index] = KernelArg{ data, size, KernelArg::ArgType::kConstant };
+    kernel_args_[arg_index] = KernelArg{data, size, KernelArg::ArgType::kConstant};
     cl_int status = kernel_.setArg(arg_index, size, (void*)data);
-    ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
+    ThrowIfFailed(status,
+        (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
 void CLKernel::SetArgument(std::uint32_t arg_index, cl_mem buffer)
 {
-    kernel_args_[arg_index] = KernelArg{ buffer, sizeof(cl_mem), KernelArg::ArgType::kBuffer };
+    kernel_args_[arg_index] = KernelArg{buffer, sizeof(cl_mem), KernelArg::ArgType::kBuffer};
     cl_int status = kernel_.setArg(arg_index, sizeof(cl_mem), &buffer);
-    ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
+    ThrowIfFailed(status,
+        (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
 void CLKernel::SetArgument(std::uint32_t arg_index, cl::Buffer buffer)

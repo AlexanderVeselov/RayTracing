@@ -108,18 +108,21 @@ void main()
     uint pixel_index = pixel_pos.y * width + pixel_pos.x;
 
     bool is_background = (geom_info == 0);
-    uint triangle_idx = (geom_info - 1);
+    uint rt_triangle_idx = (geom_info - 1);
 
     Hit hit;
     hit.bc = float2(0.0f, 0.0f);
-    hit.primitive_id = is_background ? INVALID_ID : triangle_idx;
+    hit.primitive_id = INVALID_ID;
     hit.t = 0.0f;
 
     if (!is_background)
     {
         Ray ray = rays[pixel_index];
-        RTTriangle triangle = triangles[triangle_idx];
-        RayTriangle(ray, triangle, hit.bc, hit.t);
+        RTTriangle triangle = triangles[rt_triangle_idx];
+        if (RayTriangle(ray, triangle, hit.bc, hit.t))
+        {
+            hit.primitive_id = triangle.prim_id;
+        }
     }
 
     hits[pixel_index] = hit;

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <GLFW/glfw3.h>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -142,7 +143,7 @@ enum class MouseButton
 
 class Window
 {
-  public:
+public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
@@ -151,18 +152,9 @@ class Window
 
     // Returns HWND in the case of WIN32 platform
     void* GetNativeHandle() const;
-    GLFWwindow* GetGlfwWindow() const
-    {
-        return window_.get();
-    }
-    std::uint32_t GetWidth() const
-    {
-        return width_;
-    }
-    std::uint32_t GetHeight() const
-    {
-        return height_;
-    }
+    GLFWwindow* GetGlfwWindow() const { return window_.get(); }
+    std::uint32_t GetWidth() const { return width_; }
+    std::uint32_t GetHeight() const { return height_; }
 
     void GetMousePos(int& x, int& y) const;
     void SetMousePos(int x, int y) const;
@@ -177,7 +169,7 @@ class Window
         scroll_callbacks_.push_back(callback);
     }
 
-  private:
+private:
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
     std::unique_ptr<GLFWwindow, void (*)(GLFWwindow*)> window_;

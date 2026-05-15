@@ -82,8 +82,12 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::u
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
-    const std::vector<std::uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitiveInfo,
-    unsigned start, unsigned end, unsigned* totalNodes, std::vector<RTTriangle>& orderedTris)
+    const std::vector<std::uint32_t>& src_indices,
+    std::vector<BVHPrimitiveInfo>& primitiveInfo,
+    unsigned start,
+    unsigned end,
+    unsigned* totalNodes,
+    std::vector<RTTriangle>& orderedTris)
 {
     BVHBuildNode* node = new BVHBuildNode;
     (*totalNodes)++;
@@ -95,7 +99,8 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
 
     const unsigned n = end - start;
 
-    auto push_triangle = [&](unsigned primId) {
+    auto push_triangle = [&](unsigned primId)
+    {
         const uint32_t i0 = src_indices[3 * primId + 0];
         const uint32_t i1 = src_indices[3 * primId + 1];
         const uint32_t i2 = src_indices[3 * primId + 2];
@@ -134,10 +139,11 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
     unsigned mid = (start + end) / 2;
     if (n <= 2)
     {
-        std::nth_element(&primitiveInfo[start], &primitiveInfo[mid], &primitiveInfo[end - 1] + 1,
-            [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b) {
-                return a.centroid[dim] < b.centroid[dim];
-            });
+        std::nth_element(&primitiveInfo[start],
+            &primitiveInfo[mid],
+            &primitiveInfo[end - 1] + 1,
+            [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b)
+            { return a.centroid[dim] < b.centroid[dim]; });
     }
     else
     {
@@ -184,7 +190,9 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
         if (n > kMaxPrimitivesInNode || minCost < leafCost)
         {
             BVHPrimitiveInfo* pmid = std::partition(&primitiveInfo[start],
-                &primitiveInfo[end - 1] + 1, [&](const BVHPrimitiveInfo& pi) {
+                &primitiveInfo[end - 1] + 1,
+                [&](const BVHPrimitiveInfo& pi)
+                {
                     int b = int(nBuckets * cBounds.Offset(pi.centroid)[dim]);
                     if (b == int(nBuckets))
                         b = int(nBuckets) - 1;

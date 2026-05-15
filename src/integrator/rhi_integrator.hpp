@@ -24,21 +24,23 @@
 
 #pragma once
 
-#include "integrator.hpp"
-
-#include "gpu_buffer.hpp"
-#include "gpu_types.hpp"
-
 #include <array>
 #include <memory>
 #include <vector>
 
+#include "gpu_buffer.hpp"
+#include "gpu_types.hpp"
+#include "integrator.hpp"
+
 class RhiIntegrator : public Integrator
 {
 public:
-    RhiIntegrator(std::uint32_t width, std::uint32_t height, AccelerationStructure& acc_structure,
-        gpu::Device& device, gpu::Swapchain& swapchain);
-    ~RhiIntegrator();
+    RhiIntegrator(std::uint32_t width,
+        std::uint32_t height,
+        AccelerationStructure& acc_structure,
+        gpu::Device& device,
+        gpu::Swapchain& swapchain);
+    ~RhiIntegrator() = default;
 
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
     void SetCurrentSwapchainImageLayout(gpu::ImageLayout layout);
@@ -70,25 +72,26 @@ protected:
 
 private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, std::size_t size, std::uint32_t stride);
+    gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
-    template<class T>
+    template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer,
         gpu::CommandBufferPtr& upload_command_buffer,
         std::vector<gpu::BufferPtr>& staging_buffers)
     {
         size_t allocation_size = std::max<size_t>(cpu_buffer.size() * sizeof(T), sizeof(T));
-        gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
+        gpu::BufferPtr buffer =
+            device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
         if (!cpu_buffer.empty())
         {
-            gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(),
-                cpu_buffer.size() * sizeof(T), sizeof(T));
-            upload_command_buffer->CopyBuffer(staging_buffer, 0, buffer,
-                0, cpu_buffer.size() * sizeof(T));
+            gpu::BufferPtr staging_buffer =
+                CreateStagingBuffer(cpu_buffer.data(), cpu_buffer.size() * sizeof(T), sizeof(T));
+            upload_command_buffer->CopyBuffer(
+                staging_buffer, 0, buffer, 0, cpu_buffer.size() * sizeof(T));
             staging_buffers.push_back(std::move(staging_buffer));
         }
         return buffer;
     }
-    gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
 
     void UpdateFrameData();
     void RebuildDescriptorSets();
@@ -98,10 +101,9 @@ private:
     gpu::ImagePtr output_image_;
     gpu::CommandBuffer* command_buffer_ = nullptr;
 
+    // Path tracing pipelines
     gpu::ComputePipelinePtr reset_pipeline_;
     gpu::ComputePipelinePtr raygen_pipeline_;
-    gpu::ComputePipelinePtr trace_pipeline_;
-    gpu::ComputePipelinePtr trace_shadow_pipeline_;
     gpu::ComputePipelinePtr aov_pipeline_;
     gpu::ComputePipelinePtr miss_pipeline_;
     gpu::ComputePipelinePtr hit_surface_pipeline_;
@@ -113,6 +115,11 @@ private:
     gpu::ComputePipelinePtr copy_history_pipeline_;
     gpu::ComputePipelinePtr resolve_pipeline_;
 
+    // BVH traversal pipelines
+    gpu::ComputePipelinePtr trace_pipeline_;
+    gpu::ComputePipelinePtr trace_shadow_pipeline_;
+
+    // Descriptor sets
     gpu::DescriptorSetPtr reset_set_;
     gpu::DescriptorSetPtr raygen_set_;
     std::array<gpu::DescriptorSetPtr, 2> trace_sets_;
@@ -129,8 +136,7 @@ private:
     gpu::DescriptorSetPtr copy_history_set_;
     gpu::DescriptorSetPtr resolve_set_;
 
-    gpu::BufferPtr camera_cpu_buffer_;
-    gpu::BufferPtr camera_buffer_;
+    // Internal buffers and images
     std::array<gpu::BufferPtr, 2> rays_buffers_;
     std::array<gpu::BufferPtr, 2> pixel_indices_buffers_;
     std::array<gpu::BufferPtr, 2> ray_counter_buffers_;
@@ -151,6 +157,9 @@ private:
     gpu::ImagePtr direct_light_samples_image_;
     std::array<gpu::BufferPtr, 2> bounce_buffers_;
 
+    // Scene buffers
+    gpu::BufferPtr camera_cpu_buffer_;
+    gpu::BufferPtr camera_buffer_;
     gpu::BufferPtr vertex_buffer_;
     gpu::BufferPtr index_buffer_;
     gpu::BufferPtr triangle_material_index_buffer_;

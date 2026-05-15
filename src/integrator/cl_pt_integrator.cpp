@@ -22,177 +22,163 @@
  SOFTWARE.
  *****************************************************************************/
 
+#include "cl_pt_integrator.hpp"
+
 #include <GL/glew.h>
 
 #include "Scene/scene.hpp"
 #include "Utils/blue_noise_sampler.hpp"
 #include "acceleration_structure.hpp"
-#include "cl_pt_integrator.hpp"
 #include "utils/cl_exception.hpp"
-
-namespace
-{
-KernelCamera MakeKernelCamera(Camera const& camera)
-{
-    KernelCamera kernel_camera = {};
-    kernel_camera.position_fov =
-        float4(camera.position.x, camera.position.y, camera.position.z, camera.fov);
-    kernel_camera.front_aspect =
-        float4(camera.front.x, camera.front.y, camera.front.z, camera.aspect_ratio);
-    kernel_camera.up_aperture = float4(camera.up.x, camera.up.y, camera.up.z, camera.aperture);
-    kernel_camera.lens = float4(camera.focus_distance, 0.0f, 0.0f, 0.0f);
-    return kernel_camera;
-}
-} // namespace
 
 namespace args
 {
 namespace Raygen
 {
-enum
-{
-    kWidth,
-    kHeight,
-    kCamera,
-    kSampleCounterBuffer,
-    // Output
-    kRayBuffer,
-    kRayCounterBuffer,
-    kPixelIndicesBuffer,
-    kThroughputsBuffer,
-    kDiffuseAlbedo,
-    kDepth,
-    kNormal,
-    kVelocity,
-};
-} // namespace Raygen
+    enum
+    {
+        kWidth,
+        kHeight,
+        kCamera,
+        kSampleCounterBuffer,
+        // Output
+        kRayBuffer,
+        kRayCounterBuffer,
+        kPixelIndicesBuffer,
+        kThroughputsBuffer,
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kVelocity,
+    };
+}  // namespace Raygen
 
 namespace Miss
 {
-enum
-{
-    kRayBuffer,
-    kRayCounterBuffer,
-    kHitsBuffer,
-    kPixelIndicesBuffer,
-    kThroughputsBuffer,
-    kIblTextureBuffer,
-    kRadianceBuffer,
-};
-} // namespace Miss
+    enum
+    {
+        kRayBuffer,
+        kRayCounterBuffer,
+        kHitsBuffer,
+        kPixelIndicesBuffer,
+        kThroughputsBuffer,
+        kIblTextureBuffer,
+        kRadianceBuffer,
+    };
+}  // namespace Miss
 
 namespace Aov
 {
-enum
-{
-    // Input
-    kRayBuffer,
-    kRayCounterBuffer,
-    kPixelIndicesBuffer,
-    kHitsBuffer,
-    kVertexBuffer,
-    kIndexBuffer,
-    kMaterialIDsBuffer,
-    kMaterialsBuffer,
-    kTexturesBuffer,
-    kTextureDataBuffer,
-    kWidth,
-    kHeight,
-    kCamera,
-    kPrevCamera,
-    // Output
-    kDiffuseAlbedo,
-    kDepth,
-    kNormal,
-    kVelocity,
-};
-} // namespace Aov
+    enum
+    {
+        // Input
+        kRayBuffer,
+        kRayCounterBuffer,
+        kPixelIndicesBuffer,
+        kHitsBuffer,
+        kVertexBuffer,
+        kIndexBuffer,
+        kMaterialIDsBuffer,
+        kMaterialsBuffer,
+        kTexturesBuffer,
+        kTextureDataBuffer,
+        kWidth,
+        kHeight,
+        kCamera,
+        kPrevCamera,
+        // Output
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kVelocity,
+    };
+}  // namespace Aov
 
 namespace HitSurface
 {
-enum
-{
-    // Input
-    kIncomingRayBuffer,
-    kIncomingRayCounterBuffer,
-    kIncomingPixelIndicesBuffer,
-    kHitsBuffer,
-    kVertexBuffer,
-    kIndexBuffer,
-    kMaterialIDsBuffer,
-    kAnalyticLightsBuffer,
-    kEmissiveIndicesBuffer,
-    kMaterialsBuffer,
-    kTexturesBuffer,
-    kTextureDataBuffer,
-    kBounce,
-    kWidth,
-    kHeight,
-    kSampleCounterBuffer,
-    kSceneInfo,
-    kSobolBuffer,
-    kScramblingTileBuffer,
-    kRankingTileBuffer,
-    // Output
-    kThroughputsBuffer,
-    kOutgoingRayBuffer,
-    kOutgoingRayCounterBuffer,
-    kOutgoingPixelIndicesBuffer,
-    kShadowRayBuffer,
-    kShadowRayCounterBuffer,
-    kShadowPixelIndicesBuffer,
-    kDirectLightSamplesBuffer,
-    kRadianceBuffer,
-};
-} // namespace HitSurface
+    enum
+    {
+        // Input
+        kIncomingRayBuffer,
+        kIncomingRayCounterBuffer,
+        kIncomingPixelIndicesBuffer,
+        kHitsBuffer,
+        kVertexBuffer,
+        kIndexBuffer,
+        kMaterialIDsBuffer,
+        kAnalyticLightsBuffer,
+        kEmissiveIndicesBuffer,
+        kMaterialsBuffer,
+        kTexturesBuffer,
+        kTextureDataBuffer,
+        kBounce,
+        kWidth,
+        kHeight,
+        kSampleCounterBuffer,
+        kSceneInfo,
+        kSobolBuffer,
+        kScramblingTileBuffer,
+        kRankingTileBuffer,
+        // Output
+        kThroughputsBuffer,
+        kOutgoingRayBuffer,
+        kOutgoingRayCounterBuffer,
+        kOutgoingPixelIndicesBuffer,
+        kShadowRayBuffer,
+        kShadowRayCounterBuffer,
+        kShadowPixelIndicesBuffer,
+        kDirectLightSamplesBuffer,
+        kRadianceBuffer,
+    };
+}  // namespace HitSurface
 
 namespace AccumulateDirectSamples
 {
-enum
-{
-    // Input
-    kShadowHitsBuffer,
-    kShadowRayCounterBuffer,
-    kShadowPixelIndicesBuffer,
-    kDirectLightSamplesBuffer,
-    // Output
-    kRadianceBuffer,
-};
-} // namespace AccumulateDirectSamples
+    enum
+    {
+        // Input
+        kShadowHitsBuffer,
+        kShadowRayCounterBuffer,
+        kShadowPixelIndicesBuffer,
+        kDirectLightSamplesBuffer,
+        // Output
+        kRadianceBuffer,
+    };
+}  // namespace AccumulateDirectSamples
 
 namespace TemporalAccumulation
 {
-enum
-{
-    kWidth,
-    kHeight,
-    kRadiance,
-    kPrevRadiance,
-    kDepth,
-    kPrevDepth,
-    kMotionVectors
-};
-} // namespace TemporalAccumulation
+    enum
+    {
+        kWidth,
+        kHeight,
+        kRadiance,
+        kPrevRadiance,
+        kDepth,
+        kPrevDepth,
+        kMotionVectors
+    };
+}  // namespace TemporalAccumulation
 
 namespace Resolve
 {
-enum
-{
-    // Input
-    kWidth,
-    kHeight,
-    kAovIndex,
-    kRadianceBuffer,
-    kDiffuseAlbedo,
-    kDepth,
-    kNormal,
-    kMotionVectors,
-    kSampleCounterBuffer,
-    // Output
-    kResolvedTexture,
-};
-} // namespace Resolve
-} // namespace args
+    enum
+    {
+        // Input
+        kWidth,
+        kHeight,
+        kAovIndex,
+        kRadianceBuffer,
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kMotionVectors,
+        kSampleCounterBuffer,
+        // Output
+        kResolvedTexture,
+    };
+}  // namespace Resolve
+}  // namespace args
 
 cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
 {
@@ -203,10 +189,14 @@ cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
     return buffer;
 }
 
-CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-    AccelerationStructure& acc_structure, CLContext& cl_context, unsigned int output_image)
-    : Integrator(width, height, acc_structure), cl_context_(cl_context),
-      gl_interop_image_(output_image)
+CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width,
+    std::uint32_t height,
+    AccelerationStructure& acc_structure,
+    CLContext& cl_context,
+    unsigned int output_image)
+    : Integrator(width, height, acc_structure)
+    , cl_context_(cl_context)
+    , gl_interop_image_(output_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -238,19 +228,25 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 
     // Sampler buffers
     {
-        sampler_sobol_buffer_ =
-            cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                sizeof(sobol_256spp_256d), (void*)sobol_256spp_256d, &status);
+        sampler_sobol_buffer_ = cl::Buffer(cl_context.GetContext(),
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(sobol_256spp_256d),
+            (void*)sobol_256spp_256d,
+            &status);
         ThrowIfFailed(status, "Failed to create sobol buffer");
 
-        sampler_scrambling_tile_buffer_ =
-            cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                sizeof(scramblingTile), (void*)scramblingTile, &status);
+        sampler_scrambling_tile_buffer_ = cl::Buffer(cl_context.GetContext(),
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(scramblingTile),
+            (void*)scramblingTile,
+            &status);
         ThrowIfFailed(status, "Failed to create scrambling tile buffer");
 
-        sampler_ranking_tile_buffer_ =
-            cl::Buffer(cl_context.GetContext(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                sizeof(rankingTile), (void*)rankingTile, &status);
+        sampler_ranking_tile_buffer_ = cl::Buffer(cl_context.GetContext(),
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(rankingTile),
+            (void*)rankingTile,
+            &status);
         ThrowIfFailed(status, "Failed to create ranking tile tile buffer");
     }
 
@@ -396,12 +392,9 @@ void CLPathTraceIntegrator::CreateKernels()
 
 void CLPathTraceIntegrator::SetCameraData(Camera const& camera)
 {
-    KernelCamera kernel_camera = MakeKernelCamera(camera);
-    KernelCamera prev_kernel_camera = MakeKernelCamera(prev_camera_);
-    raygen_kernel_->SetArgument(args::Raygen::kCamera, &kernel_camera, sizeof(kernel_camera));
-    aov_kernel_->SetArgument(args::Aov::kCamera, &kernel_camera, sizeof(kernel_camera));
-    aov_kernel_->SetArgument(
-        args::Aov::kPrevCamera, &prev_kernel_camera, sizeof(prev_kernel_camera));
+    raygen_kernel_->SetArgument(args::Raygen::kCamera, &camera, sizeof(camera));
+    aov_kernel_->SetArgument(args::Aov::kCamera, &camera, sizeof(camera));
+    aov_kernel_->SetArgument(args::Aov::kPrevCamera, &prev_camera_, sizeof(prev_camera_));
     prev_camera_ = camera;
 }
 
@@ -451,8 +444,13 @@ void CLPathTraceIntegrator::UploadGPUData(
         image_format.image_channel_data_type = CL_FLOAT;
 
         env_texture_ = cl::Image2D(cl_context_.GetContext(),
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_format, env_image.width,
-            env_image.height, 0, (void*)env_image.data.data(), &status);
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            image_format,
+            env_image.width,
+            env_image.height,
+            0,
+            (void*)env_image.data.data(),
+            &status);
         ThrowIfFailed(status, "Failed to create environment image");
     }
 

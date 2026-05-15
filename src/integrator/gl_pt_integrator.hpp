@@ -24,16 +24,18 @@
 
 #pragma once
 
-#include "integrator.hpp"
-#include "gpu_wrappers/gl_graphics_pipeline.hpp"
-#include "gpu_wrappers/gl_compute_pipeline.hpp"
 #include "glm/matrix.hpp"
+#include "gpu_wrappers/gl_compute_pipeline.hpp"
+#include "gpu_wrappers/gl_graphics_pipeline.hpp"
+#include "integrator.hpp"
 
 class GLPathTraceIntegrator : public Integrator
 {
 public:
-    GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-        AccelerationStructure& acc_structure, std::uint32_t out_image);
+    GLPathTraceIntegrator(std::uint32_t width,
+        std::uint32_t height,
+        AccelerationStructure& acc_structure,
+        std::uint32_t out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void SetSamplerType(SamplerType sampler_type) override;
@@ -84,7 +86,9 @@ private:
     GLuint out_image_;
 
     // Scene buffers
-    GLuint triangle_buffer_;
+    GLuint vertex_buffer_;
+    GLuint index_buffer_;
+    GLuint triangle_material_index_buffer_;
     GLuint material_buffer_;
     GLuint texture_buffer_;
     GLuint texture_data_buffer_;
@@ -103,7 +107,7 @@ private:
     GLuint nodes_buffer_;
 
     // Indirect rays
-    GLuint rays_buffer_[2]; // 2 buffers for incoming-outgoing rays
+    GLuint rays_buffer_[2];  // 2 buffers for incoming-outgoing rays
     GLuint ray_counter_buffer_[2];
     GLuint pixel_indices_buffer_[2];
     // Shadow rays
