@@ -23,7 +23,9 @@
  *****************************************************************************/
 
 #include "gl_compute_pipeline.hpp"
+
 #include "gl_shader_utils.hpp"
+
 #include <cstring>
 #include <stdexcept>
 
@@ -74,7 +76,6 @@ void ComputePipeline::BindConstant(char const* name, float value)
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)
     {
-
         std::cerr << "Can't find variable " << name << "\n";
         return;
     }
@@ -90,4 +91,15 @@ void ComputePipeline::BindConstant(char const* name, float3 value)
         return;
     }
     glUniform3f(uniform_index, value.x, value.y, value.z);
+}
+
+void ComputePipeline::BindConstant(char const* name, float4 value)
+{
+    GLuint uniform_index = glGetUniformLocation(shader_program_, name);
+    if (uniform_index == GL_INVALID_INDEX)
+    {
+        std::cerr << "Can't find variable " << name << "\n";
+        return;
+    }
+    glUniform4f(uniform_index, value.x, value.y, value.z, value.w);
 }

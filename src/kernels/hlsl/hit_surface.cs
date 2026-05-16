@@ -56,13 +56,15 @@ StructuredBuffer<uint> g_Bounce : register(t14);
 RWStructuredBuffer<uint> g_SampleCounter : register(u15);
 
 // Scene data
-StructuredBuffer<Triangle> g_Triangles : register(t16);
-StructuredBuffer<PackedMaterial> g_Materials : register(t17);
-StructuredBuffer<Light> g_Lights : register(t18);
+StructuredBuffer<Vertex> g_Vertices : register(t16);
+StructuredBuffer<uint> g_Indices : register(t17);
+StructuredBuffer<uint> g_TriangleMaterialIndices : register(t18);
+StructuredBuffer<PackedMaterial> g_Materials : register(t19);
+StructuredBuffer<Light> g_Lights : register(t20);
 
 // Texture data
-StructuredBuffer<TextureInfo> g_Textures : register(t19);
-StructuredBuffer<uint> g_TextureData : register(t20);
+StructuredBuffer<TextureInfo> g_Textures : register(t21);
+StructuredBuffer<uint> g_TextureData : register(t22);
 
 #include "light.hlsli"
 #include "material.hlsli"
@@ -92,15 +94,15 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     Ray incoming_ray = g_IncomingRays[ray_idx];
     float3 incoming = -incoming_ray.direction.xyz;
 
-    Triangle tri = g_Triangles[hit.primitive_id];
-    float3 position = InterpolateAttributes(
-        tri.v1.position.xyz, tri.v2.position.xyz, tri.v3.position.xyz, hit.bc);
+    uint index_offset = hit.primitive_id * 3;
+    Vertex v1 = g_Vertices[g_Indices[index_offset + 0]];
+    Vertex v2 = g_Vertices[g_Indices[index_offset + 1]];
+    Vertex v3 = g_Vertices[g_Indices[index_offset + 2]];
+    float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
     float2 texcoord =
-        InterpolateAttributes2(tri.v1.texcoord.xy, tri.v2.texcoord.xy, tri.v3.texcoord.xy, hit.bc);
-    float3 geometry_normal = normalize(cross(
-        tri.v2.position.xyz - tri.v1.position.xyz, tri.v3.position.xyz - tri.v1.position.xyz));
-    float3 normal = normalize(
-        InterpolateAttributes(tri.v1.normal.xyz, tri.v2.normal.xyz, tri.v3.normal.xyz, hit.bc));
+        InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
+    float3 geometry_normal = normalize(cross(v2.position - v1.position, v3.position - v1.position));
+    float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
     if (dot(normal, incoming) < 0.0f)
     {
         normal = -normal;
@@ -110,7 +112,8 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         geometry_normal = -geometry_normal;
     }
 
-    Material material = ApplyTextures(g_Materials[tri.material_index], texcoord, g_SceneCounts.w);
+    uint material_index = g_TriangleMaterialIndices[hit.primitive_id];
+    Material material = ApplyTextures(g_Materials[material_index], texcoord, g_SceneCounts.w);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
     if ((g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) == 0u &&
         dot(material.emission, 1.0f.xxx) > 0.0f)

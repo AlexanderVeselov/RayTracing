@@ -22,24 +22,22 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include <GL/glew.h>
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-#include "scene.hpp"
 #include "mathlib/mathlib.hpp"
 #include "render.hpp"
+#include "scene.hpp"
 #include "utils/cl_exception.hpp"
 
 #include <algorithm>
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <ctime>
 #include <cctype>
+#include <ctime>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 #undef max
 
@@ -50,14 +48,57 @@ Scene::Scene(const char* filename, float scale, bool flip_yz)
 
 namespace
 {
+// Simple FNV-1a hash combiner for 32-bit values
+inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
+{
+    h ^= v;
+    h *= 16777619u; // FNV prime
+    return h;
+}
+
+struct VertexHasher
+{
+    std::size_t operator()(Vertex const& v) const noexcept
+    {
+        std::size_t h = 2166136261u; // FNV offset basis
+        auto hash_float = [&](float f)
+        {
+            std::uint32_t bits;
+            static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
+            std::memcpy(&bits, &f, sizeof(f));
+            h = hash_combine_u32(h, bits);
+        };
+        hash_float(v.position.x);
+        hash_float(v.position.y);
+        hash_float(v.position.z);
+        hash_float(v.normal.x);
+        hash_float(v.normal.y);
+        hash_float(v.normal.z);
+        hash_float(v.texcoord.x);
+        hash_float(v.texcoord.y);
+        return h;
+    }
+};
+
+struct VertexEqual
+{
+    bool operator()(Vertex const& a, Vertex const& b) const noexcept
+    {
+        return
+            a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+            a.normal.x == b.normal.x && a.normal.y == b.normal.y && a.normal.z == b.normal.z &&
+            a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
+    }
+};
+
 unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
 {
     assert(texture_index < 256);
     r = clamp(r, 0.0f, 1.0f);
     g = clamp(g, 0.0f, 1.0f);
     b = clamp(b, 0.0f, 1.0f);
-    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8)
-         | ((unsigned int)(b * 255.0f) << 16) | (texture_index << 24);
+    return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8) | ((unsigned int)(b * 255.0f) << 16)
+        | (texture_index << 24);
 }
 
 unsigned int PackRGBE(float r, float g, float b)
@@ -68,8 +109,10 @@ unsigned int PackRGBE(float r, float g, float b)
     b = std::max(b, 0.0f);
 
     float v = r;
-    if (g > v) v = g;
-    if (b > v) v = b;
+    if (g > v)
+        v = g;
+    if (b > v)
+        v = b;
 
     if (v < 1e-32f)
     {
@@ -79,8 +122,8 @@ unsigned int PackRGBE(float r, float g, float b)
     {
         int e;
         v = frexp(v, &e) * 256.0f / v;
-        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8)
-            | ((unsigned int)(b * v) << 16) | ((e + 128) << 24);
+        return ((unsigned int)(r * v)) | ((unsigned int)(g * v) << 8) | ((unsigned int)(b * v) << 16)
+            | ((e + 128) << 24);
     }
 }
 
@@ -93,7 +136,7 @@ float3 UnpackRGBE(unsigned int rgbe)
     int exp = rgbe >> 24;
 
     if (exp)
-    {   /*nonzero pixel*/
+    { /*nonzero pixel*/
         f = ldexp(1.0f, exp - (int)(128 + 8));
         return float3((float)r, (float)g, (float)b) * f;
     }
@@ -103,26 +146,26 @@ float3 UnpackRGBE(unsigned int rgbe)
     }
 }
 
-unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx,
-    float metalness, std::uint32_t metalness_idx)
+unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx, float metalness,
+    std::uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
     roughness = clamp(roughness, 0.0f, 1.0f);
     metalness = clamp(metalness, 0.0f, 1.0f);
-    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8)
-        | ((unsigned int)(metalness * 255.0f) << 16) | (metalness_idx << 24);
+    return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8) | ((unsigned int)(metalness * 255.0f) << 16)
+        | (metalness_idx << 24);
 }
 
-unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_idx,
-    float transparency, std::uint32_t transparency_idx)
+unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_idx, float transparency,
+    std::uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);
     ior = clamp(ior, 0.0f, 10.0f);
     transparency = clamp(transparency, 0.0f, 1.0f);
-    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8)
-        | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
+    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16)
+        | (transparency_idx << 24);
 }
-}
+}  // namespace
 
 void Scene::Load(const char* filename, float scale, bool flip_yz)
 {
@@ -153,39 +196,42 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         auto const& in_material = materials[material_idx];
 
         // Convert from sRGB to linear
-        out_material.diffuse_albedo = PackAlbedo(
-            pow(in_material.diffuse[0], kGamma), // R
-            pow(in_material.diffuse[1], kGamma), // G
-            pow(in_material.diffuse[2], kGamma), // B
-            in_material.diffuse_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
+        out_material.diffuse_albedo = PackAlbedo(pow(in_material.diffuse[0], kGamma),  // R
+            pow(in_material.diffuse[1], kGamma),                                       // G
+            pow(in_material.diffuse[2], kGamma),                                       // B
+            in_material.diffuse_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.diffuse_texname).c_str()));
 
-        out_material.specular_albedo = PackAlbedo(
-            pow(in_material.specular[0], kGamma), // R
-            pow(in_material.specular[1], kGamma), // G
-            pow(in_material.specular[2], kGamma), // B
-            in_material.specular_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
+        out_material.specular_albedo = PackAlbedo(pow(in_material.specular[0], kGamma),  // R
+            pow(in_material.specular[1], kGamma),                                        // G
+            pow(in_material.specular[2], kGamma),                                        // B
+            in_material.specular_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.specular_texname).c_str()));
 
         out_material.emission = PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
 
-        out_material.roughness_metalness = PackRoughnessMetalness(
-            in_material.roughness,
-            in_material.roughness_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.roughness_texname).c_str()),
+        out_material.roughness_metalness = PackRoughnessMetalness(in_material.roughness,
+            in_material.roughness_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.roughness_texname).c_str()),
             in_material.metallic,
-            in_material.metallic_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.metallic_texname).c_str()));
+            in_material.metallic_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.metallic_texname).c_str()));
 
-        out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(
-            in_material.ior, in_material.emissive_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.emissive_texname).c_str()),
-            in_material.transmittance[0], in_material.alpha_texname.empty() ? kInvalidTextureIndex :
-            LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
-
+        out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(in_material.ior,
+            in_material.emissive_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.emissive_texname).c_str()),
+            in_material.transmittance[0],
+            in_material.alpha_texname.empty()
+                ? kInvalidTextureIndex
+                : LoadTexture((path_to_folder + "/" + in_material.alpha_texname).c_str()));
     }
 
-    auto flip_vector = [](float3& vec, bool do_flip)
+    auto flip_vector = [](auto& vec, bool do_flip)
     {
         if (do_flip)
         {
@@ -193,6 +239,15 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             vec.y = -vec.y;
         }
     };
+
+    // Reserve memory (approx count) to reduce re-allocations
+    size_t approx_triangles = 0;
+    for (auto const& s : shapes) approx_triangles += s.mesh.indices.size() / 3;
+    vertices_.reserve(vertices_.size() + approx_triangles * 3);
+    indices_.reserve(indices_.size() + approx_triangles * 3);
+
+    // Cache for vertex deduplication (position+normal+texcoord)
+    std::unordered_map<Vertex, std::uint32_t, VertexHasher, VertexEqual> vertex_cache;
 
     for (auto const& shape : shapes)
     {
@@ -214,38 +269,51 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             auto texcoord_idx_2 = indices[face * 3 + 1].texcoord_index;
             auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
 
-            Vertex v1;
+            Vertex v1{}, v2{}, v3{};
             v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0] * scale;
             v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1] * scale;
             v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2] * scale;
 
-            v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
-            v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
-            v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
-
-            v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
-            v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
-
-            Vertex v2;
             v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
             v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
             v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
 
-            v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
-            v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
-            v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
-
-            v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
-            v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
-
-            Vertex v3;
             v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
             v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
             v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
 
-            v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
-            v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
-            v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
+            auto compute_face_normal = [](const float3& a, const float3& b, const float3& c) {
+                return (Cross(b - a, c - a)).Normalize();
+                };
+            bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
+
+            if (has_n)
+            {
+                v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
+                v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
+                v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+
+                v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
+                v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
+                v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
+
+                v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
+                v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
+                v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
+            }
+            else
+            {
+                float3 n = compute_face_normal(v1.position.xyz(), v2.position.xyz(), v3.position.xyz());
+                v1.normal.xyz() = n;
+                v2.normal.xyz() = n;
+                v3.normal.xyz() = n;
+            }
+
+            v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
+            v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
+
+            v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
+            v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
 
             v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
             v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
@@ -257,20 +325,38 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             flip_vector(v3.position, flip_yz);
             flip_vector(v3.normal, flip_yz);
 
+            // Vertex deduplication: reuse vertices with identical attributes
+            auto find_or_add = [&](Vertex const& v) -> std::uint32_t
+                {
+                    auto it = vertex_cache.find(v);
+                    if (it != vertex_cache.end()) return it->second;
+                    std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                    vertices_.push_back(v);
+                    vertex_cache.emplace(v, idx);
+                    return idx;
+                };
+
+            std::uint32_t i1 = find_or_add(v1);
+            std::uint32_t i2 = find_or_add(v2);
+            std::uint32_t i3 = find_or_add(v3);
+
+            indices_.push_back(i1);
+            indices_.push_back(i2);
+            indices_.push_back(i3);
+
             if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
             {
-                triangles_.emplace_back(v1, v2, v3, shape.mesh.material_ids[face]);
+                triangle_material_indices_.push_back(shape.mesh.material_ids[face]);
             }
             else
             {
                 // Use the default material
-                triangles_.emplace_back(v1, v2, v3, 0);
+                triangle_material_indices_.push_back(0);
             }
         }
     }
 
-    std::cout << "Load successful (" << triangles_.size() << " triangles)" << std::endl;
-
+    std::cout << "Load successful (" << indices_.size() / 3 << " triangles)" << std::endl;
 }
 
 std::size_t Scene::LoadTexture(char const* filename)
@@ -296,7 +382,8 @@ std::size_t Scene::LoadTexture(char const* filename)
         assert(!"Not implemented yet!");
         success = LoadHDR(filename, image);
     }
-    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0 || strcmp(file_extension, ".png") == 0)
+    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0
+        || strcmp(file_extension, ".png") == 0)
     {
         success = LoadSTB(filename, image);
     }
@@ -323,10 +410,10 @@ std::size_t Scene::LoadTexture(char const* filename)
 
 void Scene::CollectEmissiveTriangles()
 {
-    for (auto triangle_idx = 0; triangle_idx < triangles_.size(); ++triangle_idx)
+    for (auto triangle_idx = 0; triangle_idx < triangle_material_indices_.size(); ++triangle_idx)
     {
-        auto const& triangle = triangles_[triangle_idx];
-        float3 emission = UnpackRGBE(materials_[triangle.mtlIndex].emission);
+        uint32_t material_index = triangle_material_indices_[triangle_idx];
+        float3 emission = UnpackRGBE(materials_[material_index].emission);
 
         if (emission.x + emission.y + emission.z > 0.0f)
         {
@@ -340,13 +427,21 @@ void Scene::CollectEmissiveTriangles()
 
 void Scene::AddPointLight(float3 origin, float3 radiance)
 {
-    Light light = { origin, radiance, LIGHT_TYPE_POINT };
+    Light light = {};
+    light.origin = float4(origin.x, origin.y, origin.z, 0.0f);
+    light.radiance = float4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.type = LIGHT_TYPE_POINT;
     lights_.push_back(std::move(light));
 }
 
 void Scene::AddDirectionalLight(float3 direction, float3 radiance)
 {
-    Light light = { direction.Normalize(), radiance, LIGHT_TYPE_DIRECTIONAL };
+    direction = direction.Normalize();
+
+    Light light = {};
+    light.origin = float4(direction.x, direction.y, direction.z, 0.0f);
+    light.radiance = float4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.type = LIGHT_TYPE_DIRECTIONAL;
     lights_.emplace_back(std::move(light));
 }
 
@@ -354,7 +449,7 @@ void Scene::Finalize()
 {
     CollectEmissiveTriangles();
 
-    //scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
+    // scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
     scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
 
     LoadHDR("assets/ibl/CGSkies_0036_free.hdr", env_image_);

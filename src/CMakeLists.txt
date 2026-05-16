@@ -107,7 +107,6 @@ set(SCENE_SOURCES
 )
 
 set(UTILS_SOURCES
-    utils/blue_noise_sampler.hpp
     utils/camera_controller.cpp
     utils/camera_controller.hpp
     utils/cl_exception.hpp
@@ -162,7 +161,8 @@ target_include_directories(RayTracingApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(RayTracingApp PRIVATE
     ${PROJECT_SOURCE_DIR}/3rdparty/tinyobjloader
     ${CMAKE_SOURCE_DIR}/3rdparty/glm
-    ${CMAKE_SOURCE_DIR}/3rdparty/stb)
+    ${CMAKE_SOURCE_DIR}/3rdparty/stb
+    ${CMAKE_SOURCE_DIR}/3rdparty/blue_noise_sampler)
 target_compile_features(RayTracingApp PRIVATE cxx_std_17)
 
 target_link_libraries(RayTracingApp PUBLIC glfw3::glfw3 OpenCL_Light OpenGL::GL GLEW::GLEW OpenGL::GLU CLI11)

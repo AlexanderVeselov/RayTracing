@@ -35,5 +35,5 @@ public:
     std::vector<std::uint32_t> data;
 };
 
-bool LoadHDR(const char *filename, Image& result);
+bool LoadHDR(const char* filename, Image& result);
 bool LoadSTB(const char* filename, Image& result);

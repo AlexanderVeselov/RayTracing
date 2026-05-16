@@ -23,11 +23,12 @@
  *****************************************************************************/
 
 #include "gl_shader_utils.hpp"
-#include <string>
-#include <vector>
+
+#include <fstream>
 #include <stack>
 #include <stdexcept>
-#include <fstream>
+#include <string>
+#include <vector>
 
 std::string ReadHeader(char const* filename)
 {
@@ -139,8 +140,8 @@ GLuint CreateShader(char const* filename, GLenum shader_type, std::vector<std::s
         info_log.resize(log_length);
         glGetShaderInfoLog(shader, log_length, &log_length, &info_log[0]);
 
-        throw std::runtime_error(("Failed to compile shader " + std::string(filename) + "\n"
-            + std::string(info_log)).c_str());
+        throw std::runtime_error(("Failed to compile shader " + std::string(filename) + "\n" + std::string(info_log))
+                .c_str());
     }
 
     return shader;

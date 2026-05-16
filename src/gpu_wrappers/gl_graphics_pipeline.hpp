@@ -25,8 +25,8 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <vector>
 #include <string>
+#include <vector>
 
 class GraphicsPipeline
 {
@@ -58,5 +58,4 @@ private:
     GLuint vertex_shader_;
     GLuint fragment_shader_;
     GLuint shader_program_;
-
 };

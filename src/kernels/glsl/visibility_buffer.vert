@@ -24,23 +24,21 @@
 
 #include "src/kernels/common/shared_structures.h"
 
-layout (location = 0) uniform mat4 g_ViewProjection;
-layout (location = 0) out flat uint out_geometry_info;
+layout(location = 0) uniform mat4 g_ViewProjection;
+layout(location = 0) out flat uint out_geometry_info;
 
-layout (binding = 1, std430) buffer TriangleBuffer
+layout(binding = 1, std430) buffer RTTriangleBuffer
 {
-    Triangle triangles[];
+    RTTriangle rt_triangles[];
 };
 
 void main()
 {
     uint triangle_idx = gl_VertexID / 3;
-    Triangle triangle = triangles[triangle_idx];
+    RTTriangle triangle = rt_triangles[triangle_idx];
 
     int vertex_idx = (gl_VertexID % 3);
-    vec3 pos[3] = { triangle.v1.position.xyz,
-                    triangle.v2.position.xyz,
-                    triangle.v3.position.xyz };
+    vec3 pos[3] = {triangle.position1.xyz, triangle.position2.xyz, triangle.position3.xyz};
 
     gl_Position = g_ViewProjection * vec4(pos[vertex_idx], 1.0);
     out_geometry_info = triangle_idx;

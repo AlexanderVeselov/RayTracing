@@ -23,21 +23,18 @@
  *****************************************************************************/
 
 #include "camera_controller.hpp"
+
 #include "render.hpp"
 #include "utils/window.hpp"
+
 #include <iostream>
 
 CameraController::CameraController(Window& window)
-    : window_(window)
-    , pitch_(MATH_PIDIV2)
-    , yaw_(MATH_PIDIV2)
-    , speed_(1.0f)
-    , up_(0.0f, 0.0f, 1.0f)
+    : window_(window), pitch_(MATH_PIDIV2), yaw_(MATH_PIDIV2), speed_(1.0f), up_(0.0f, 0.0f, 1.0f)
 {
     camera_data_.focus_distance = 10.0f;
-    camera_data_.position = float3(0.0f, -1.0f, 1.0f);
-    camera_data_.fov = 75.0f * 3.1415f / 180.0f;
-    camera_data_.aspect_ratio = (float)window_.GetWidth() / (float)window_.GetHeight();
+    camera_data_.position_fov = float4(0.0f, -1.0f, 1.0f, 75.0f * 3.1415f / 180.0f);
+    camera_data_.front_aspect.w = (float)window_.GetWidth() / (float)window_.GetHeight();
 }
 
 void CameraController::Update(float dt)
@@ -74,11 +71,20 @@ void CameraController::Update(float dt)
     float speed = speed_ * (window_.GetKey(KeyCode::kLeftShift) ? 5.0f : 1.0f);
 
     // Compute new camera vectors
-    camera_data_.front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
-    float3 right = Cross(camera_data_.front, up_).Normalize();
+    float3 front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
+    camera_data_.front_aspect.x = front.x;
+    camera_data_.front_aspect.y = front.y;
+    camera_data_.front_aspect.z = front.z;
+    float3 right = Cross(front, up_).Normalize();
     // Compute the actual up vector
-    camera_data_.up = Cross(right, camera_data_.front);
+    float3 camera_up = Cross(right, front);
+    camera_data_.up_aperture.x = camera_up.x;
+    camera_data_.up_aperture.y = camera_up.y;
+    camera_data_.up_aperture.z = camera_up.z;
     // Move the camera
-    camera_data_.position += (camera_data_.front * (float)frontback
-        + right * (float)strafe + camera_data_.up * (float)updown) * dt * speed;
+    float3 position = camera_data_.position_fov.xyz();
+    position += (front * (float)frontback + right * (float)strafe + camera_up * (float)updown) * dt * speed;
+    camera_data_.position_fov.x = position.x;
+    camera_data_.position_fov.y = position.y;
+    camera_data_.position_fov.z = position.z;
 }

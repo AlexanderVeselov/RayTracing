@@ -23,6 +23,8 @@
  *****************************************************************************/
 
 #include "gl_pt_integrator.hpp"
+
+#include "scene/scene.hpp"
 #include "acceleration_structure.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -45,12 +47,10 @@ GLuint CreateBuffer(std::size_t size)
     glNamedBufferData(buffer, size, nullptr, GL_DYNAMIC_DRAW);
     return buffer;
 }
-}
+}  // namespace
 
-GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height,
-    AccelerationStructure& acc_structure, std::uint32_t out_image)
-    : Integrator(width, height, acc_structure)
-    , out_image_(out_image)
+GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, std::uint32_t out_image)
+    : Integrator(width, height), out_image_(out_image)
 {
     std::uint32_t num_rays = width_ * height_;
 
@@ -91,7 +91,9 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
 void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure)
 {
     // Create scene buffers
-    auto const& triangles = scene.GetTriangles();
+    auto const& vertices = scene.GetVertices();
+    auto const& indices = scene.GetIndices();
+    auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
     auto const& materials = scene.GetMaterials();
     auto const& emissive_indices = scene.GetEmissiveIndices();
     auto const& lights = scene.GetLights();
@@ -99,23 +101,26 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     auto const& texture_data = scene.GetTextureData();
     auto const& env_image = scene.GetEnvImage();
 
-    // Triangle buffer
-    num_triangles_ = triangles.size();
+    glCreateBuffers(1, &vertex_buffer_);
+    glNamedBufferData(vertex_buffer_, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
 
-    glCreateBuffers(1, &triangle_buffer_);
-    glNamedBufferData(triangle_buffer_, triangles.size() * sizeof(Triangle), triangles.data(), GL_STATIC_DRAW);
+    glCreateBuffers(1, &index_buffer_);
+    glNamedBufferData(index_buffer_, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
 
-    // Additional compressed triangle buffer
-    {
-        std::vector<RTTriangle> rt_triangles;
-        for (auto const& triangle : triangles)
-        {
-            rt_triangles.emplace_back(triangle.v1.position, triangle.v2.position, triangle.v3.position);
-        }
+    glCreateBuffers(1, &triangle_material_index_buffer_);
+    glNamedBufferData(triangle_material_index_buffer_,
+        triangle_material_indices.size() * sizeof(std::uint32_t),
+        triangle_material_indices.data(),
+        GL_STATIC_DRAW);
 
-        glCreateBuffers(1, &rt_triangle_buffer_);
-        glNamedBufferData(rt_triangle_buffer_, rt_triangles.size() * sizeof(RTTriangle), rt_triangles.data(), GL_STATIC_DRAW);
-    }
+    auto const& rt_triangles = acc_structure.GetTriangles();
+    num_triangles_ = rt_triangles.size();
+
+    glCreateBuffers(1, &rt_triangle_buffer_);
+    glNamedBufferData(rt_triangle_buffer_,
+        rt_triangles.size() * sizeof(RTTriangle),
+        rt_triangles.data(),
+        GL_STATIC_DRAW);
 
     glCreateBuffers(1, &material_buffer_);
     glNamedBufferData(material_buffer_, materials.size() * sizeof(PackedMaterial), materials.data(), GL_STATIC_DRAW);
@@ -123,7 +128,10 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     if (!emissive_indices.empty())
     {
         glCreateBuffers(1, &emissive_buffer_);
-        glNamedBufferData(emissive_buffer_, emissive_indices.size() * sizeof(std::uint32_t), emissive_indices.data(), GL_STATIC_DRAW);
+        glNamedBufferData(emissive_buffer_,
+            emissive_indices.size() * sizeof(std::uint32_t),
+            emissive_indices.data(),
+            GL_STATIC_DRAW);
     }
 
     if (!lights.empty())
@@ -140,8 +148,15 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     {
         glCreateTextures(GL_TEXTURE_2D, 1, &textures_[i]);
         glTextureStorage2D(textures_[i], 1, GL_RGBA8, textures[i].width, textures[i].height);
-        glTextureSubImage2D(textures_[i], 0, 0, 0, textures[i].width, textures[i].height,
-            GL_RGBA, GL_UNSIGNED_BYTE, &texture_data[textures[i].data_start]);
+        glTextureSubImage2D(textures_[i],
+            0,
+            0,
+            0,
+            textures[i].width,
+            textures[i].height,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            &texture_data[textures[i].data_start]);
         texture_handles_[i] = glGetTextureHandleARB(textures_[i]);
         glMakeTextureHandleResidentARB(texture_handles_[i]);
     }
@@ -154,8 +169,10 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
 
     // Create texture handle buffer
     glCreateBuffers(1, &texture_handle_buffer_);
-    glNamedBufferData(texture_handle_buffer_, texture_handles_.size() * sizeof(std::uint64_t),
-        texture_handles_.data(), GL_STATIC_DRAW);
+    glNamedBufferData(texture_handle_buffer_,
+        texture_handles_.size() * sizeof(std::uint64_t),
+        texture_handles_.data(),
+        GL_STATIC_DRAW);
 
     // Scene info
     scene_info_ = scene.GetSceneInfo();
@@ -163,7 +180,15 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     // Create environment map
     glCreateTextures(GL_TEXTURE_2D, 1, &env_image_);
     glTextureStorage2D(env_image_, 1, GL_RGBA32F, env_image.width, env_image.height);
-    glTextureSubImage2D(env_image_, 0, 0, 0, env_image.width, env_image.height, GL_RGBA, GL_FLOAT, env_image.data.data());
+    glTextureSubImage2D(env_image_,
+        0,
+        0,
+        0,
+        env_image.width,
+        env_image.height,
+        GL_RGBA,
+        GL_FLOAT,
+        env_image.data.data());
 
     // Upload BVH data
     auto const& nodes = acc_structure.GetNodes();
@@ -173,10 +198,10 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
 
 void GLPathTraceIntegrator::SetCameraData(Camera const& camera)
 {
-    glm::vec3 position = glm::vec3(camera.position.x, camera.position.y, camera.position.z);
-    glm::vec3 front = glm::vec3(camera.front.x, camera.front.y, camera.front.z);
+    glm::vec3 position = glm::vec3(camera.position_fov.x, camera.position_fov.y, camera.position_fov.z);
+    glm::vec3 front = glm::vec3(camera.front_aspect.x, camera.front_aspect.y, camera.front_aspect.z);
     glm::mat4 view_matrix = glm::lookAt(position, position + front, glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 proj_matrix = glm::perspectiveFov(camera.fov, (float)width_, (float)height_, 0.1f, 100.0f);
+    glm::mat4 proj_matrix = glm::perspectiveFov(camera.position_fov.w, (float)width_, (float)height_, 0.1f, 100.0f);
 
     camera_ = camera;
     view_proj_matrix_ = proj_matrix * view_matrix;
@@ -223,24 +248,15 @@ void GLPathTraceIntegrator::CreateKernels()
     resolve_pipeline_ = std::make_unique<ComputePipeline>("resolve_radiance.comp", definitions);
     intersect_pipeline_ = std::make_unique<ComputePipeline>("trace_bvh.comp");
 
-    std::vector<std::string> trace_shadow_definitions = { "SHADOW_RAYS" };
+    std::vector<std::string> trace_shadow_definitions = {"SHADOW_RAYS"};
     intersect_shadow_pipeline_ = std::make_unique<ComputePipeline>("trace_bvh.comp", trace_shadow_definitions);
 }
 
-void GLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type)
-{
+void GLPathTraceIntegrator::SetSamplerType(SamplerType sampler_type) {}
 
-}
+void GLPathTraceIntegrator::SetAOV(AOV aov) {}
 
-void GLPathTraceIntegrator::SetAOV(AOV aov)
-{
-
-}
-
-void GLPathTraceIntegrator::EnableDenoiser(bool enable)
-{
-
-}
+void GLPathTraceIntegrator::EnableDenoiser(bool enable) {}
 
 void GLPathTraceIntegrator::Reset()
 {
@@ -258,7 +274,7 @@ void GLPathTraceIntegrator::Reset()
     reset_pipeline_->BindConstant("height", height_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    std::uint32_t num_groups_x = (width_  + kResetGroupSize - 1) / kResetGroupSize;
+    std::uint32_t num_groups_x = (width_ + kResetGroupSize - 1) / kResetGroupSize;
     std::uint32_t num_groups_y = (height_ + kResetGroupSize - 1) / kResetGroupSize;
     glDispatchCompute(num_groups_x, num_groups_y, 1);
 }
@@ -277,13 +293,10 @@ void GLPathTraceIntegrator::GenerateRays()
 
     raygen_pipeline_->BindConstant("width", width_);
     raygen_pipeline_->BindConstant("height", height_);
-    raygen_pipeline_->BindConstant("camera.position", camera_.position);
-    raygen_pipeline_->BindConstant("camera.front", camera_.front);
-    raygen_pipeline_->BindConstant("camera.up", camera_.up);
-    raygen_pipeline_->BindConstant("camera.fov", camera_.fov);
-    raygen_pipeline_->BindConstant("camera.aspect_ratio", camera_.aspect_ratio);
-    //raygen_pipeline_->BindConstant("camera.aperture", camera_.aperture);
-    //raygen_pipeline_->BindConstant("camera.focus_distance", camera_.focus_distance);
+    raygen_pipeline_->BindConstant("camera.position_fov", camera_.position_fov);
+    raygen_pipeline_->BindConstant("camera.front_aspect", camera_.front_aspect);
+    raygen_pipeline_->BindConstant("camera.up_aperture", camera_.up_aperture);
+    // raygen_pipeline_->BindConstant("camera.focus_distance", camera_.focus_distance);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, sample_counter_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[0]);
@@ -304,7 +317,7 @@ void GLPathTraceIntegrator::RasterizePrimaryBounce()
         GLuint uniform_index = glGetUniformLocation(visibility_pipeline_->GetProgram(), "g_ViewProjection");
         assert(uniform_index != GL_INVALID_INDEX);
         glUniformMatrix4fv(uniform_index, 1, GL_FALSE, &view_proj_matrix_[0][0]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangle_buffer_);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rt_triangle_buffer_);
 
         // Draw the geometry
         glDrawArrays(GL_TRIANGLES, 0, num_triangles_ * 3);
@@ -351,10 +364,7 @@ void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     glDispatchCompute(num_groups, 1, 1);
 }
 
-void GLPathTraceIntegrator::ComputeAOVs()
-{
-
-}
+void GLPathTraceIntegrator::ComputeAOVs() {}
 
 void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
 {
@@ -387,9 +397,10 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     hit_surface_pipeline_->BindConstant("bounce", bounce);
     hit_surface_pipeline_->BindConstant("width", width_);
     hit_surface_pipeline_->BindConstant("scene_info.analytic_light_count", scene_info_.analytic_light_count);
-    //hit_surface_pipeline_->BindConstant("scene_info.emissive_count", scene_info_.emissive_count);
-    //hit_surface_pipeline_->BindConstant("scene_info.environment_map_index", scene_info_.environment_map_index);
-    //hit_surface_pipeline_->BindConstant("scene_info.padding", scene_info_.padding);
+    // hit_surface_pipeline_->BindConstant("scene_info.emissive_count", scene_info_.emissive_count);
+    // hit_surface_pipeline_->BindConstant("scene_info.environment_map_index",
+    // scene_info_.environment_map_index); hit_surface_pipeline_->BindConstant("scene_info.padding",
+    // scene_info_.padding);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, sample_counter_buffer_);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, texture_handle_buffer_);
@@ -402,13 +413,15 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, shadow_rays_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, shadow_ray_counter_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, shadow_pixel_indices_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9,  direct_light_samples_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, direct_light_samples_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, hits_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, throughputs_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, triangle_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, analytic_light_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 14, emissive_buffer_);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, material_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, vertex_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, index_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 14, triangle_material_index_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, analytic_light_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, emissive_buffer_);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, material_buffer_);
 
     std::uint32_t num_groups = (max_num_rays + kShadeGroupSize - 1) / kShadeGroupSize;
     glDispatchCompute(num_groups, 1, 1);
@@ -443,7 +456,8 @@ void GLPathTraceIntegrator::AccumulateDirectSamples()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, direct_light_samples_buffer_);
     glBindImageTexture(4, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    std::uint32_t num_groups = (max_num_rays + kAccumulateDirectSamplesGroupSize - 1) / kAccumulateDirectSamplesGroupSize;
+    std::uint32_t num_groups = (max_num_rays + kAccumulateDirectSamplesGroupSize - 1)
+        / kAccumulateDirectSamplesGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
@@ -463,15 +477,9 @@ void GLPathTraceIntegrator::ClearShadowRayCounter()
     glDispatchCompute(1, 1, 1);
 }
 
-void GLPathTraceIntegrator::Denoise()
-{
+void GLPathTraceIntegrator::Denoise() {}
 
-}
-
-void GLPathTraceIntegrator::CopyHistoryBuffers()
-{
-
-}
+void GLPathTraceIntegrator::CopyHistoryBuffers() {}
 
 void GLPathTraceIntegrator::ResolveRadiance()
 {

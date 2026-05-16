@@ -22,8 +22,8 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
 
 float GetRandomFloat(unsigned int* seed)
 {
@@ -39,7 +39,7 @@ float GetRandomFloat(unsigned int* seed)
 
 float2 PointInHexagon(unsigned int* seed)
 {
-    float2 hexPoints[3] = { (float2)(-1.0f, 0.0f), (float2)(0.5f, 0.866f), (float2)(0.5f, -0.866f) };
+    float2 hexPoints[3] = {(float2)(-1.0f, 0.0f), (float2)(0.5f, 0.866f), (float2)(0.5f, -0.866f)};
     int x = floor(GetRandomFloat(seed) * 3.0f);
     float2 v1 = hexPoints[x];
     float2 v2 = hexPoints[(x + 1) % 3];
@@ -62,23 +62,13 @@ unsigned int HashUInt32(unsigned int x)
 #endif
 }
 
-__kernel void RayGeneration
-(
+__kernel void RayGeneration(
     // Input
-    uint width,
-    uint height,
-    Camera camera,
-    __global uint* sample_counter,
+    uint width, uint height, Camera camera, __global uint* sample_counter,
     // Output
-    __global Ray*    rays,
-    __global uint*   ray_counter,
-    __global uint*   pixel_indices,
-    __global float3* throughputs,
-    __global float3* diffuse_albedo,
-    __global float*  depth_buffer,
-    __global float3* normal_buffer,
-    __global float2* velocity_buffer
-)
+    __global Ray* rays, __global uint* ray_counter, __global uint* pixel_indices,
+    __global float3* throughputs, __global float3* diffuse_albedo, __global float* depth_buffer,
+    __global float3* normal_buffer, __global float2* velocity_buffer)
 {
     uint ray_idx = get_global_id(0);
 
@@ -105,17 +95,21 @@ __kernel void RayGeneration
     float y = (pixel_y + 0.5f) * inv_height;
 #endif
 
-    float angle = tan(0.5f * camera.fov);
-    x = (x * 2.0f - 1.0f) * angle * camera.aspect_ratio;
+    float3 camera_position = camera.position_fov.xyz;
+    float3 camera_front = camera.front_aspect.xyz;
+    float3 camera_up = camera.up_aperture.xyz;
+    float angle = tan(0.5f * camera.position_fov.w);
+    x = (x * 2.0f - 1.0f) * angle * camera.front_aspect.w;
     y = (y * 2.0f - 1.0f) * angle;
 
-    float3 dir = normalize(x * cross(camera.front, camera.up) + y * camera.up + camera.front);
+    float3 dir = normalize(x * cross(camera_front, camera_up) + y * camera_up + camera_front);
 
     // Simple Depth of Field
-    float3 point_aimed = camera.position + camera.focus_distance * dir;
+    float3 point_aimed = camera_position + camera.focus_distance * dir;
     float2 dof_dir = PointInHexagon(&seed);
-    float r = camera.aperture;
-    float3 new_pos = camera.position + dof_dir.x * r * cross(camera.front, camera.up) + dof_dir.y * r * camera.up;
+    float r = camera.up_aperture.w;
+    float3 new_pos = camera_position + dof_dir.x * r * cross(camera_front, camera_up) +
+                     dof_dir.y * r * camera_up;
 
     Ray ray;
     ray.origin.xyz = new_pos;

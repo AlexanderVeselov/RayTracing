@@ -25,6 +25,7 @@
 #pragma once
 
 #include "mathlib/mathlib.hpp"
+
 #include <GL/glew.h>
 #include <vector>
 
@@ -37,10 +38,10 @@ public:
     void BindConstant(char const* name, std::uint32_t value);
     void BindConstant(char const* name, float value);
     void BindConstant(char const* name, float3 value);
+    void BindConstant(char const* name, float4 value);
     ~ComputePipeline();
 
 private:
     GLuint shader_;
     GLuint shader_program_;
-
 };

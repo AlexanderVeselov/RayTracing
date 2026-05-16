@@ -24,11 +24,12 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
 #include "kernels/common/shared_structures.h"
 #include "loaders/image_loader.hpp"
-#include <vector>
+#include "mathlib/mathlib.hpp"
+
 #include <unordered_map>
+#include <vector>
 
 class CLContext;
 class Scene
@@ -36,8 +37,9 @@ class Scene
 public:
     Scene(const char* filename, float scale, bool flip_yz);
 
-    std::vector<Triangle>& GetTriangles() { return triangles_; }
-    std::vector<Triangle> const& GetTriangles() const { return triangles_; }
+    std::vector<Vertex> const& GetVertices() const { return vertices_; }
+    std::vector<std::uint32_t> const& GetIndices() const { return indices_; }
+    std::vector<std::uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
     std::vector<std::uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Texture> const& GetTextures() const { return textures_; }
@@ -55,7 +57,9 @@ private:
     std::size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
-    std::vector<Triangle> triangles_;
+    std::vector<Vertex> vertices_;
+    std::vector<std::uint32_t> indices_;
+    std::vector<std::uint32_t> triangle_material_indices_;
     std::vector<std::uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;

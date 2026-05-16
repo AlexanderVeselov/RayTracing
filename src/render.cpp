@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #include "render.hpp"
+
 #include "Utils/window.hpp"
 #include "bvh.hpp"
 #include "integrator/cl_pt_integrator.hpp"
@@ -37,6 +38,7 @@
 #endif
 #include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
+
 #include <fstream>
 #ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
@@ -58,11 +60,10 @@ bool IsRhiBackend(Render::RenderBackend backend)
     return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
 }
 #endif
-} // namespace
+}  // namespace
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
-    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()),
-      height_(window.GetHeight())
+    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()), height_(window.GetHeight())
 {
 #ifdef RAYTRACING_ENABLE_RHI
     if (render_backend_ == RenderBackend::kVulkan)
@@ -84,10 +85,8 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 
         rhi_api_->SetShaderPath("src/kernels/hlsl");
         rhi_device_ = rhi_api_->CreateDevice();
-        rhi_swapchain_ =
-            rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
-        rhi_imgui_renderer_ =
-            rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
+        rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+        rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     }
 #endif
 
@@ -112,7 +111,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
-    acc_structure_->BuildCPU(scene_.GetTriangles());
+    acc_structure_->BuildCPU(scene_.GetVertices(), scene_.GetIndices());
 
     // TODO, NOTE: this is done after building the acc structure because it
     // reorders triangles Need to get rid of reordering
@@ -121,19 +120,19 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     // Create integrator
     if (render_backend_ == RenderBackend::kOpenCL)
     {
-        integrator_ = std::make_unique<CLPathTraceIntegrator>(
-            width_, height_, *acc_structure_, *cl_context_, framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<CLPathTraceIntegrator>(width_,
+            height_,
+            *cl_context_,
+            framebuffer_->GetGLImage());
     }
     else if (render_backend_ == RenderBackend::kOpenGL)
     {
-        integrator_ = std::make_unique<GLPathTraceIntegrator>(
-            width_, height_, *acc_structure_, framebuffer_->GetGLImage());
+        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, framebuffer_->GetGLImage());
     }
 #ifdef RAYTRACING_ENABLE_RHI
     else if (IsRhiBackend(render_backend_))
     {
-        auto rhi_integrator = std::make_unique<RhiIntegrator>(
-            width_, height_, *acc_structure_, *rhi_device_, *rhi_swapchain_);
+        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
         rhi_integrator_ = rhi_integrator.get();
         integrator_ = std::move(rhi_integrator);
     }
@@ -194,13 +193,13 @@ void Render::ReloadKernels()
 void Render::DrawGUI()
 {
 #ifdef RAYTRACING_ENABLE_RHI
-    ImGui::Begin(
-        "PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
+    ImGui::Begin("PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     {
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(350, 50));
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-            1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            1000.0f / ImGui::GetIO().Framerate,
+            ImGui::GetIO().Framerate);
         ImGui::Text("Press \"R\" to reload kernels");
     }
     ImGui::End();
@@ -212,8 +211,7 @@ void Render::DrawGUI()
             camera_controller_->SetAperture(gui_params_.camera_aperture);
         }
 
-        if (ImGui::SliderFloat(
-                "Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
+        if (ImGui::SliderFloat("Camera focus distance", &gui_params_.camera_focus_distance, 0.0, 100.0))
         {
             camera_controller_->SetFocusDistance(gui_params_.camera_focus_distance);
         }
@@ -230,9 +228,8 @@ void Render::DrawGUI()
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
-            integrator_->SetSamplerType(gui_params_.enable_blue_noise
-                                            ? Integrator::SamplerType::kBlueNoise
-                                            : Integrator::SamplerType::kRandom);
+            integrator_->SetSamplerType(gui_params_.enable_blue_noise ? Integrator::SamplerType::kBlueNoise
+                                                                      : Integrator::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
@@ -241,8 +238,7 @@ void Render::DrawGUI()
         }
 
         static int aov_index = 0;
-        const char* aov_names[] = {
-            "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
+        const char* aov_names[] = {"Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
             integrator_->SetAOV((Integrator::AOV)aov_index);
@@ -297,7 +293,8 @@ void Render::RenderFrame()
         integrator_->Integrate();
         rhi_imgui_renderer_->Render(*rhi_command_buffer_);
         rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
-            gpu::ImageLayout::kRenderTarget, gpu::ImageLayout::kPresent);
+            gpu::ImageLayout::kRenderTarget,
+            gpu::ImageLayout::kPresent);
         rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
         queue.Submit(std::move(rhi_command_buffer_));
         rhi_swapchain_->Present();

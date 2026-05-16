@@ -22,13 +22,13 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "src/kernels/common/shared_structures.h"
 #include "src/kernels/common/constants.h"
+#include "src/kernels/common/shared_structures.h"
 
 bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float* out_t)
 {
-    float3 e1 = triangle->position2 - triangle->position1;
-    float3 e2 = triangle->position3 - triangle->position1;
+    float3 e1 = triangle->position2.xyz - triangle->position1.xyz;
+    float3 e2 = triangle->position3.xyz - triangle->position1.xyz;
     // Calculate planes normal vector
     float3 pvec = cross(ray.direction.xyz, e2);
     float det = dot(e1, pvec);
@@ -40,7 +40,7 @@ bool RayTriangle(Ray ray, const __global RTTriangle* triangle, float2* bc, float
     }
 
     float inv_det = 1.0f / det;
-    float3 tvec = ray.origin.xyz - triangle->position1;
+    float3 tvec = ray.origin.xyz - triangle->position1.xyz;
     float u = dot(tvec, pvec) * inv_det;
 
     if (u < 0.0f || u > 1.0f)
@@ -82,11 +82,9 @@ float min3(float3 val)
     return min(min(val.x, val.y), val.z);
 }
 
-bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_min, float t_max)
+bool RayBounds(float3 aabb_min, float3 aabb_max, float3 ray_origin, float3 ray_inv_dir, float t_min,
+    float t_max)
 {
-    float3 aabb_min = bounds.pos[0];
-    float3 aabb_max = bounds.pos[1];
-
     float3 t0 = (aabb_min - ray_origin) * ray_inv_dir;
     float3 t1 = (aabb_max - ray_origin) * ray_inv_dir;
 
@@ -96,14 +94,11 @@ bool RayBounds(Bounds3 bounds, float3 ray_origin, float3 ray_inv_dir, float t_mi
     return (tmax >= tmin);
 }
 
-__kernel void TraceBvh
-(
+__kernel void TraceBvh(
     // Input
-    __global Ray* rays,
-    __global uint* ray_counter,
-    __global RTTriangle* triangles,
+    __global Ray* rays, __global uint* ray_counter, __global RTTriangle* triangles,
     __global LinearBVHNode* nodes,
-    // Output
+// Output
 #ifdef SHADOW_RAYS
     __global uint* shadow_hits
 #else
@@ -145,7 +140,8 @@ __kernel void TraceBvh
     {
         LinearBVHNode node = nodes[currentNodeIndex];
 
-        if (RayBounds(node.bounds, ray.origin.xyz, ray_inv_dir, ray.origin.w, ray.direction.w))
+        if (RayBounds(node.bmin.xyz, node.bmax.xyz, ray.origin.xyz, ray_inv_dir, ray.origin.w,
+                ray.direction.w))
         {
             int num_primitives = node.num_primitives_axis >> 16;
             // Leaf node
@@ -156,7 +152,7 @@ __kernel void TraceBvh
                 {
                     if (RayTriangle(ray, &triangles[node.offset + i], &hit.bc, &hit.t))
                     {
-                        hit.primitive_id = node.offset + i;
+                        hit.primitive_id = triangles[node.offset + i].prim_id;
                         // Set ray t_max
                         // TODO: remove t from hit structure
                         ray.direction.w = hit.t;

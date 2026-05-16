@@ -142,27 +142,18 @@ enum class MouseButton
 
 class Window
 {
-  public:
+public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
     Window(std::uint32_t width, std::uint32_t height, char const* title, bool no_api = false);
-    ~Window();
+    ~Window() = default;
 
     // Returns HWND in the case of WIN32 platform
     void* GetNativeHandle() const;
-    GLFWwindow* GetGlfwWindow() const
-    {
-        return window_.get();
-    }
-    std::uint32_t GetWidth() const
-    {
-        return width_;
-    }
-    std::uint32_t GetHeight() const
-    {
-        return height_;
-    }
+    GLFWwindow* GetGlfwWindow() const { return window_.get(); }
+    std::uint32_t GetWidth() const { return width_; }
+    std::uint32_t GetHeight() const { return height_; }
 
     void GetMousePos(int& x, int& y) const;
     void SetMousePos(int x, int y) const;
@@ -172,12 +163,9 @@ class Window
     bool GetKey(KeyCode code) const;
     bool GetMouseButton(MouseButton button) const;
     void SwapBuffers();
-    void AddScrollCallback(std::function<void(float)> callback)
-    {
-        scroll_callbacks_.push_back(callback);
-    }
+    void AddScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
 
-  private:
+private:
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
     std::unique_ptr<GLFWwindow, void (*)(GLFWwindow*)> window_;
