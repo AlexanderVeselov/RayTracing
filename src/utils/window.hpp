@@ -147,7 +147,7 @@ public:
     Window& operator=(Window const&) = delete;
 
     Window(std::uint32_t width, std::uint32_t height, char const* title, bool no_api = false);
-    ~Window();
+    ~Window() = default;
 
     // Returns HWND in the case of WIN32 platform
     void* GetNativeHandle() const;

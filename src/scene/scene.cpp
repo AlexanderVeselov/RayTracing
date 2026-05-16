@@ -48,6 +48,49 @@ Scene::Scene(const char* filename, float scale, bool flip_yz)
 
 namespace
 {
+// Simple FNV-1a hash combiner for 32-bit values
+inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
+{
+    h ^= v;
+    h *= 16777619u; // FNV prime
+    return h;
+}
+
+struct VertexHasher
+{
+    std::size_t operator()(Vertex const& v) const noexcept
+    {
+        std::size_t h = 2166136261u; // FNV offset basis
+        auto hash_float = [&](float f)
+        {
+            std::uint32_t bits;
+            static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
+            std::memcpy(&bits, &f, sizeof(f));
+            h = hash_combine_u32(h, bits);
+        };
+        hash_float(v.position.x);
+        hash_float(v.position.y);
+        hash_float(v.position.z);
+        hash_float(v.normal.x);
+        hash_float(v.normal.y);
+        hash_float(v.normal.z);
+        hash_float(v.texcoord.x);
+        hash_float(v.texcoord.y);
+        return h;
+    }
+};
+
+struct VertexEqual
+{
+    bool operator()(Vertex const& a, Vertex const& b) const noexcept
+    {
+        return
+            a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+            a.normal.x == b.normal.x && a.normal.y == b.normal.y && a.normal.z == b.normal.z &&
+            a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
+    }
+};
+
 unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
 {
     assert(texture_index < 256);
@@ -197,6 +240,15 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         }
     };
 
+    // Reserve memory (approx count) to reduce re-allocations
+    size_t approx_triangles = 0;
+    for (auto const& s : shapes) approx_triangles += s.mesh.indices.size() / 3;
+    vertices_.reserve(vertices_.size() + approx_triangles * 3);
+    indices_.reserve(indices_.size() + approx_triangles * 3);
+
+    // Cache for vertex deduplication (position+normal+texcoord)
+    std::unordered_map<Vertex, std::uint32_t, VertexHasher, VertexEqual> vertex_cache;
+
     for (auto const& shape : shapes)
     {
         auto const& indices = shape.mesh.indices;
@@ -217,44 +269,51 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             auto texcoord_idx_2 = indices[face * 3 + 1].texcoord_index;
             auto texcoord_idx_3 = indices[face * 3 + 2].texcoord_index;
 
-            Vertex v1 = {};
+            Vertex v1{}, v2{}, v3{};
             v1.position.x = attrib.vertices[pos_idx_1 * 3 + 0] * scale;
             v1.position.y = attrib.vertices[pos_idx_1 * 3 + 1] * scale;
             v1.position.z = attrib.vertices[pos_idx_1 * 3 + 2] * scale;
-            v1.position.w = 0.0f;
 
-            v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
-            v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
-            v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
-            v1.normal.w = 0.0f;
+            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
+            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
+            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
+
+            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
+            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
+            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
+
+            auto compute_face_normal = [](const float3& a, const float3& b, const float3& c) {
+                return (Cross(b - a, c - a)).Normalize();
+                };
+            bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
+
+            if (has_n)
+            {
+                v1.normal.x = attrib.normals[normal_idx_1 * 3 + 0];
+                v1.normal.y = attrib.normals[normal_idx_1 * 3 + 1];
+                v1.normal.z = attrib.normals[normal_idx_1 * 3 + 2];
+
+                v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
+                v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
+                v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
+
+                v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
+                v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
+                v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
+            }
+            else
+            {
+                float3 n = compute_face_normal(v1.position.xyz(), v2.position.xyz(), v3.position.xyz());
+                v1.normal.xyz() = n;
+                v2.normal.xyz() = n;
+                v3.normal.xyz() = n;
+            }
 
             v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
             v1.texcoord.y = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 1];
 
-            Vertex v2 = {};
-            v2.position.x = attrib.vertices[pos_idx_2 * 3 + 0] * scale;
-            v2.position.y = attrib.vertices[pos_idx_2 * 3 + 1] * scale;
-            v2.position.z = attrib.vertices[pos_idx_2 * 3 + 2] * scale;
-            v2.position.w = 0.0f;
-
-            v2.normal.x = attrib.normals[normal_idx_2 * 3 + 0];
-            v2.normal.y = attrib.normals[normal_idx_2 * 3 + 1];
-            v2.normal.z = attrib.normals[normal_idx_2 * 3 + 2];
-            v2.normal.w = 0.0f;
-
             v2.texcoord.x = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 0];
             v2.texcoord.y = texcoord_idx_2 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_2 * 2 + 1];
-
-            Vertex v3 = {};
-            v3.position.x = attrib.vertices[pos_idx_3 * 3 + 0] * scale;
-            v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
-            v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
-            v3.position.w = 0.0f;
-
-            v3.normal.x = attrib.normals[normal_idx_3 * 3 + 0];
-            v3.normal.y = attrib.normals[normal_idx_3 * 3 + 1];
-            v3.normal.z = attrib.normals[normal_idx_3 * 3 + 2];
-            v3.normal.w = 0.0f;
 
             v3.texcoord.x = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 0];
             v3.texcoord.y = texcoord_idx_3 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_3 * 2 + 1];
@@ -266,13 +325,24 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             flip_vector(v3.position, flip_yz);
             flip_vector(v3.normal, flip_yz);
 
-            uint32_t base_vertex_index = static_cast<uint32_t>(vertices_.size());
-            vertices_.push_back(v1);
-            vertices_.push_back(v2);
-            vertices_.push_back(v3);
-            indices_.push_back(base_vertex_index + 0);
-            indices_.push_back(base_vertex_index + 1);
-            indices_.push_back(base_vertex_index + 2);
+            // Vertex deduplication: reuse vertices with identical attributes
+            auto find_or_add = [&](Vertex const& v) -> std::uint32_t
+                {
+                    auto it = vertex_cache.find(v);
+                    if (it != vertex_cache.end()) return it->second;
+                    std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                    vertices_.push_back(v);
+                    vertex_cache.emplace(v, idx);
+                    return idx;
+                };
+
+            std::uint32_t i1 = find_or_add(v1);
+            std::uint32_t i2 = find_or_add(v2);
+            std::uint32_t i3 = find_or_add(v3);
+
+            indices_.push_back(i1);
+            indices_.push_back(i2);
+            indices_.push_back(i3);
 
             if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < materials_.size())
             {

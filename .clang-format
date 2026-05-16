@@ -12,9 +12,6 @@ IndentCaseLabels: false
 
 # Line length
 ColumnLimit: 120
-PenaltyBreakBeforeFirstCallParameter: 100000000
-PenaltyBreakOpenParenthesis: 100000000
-PenaltyBreakAssignment: 100000000
 
 # Braces
 BreakBeforeBraces: Allman
@@ -35,6 +32,10 @@ AlignAfterOpenBracket: DontAlign
 AlignOperands: false
 
 # Line breaking
+PenaltyBreakBeforeFirstCallParameter: 100000000
+PenaltyBreakOpenParenthesis: 100000000
+PenaltyBreakAssignment: 100000000
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
 BreakBeforeBinaryOperators: NonAssignment
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma

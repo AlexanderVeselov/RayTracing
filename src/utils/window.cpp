@@ -218,8 +218,6 @@ Window::Window(std::uint32_t width, std::uint32_t height, char const* title, boo
     }
 }
 
-Window::~Window() {}
-
 void Window::PollEvents()
 {
     glfwPollEvents();
