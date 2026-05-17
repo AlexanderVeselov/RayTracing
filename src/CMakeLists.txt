@@ -96,17 +96,13 @@ set(LOADERS_SOURCES
     loaders/image_loader.hpp
 )
 
-set(MATHLIB_SOURCES
-    mathlib/mathlib.cpp
-    mathlib/mathlib.hpp
-)
-
 set(SCENE_SOURCES
     scene/scene.cpp
     scene/scene.hpp
 )
 
 set(UTILS_SOURCES
+    utils/aabb.hpp
     utils/camera_controller.cpp
     utils/camera_controller.hpp
     utils/cl_exception.hpp
@@ -132,7 +128,6 @@ set(SOURCES
     ${GLSL_KERNELS_SOURCES}
     ${COMMON_KERNELS_SOURCES}
     ${LOADERS_SOURCES}
-    ${MATHLIB_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
     ${MAIN_SOURCES}
@@ -151,7 +146,6 @@ if(RAYTRACING_ENABLE_RHI)
     source_group("kernels\\hlsl" FILES ${HLSL_KERNELS_SOURCES})
 endif()
 source_group("loaders" FILES ${LOADERS_SOURCES})
-source_group("mathlib" FILES ${MATHLIB_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
 source_group("utils" FILES ${UTILS_SOURCES})
 

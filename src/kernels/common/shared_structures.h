@@ -22,13 +22,15 @@
  SOFTWARE.
  *****************************************************************************/
 
-#ifndef SHARED_STRUCTURES_HPP
-#define SHARED_STRUCTURES_HPP
+#ifndef SHARED_STRUCTURES_H
+#define SHARED_STRUCTURES_H
 
 #ifdef __cplusplus
-#include "mathlib/mathlib.hpp"
 #include <CL/cl.h>
 #include <algorithm>
+#include <glm/glm.hpp>
+#define float2 glm::vec2
+#define float4 glm::vec4
 #endif
 
 #define MATERIAL_BLINN 1
@@ -48,8 +50,8 @@
 #endif
 
 STRUCT_BEGIN(Ray)
-float4 origin;    // w - t_min
-float4 direction; // w - t_max
+float4 origin;     // w - t_min
+float4 direction;  // w - t_max
 STRUCT_END(Ray)
 
 STRUCT_BEGIN(Hit)
@@ -67,11 +69,11 @@ unsigned int padding;
 STRUCT_END(SceneInfo)
 
 STRUCT_BEGIN(PackedMaterial)
-unsigned int diffuse_albedo;  // 24 bit - RGB, 8 bit - texture index
-unsigned int specular_albedo; // 24 bit - RGB, 8 bit - texture index
-unsigned int emission;        // 32 bit - RGBE
-unsigned int roughness_metalness; // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
-unsigned int ior_emission_idx_transparency; // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
+unsigned int diffuse_albedo;       // 24 bit - RGB, 8 bit - texture index
+unsigned int specular_albedo;      // 24 bit - RGB, 8 bit - texture index
+unsigned int emission;             // 32 bit - RGBE
+unsigned int roughness_metalness;  // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
+unsigned int ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
 STRUCT_END(PackedMaterial)
 
 STRUCT_BEGIN(Light)
@@ -106,17 +108,17 @@ STRUCT_END(RTTriangle)
 STRUCT_BEGIN(LinearBVHNode)
 float4 bmin;
 float4 bmax;
-unsigned int offset;              // primitives (leaf) or second child (interior) offset
-unsigned int num_primitives_axis; // 0 -> interior node
+unsigned int offset;               // primitives (leaf) or second child (interior) offset
+unsigned int num_primitives_axis;  // 0 -> interior node
 unsigned int padding[2];
 STRUCT_END(LinearBVHNode)
 
 STRUCT_BEGIN(Camera)
-float4 position_fov; // x, y, z - position, w - fov
-float4 front_aspect; // x, y, z - front, w - aspect ratio
-float4 up_aperture;  // x, y, z - up, w - aperture
-float  focus_distance;
+float4 position_fov;  // x, y, z - position, w - fov
+float4 front_aspect;  // x, y, z - front, w - aspect ratio
+float4 up_aperture;   // x, y, z - up, w - aperture
+float focus_distance;
 unsigned int padding[3];
 STRUCT_END(Camera)
 
-#endif // SHARED_STRUCTURES_HPP
+#endif  // SHARED_STRUCTURES_H

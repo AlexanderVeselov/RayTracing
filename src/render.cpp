@@ -36,7 +36,6 @@
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
 #endif
-#include "mathlib/mathlib.hpp"
 #include "utils/cl_exception.hpp"
 
 #include <fstream>

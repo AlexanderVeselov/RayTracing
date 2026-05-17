@@ -25,7 +25,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-#include "mathlib/mathlib.hpp"
 #include "render.hpp"
 #include "scene.hpp"
 #include "utils/cl_exception.hpp"
@@ -52,7 +51,7 @@ namespace
 inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
 {
     h ^= v;
-    h *= 16777619u; // FNV prime
+    h *= 16777619u;  // FNV prime
     return h;
 }
 
@@ -60,7 +59,7 @@ struct VertexHasher
 {
     std::size_t operator()(Vertex const& v) const noexcept
     {
-        std::size_t h = 2166136261u; // FNV offset basis
+        std::size_t h = 2166136261u;  // FNV offset basis
         auto hash_float = [&](float f)
         {
             std::uint32_t bits;
@@ -84,19 +83,18 @@ struct VertexEqual
 {
     bool operator()(Vertex const& a, Vertex const& b) const noexcept
     {
-        return
-            a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
-            a.normal.x == b.normal.x && a.normal.y == b.normal.y && a.normal.z == b.normal.z &&
-            a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
+        return a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z
+            && a.normal.x == b.normal.x && a.normal.y == b.normal.y && a.normal.z == b.normal.z
+            && a.texcoord.x == b.texcoord.x && a.texcoord.y == b.texcoord.y;
     }
 };
 
 unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
 {
     assert(texture_index < 256);
-    r = clamp(r, 0.0f, 1.0f);
-    g = clamp(g, 0.0f, 1.0f);
-    b = clamp(b, 0.0f, 1.0f);
+    r = std::clamp(r, 0.0f, 1.0f);
+    g = std::clamp(g, 0.0f, 1.0f);
+    b = std::clamp(b, 0.0f, 1.0f);
     return ((unsigned int)(r * 255.0f)) | ((unsigned int)(g * 255.0f) << 8) | ((unsigned int)(b * 255.0f) << 16)
         | (texture_index << 24);
 }
@@ -127,7 +125,7 @@ unsigned int PackRGBE(float r, float g, float b)
     }
 }
 
-float3 UnpackRGBE(unsigned int rgbe)
+glm::vec3 UnpackRGBE(unsigned int rgbe)
 {
     float f;
     int r = (rgbe >> 0) & 0xFF;
@@ -138,11 +136,11 @@ float3 UnpackRGBE(unsigned int rgbe)
     if (exp)
     { /*nonzero pixel*/
         f = ldexp(1.0f, exp - (int)(128 + 8));
-        return float3((float)r, (float)g, (float)b) * f;
+        return glm::vec3((float)r, (float)g, (float)b) * f;
     }
     else
     {
-        return 0.0;
+        return glm::vec3(0.0f);
     }
 }
 
@@ -150,8 +148,8 @@ unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx
     std::uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
-    roughness = clamp(roughness, 0.0f, 1.0f);
-    metalness = clamp(metalness, 0.0f, 1.0f);
+    roughness = std::clamp(roughness, 0.0f, 1.0f);
+    metalness = std::clamp(metalness, 0.0f, 1.0f);
     return ((unsigned int)(roughness * 255.0f)) | (roughness_idx << 8) | ((unsigned int)(metalness * 255.0f) << 16)
         | (metalness_idx << 24);
 }
@@ -160,8 +158,8 @@ unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_id
     std::uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);
-    ior = clamp(ior, 0.0f, 10.0f);
-    transparency = clamp(transparency, 0.0f, 1.0f);
+    ior = std::clamp(ior, 0.0f, 10.0f);
+    transparency = std::clamp(transparency, 0.0f, 1.0f);
     return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16)
         | (transparency_idx << 24);
 }
@@ -242,7 +240,8 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 
     // Reserve memory (approx count) to reduce re-allocations
     size_t approx_triangles = 0;
-    for (auto const& s : shapes) approx_triangles += s.mesh.indices.size() / 3;
+    for (auto const& s : shapes)
+        approx_triangles += s.mesh.indices.size() / 3;
     vertices_.reserve(vertices_.size() + approx_triangles * 3);
     indices_.reserve(indices_.size() + approx_triangles * 3);
 
@@ -282,9 +281,8 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             v3.position.y = attrib.vertices[pos_idx_3 * 3 + 1] * scale;
             v3.position.z = attrib.vertices[pos_idx_3 * 3 + 2] * scale;
 
-            auto compute_face_normal = [](const float3& a, const float3& b, const float3& c) {
-                return (Cross(b - a, c - a)).Normalize();
-                };
+            auto compute_face_normal = [](const glm::vec3& a, const glm::vec3& b, const glm::vec3& c)
+            { return glm::normalize(glm::cross(b - a, c - a)); };
             bool has_n = (normal_idx_1 >= 0 && normal_idx_2 >= 0 && normal_idx_3 >= 0);
 
             if (has_n)
@@ -303,10 +301,12 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             }
             else
             {
-                float3 n = compute_face_normal(v1.position.xyz(), v2.position.xyz(), v3.position.xyz());
-                v1.normal.xyz() = n;
-                v2.normal.xyz() = n;
-                v3.normal.xyz() = n;
+                glm::vec3 n = compute_face_normal(glm::vec3(v1.position),
+                    glm::vec3(v2.position),
+                    glm::vec3(v3.position));
+                v1.normal = glm::vec4(n, v1.normal.w);
+                v2.normal = glm::vec4(n, v2.normal.w);
+                v3.normal = glm::vec4(n, v3.normal.w);
             }
 
             v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
@@ -327,14 +327,15 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
 
             // Vertex deduplication: reuse vertices with identical attributes
             auto find_or_add = [&](Vertex const& v) -> std::uint32_t
-                {
-                    auto it = vertex_cache.find(v);
-                    if (it != vertex_cache.end()) return it->second;
-                    std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
-                    vertices_.push_back(v);
-                    vertex_cache.emplace(v, idx);
-                    return idx;
-                };
+            {
+                auto it = vertex_cache.find(v);
+                if (it != vertex_cache.end())
+                    return it->second;
+                std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                vertices_.push_back(v);
+                vertex_cache.emplace(v, idx);
+                return idx;
+            };
 
             std::uint32_t i1 = find_or_add(v1);
             std::uint32_t i2 = find_or_add(v2);
@@ -413,7 +414,7 @@ void Scene::CollectEmissiveTriangles()
     for (auto triangle_idx = 0; triangle_idx < triangle_material_indices_.size(); ++triangle_idx)
     {
         uint32_t material_index = triangle_material_indices_[triangle_idx];
-        float3 emission = UnpackRGBE(materials_[material_index].emission);
+        glm::vec3 emission = UnpackRGBE(materials_[material_index].emission);
 
         if (emission.x + emission.y + emission.z > 0.0f)
         {
@@ -425,22 +426,22 @@ void Scene::CollectEmissiveTriangles()
     scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
 }
 
-void Scene::AddPointLight(float3 origin, float3 radiance)
+void Scene::AddPointLight(glm::vec3 origin, glm::vec3 radiance)
 {
     Light light = {};
-    light.origin = float4(origin.x, origin.y, origin.z, 0.0f);
-    light.radiance = float4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.origin = glm::vec4(origin.x, origin.y, origin.z, 0.0f);
+    light.radiance = glm::vec4(radiance.x, radiance.y, radiance.z, 0.0f);
     light.type = LIGHT_TYPE_POINT;
     lights_.push_back(std::move(light));
 }
 
-void Scene::AddDirectionalLight(float3 direction, float3 radiance)
+void Scene::AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance)
 {
-    direction = direction.Normalize();
+    direction = glm::normalize(direction);
 
     Light light = {};
-    light.origin = float4(direction.x, direction.y, direction.z, 0.0f);
-    light.radiance = float4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.origin = glm::vec4(direction.x, direction.y, direction.z, 0.0f);
+    light.radiance = glm::vec4(radiance.x, radiance.y, radiance.z, 0.0f);
     light.type = LIGHT_TYPE_DIRECTIONAL;
     lights_.emplace_back(std::move(light));
 }

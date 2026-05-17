@@ -25,7 +25,6 @@
 #pragma once
 
 #include "kernels/common/shared_structures.h"
-#include "mathlib/mathlib.hpp"
 
 #include <memory>
 
@@ -56,7 +55,7 @@ private:
 
     bool is_changed_ = true;
     Camera camera_data_ = {};
-    float3 up_;
+    glm::vec3 up_;
     float pitch_;
     float yaw_;
     float speed_;

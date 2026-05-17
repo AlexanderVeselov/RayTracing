@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "mathlib/mathlib.hpp"
-
 #include <GL/glew.h>
+#include <glm/glm.hpp>
+#include <string>
 #include <vector>
 
 class ComputePipeline
@@ -37,8 +37,8 @@ public:
     GLuint GetProgram() const { return shader_program_; }
     void BindConstant(char const* name, std::uint32_t value);
     void BindConstant(char const* name, float value);
-    void BindConstant(char const* name, float3 value);
-    void BindConstant(char const* name, float4 value);
+    void BindConstant(char const* name, glm::vec3 value);
+    void BindConstant(char const* name, glm::vec4 value);
     ~ComputePipeline();
 
 private:

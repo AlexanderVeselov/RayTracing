@@ -25,6 +25,7 @@
 #pragma once
 
 #include "acceleration_structure.hpp"
+#include "utils/aabb.hpp"
 
 #include <memory>
 
@@ -40,13 +41,13 @@ public:
     struct BVHPrimitiveInfo
     {
         unsigned int primitiveNumber;  // = triId (0..triCount-1)
-        Bounds3 bounds;
-        float3 centroid;
+        Aabb bounds;
+        glm::vec3 centroid;
     };
 
     struct BVHBuildNode
     {
-        void InitLeaf(int first, int n, const Bounds3& b)
+        void InitLeaf(int first, int n, const Aabb& b)
         {
             firstPrimOffset = first;
             nPrimitives = n;
@@ -63,7 +64,7 @@ public:
             nPrimitives = 0;
         }
 
-        Bounds3 bounds;
+        Aabb bounds;
         BVHBuildNode* children[2];
         int splitAxis, firstPrimOffset, nPrimitives;
     };
@@ -71,7 +72,7 @@ public:
     struct BucketInfo
     {
         int count = 0;
-        Bounds3 bounds;
+        Aabb bounds;
     };
 
 private:

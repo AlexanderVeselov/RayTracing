@@ -27,6 +27,7 @@
 #include "gl_shader_utils.hpp"
 
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 
 ComputePipeline::ComputePipeline(char const* cs_source, std::vector<std::string> const& definitions)
@@ -82,7 +83,7 @@ void ComputePipeline::BindConstant(char const* name, float value)
     glUniform1f(uniform_index, value);
 }
 
-void ComputePipeline::BindConstant(char const* name, float3 value)
+void ComputePipeline::BindConstant(char const* name, glm::vec3 value)
 {
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)
@@ -93,7 +94,7 @@ void ComputePipeline::BindConstant(char const* name, float3 value)
     glUniform3f(uniform_index, value.x, value.y, value.z);
 }
 
-void ComputePipeline::BindConstant(char const* name, float4 value)
+void ComputePipeline::BindConstant(char const* name, glm::vec4 value)
 {
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)

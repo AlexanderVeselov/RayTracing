@@ -104,5 +104,5 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     float2 prev_uv = ProjectScreen(position, g_PrevCameraPositionFov.xyz,
         normalize(g_PrevCameraFrontAspect.xyz), normalize(g_PrevCameraUpAperture.xyz),
         g_PrevCameraPositionFov.w, g_PrevCameraFrontAspect.w);
-    g_MotionVectors[pixel_coord] = float4(current_uv - prev_uv, 0.0f, 0.0f);
+    g_MotionVectors[pixel_coord] = float4(current_uv - prev_uv, 0.0f, 0.0f) * float4(1.0f, -1.0f, 1.0f, 1.0f);
 }

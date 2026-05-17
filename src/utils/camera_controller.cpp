@@ -27,13 +27,16 @@
 #include "render.hpp"
 #include "utils/window.hpp"
 
+#include <algorithm>
 #include <iostream>
 
+#include <glm/gtc/constants.hpp>
+
 CameraController::CameraController(Window& window)
-    : window_(window), pitch_(MATH_PIDIV2), yaw_(MATH_PIDIV2), speed_(1.0f), up_(0.0f, 0.0f, 1.0f)
+    : window_(window), pitch_(glm::half_pi<float>()), yaw_(glm::half_pi<float>()), speed_(1.0f), up_(0.0f, 0.0f, 1.0f)
 {
     camera_data_.focus_distance = 10.0f;
-    camera_data_.position_fov = float4(0.0f, -1.0f, 1.0f, 75.0f * 3.1415f / 180.0f);
+    camera_data_.position_fov = glm::vec4(0.0f, -1.0f, 1.0f, 75.0f * 3.1415f / 180.0f);
     camera_data_.front_aspect.w = (float)window_.GetWidth() / (float)window_.GetHeight();
 }
 
@@ -49,7 +52,7 @@ void CameraController::Update(float dt)
         yaw_ -= (x - prev_x) * sensivity;
         pitch_ += (y - prev_y) * sensivity;
         float epsilon = 0.0001f;
-        pitch_ = clamp(pitch_, 0.0f + epsilon, MATH_PI - epsilon);
+        pitch_ = std::clamp(pitch_, 0.0f + epsilon, glm::pi<float>() - epsilon);
         window_.SetMousePos(prev_x, prev_y);
         is_changed_ = true;
     }
@@ -71,18 +74,20 @@ void CameraController::Update(float dt)
     float speed = speed_ * (window_.GetKey(KeyCode::kLeftShift) ? 5.0f : 1.0f);
 
     // Compute new camera vectors
-    float3 front = float3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_), std::cosf(pitch_));
+    glm::vec3 front = glm::vec3(std::cosf(yaw_) * std::sinf(pitch_),
+        std::sinf(yaw_) * std::sinf(pitch_),
+        std::cosf(pitch_));
     camera_data_.front_aspect.x = front.x;
     camera_data_.front_aspect.y = front.y;
     camera_data_.front_aspect.z = front.z;
-    float3 right = Cross(front, up_).Normalize();
+    glm::vec3 right = glm::normalize(glm::cross(front, up_));
     // Compute the actual up vector
-    float3 camera_up = Cross(right, front);
+    glm::vec3 camera_up = glm::cross(right, front);
     camera_data_.up_aperture.x = camera_up.x;
     camera_data_.up_aperture.y = camera_up.y;
     camera_data_.up_aperture.z = camera_up.z;
     // Move the camera
-    float3 position = camera_data_.position_fov.xyz();
+    glm::vec3 position = glm::vec3(camera_data_.position_fov);
     position += (front * (float)frontback + right * (float)strafe + camera_up * (float)updown) * dt * speed;
     camera_data_.position_fov.x = position.x;
     camera_data_.position_fov.y = position.y;

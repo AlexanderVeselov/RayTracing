@@ -25,7 +25,6 @@
 #pragma once
 
 #include "gpu_wrappers/gl_graphics_pipeline.hpp"
-#include "mathlib/mathlib.hpp"
 
 #include <memory>
 

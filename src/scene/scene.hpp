@@ -26,8 +26,8 @@
 
 #include "kernels/common/shared_structures.h"
 #include "loaders/image_loader.hpp"
-#include "mathlib/mathlib.hpp"
 
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -48,8 +48,8 @@ public:
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
     Image const& GetEnvImage() const { return env_image_; }
     void Finalize();
-    void AddPointLight(float3 origin, float3 radiance);
-    void AddDirectionalLight(float3 direction, float3 radiance);
+    void AddPointLight(glm::vec3 origin, glm::vec3 radiance);
+    void AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance);
 
 private:
     void Load(char const* filename, float scale, bool flip_yz);

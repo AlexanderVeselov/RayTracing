@@ -24,6 +24,10 @@
 
 #include "bvh.hpp"
 
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+
 namespace
 {
 constexpr auto kMaxPrimitivesInNode = 4u;
@@ -36,61 +40,57 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::u
     if (indices.size() % 3 != 0)
         throw std::runtime_error("Indices count must be divisible by 3");
 
-    const unsigned triCount = static_cast<unsigned>(indices.size() / 3);
+    const unsigned triangle_count = static_cast<unsigned>(indices.size() / 3);
 
     // 1. Collect primitives: AABB and centroids based on VB/IB
-    std::vector<BVHPrimitiveInfo> primInfo(triCount);
-    primInfo.reserve(triCount);
+    std::vector<BVHPrimitiveInfo> prim_info(triangle_count);
+    prim_info.reserve(triangle_count);
 
-    for (unsigned t = 0; t < triCount; ++t)
+    for (unsigned t = 0; t < triangle_count; ++t)
     {
         const uint32_t i0 = indices[3 * t + 0];
         const uint32_t i1 = indices[3 * t + 1];
         const uint32_t i2 = indices[3 * t + 2];
 
-        const float3 p0 = vertices[i0].position.xyz();
-        const float3 p1 = vertices[i1].position.xyz();
-        const float3 p2 = vertices[i2].position.xyz();
+        const glm::vec3 p0 = glm::vec3(vertices[i0].position);
+        const glm::vec3 p1 = glm::vec3(vertices[i1].position);
+        const glm::vec3 p2 = glm::vec3(vertices[i2].position);
 
-        Bounds3 b;
-        b = Union(b, p0);
-        b = Union(b, p1);
-        b = Union(b, p2);
-        const float3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
+        Aabb tri_aabb;
+        tri_aabb = Union(tri_aabb, p0);
+        tri_aabb = Union(tri_aabb, p1);
+        tri_aabb = Union(tri_aabb, p2);
+        const glm::vec3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
 
-        primInfo[t] = {t, b, c};
+        prim_info[t] = {t, tri_aabb, c};
     }
 
     // 2. Recursively build
-    unsigned totalNodes = 0;
-    std::vector<RTTriangle> orderedTris;
-    orderedTris.reserve(triCount);
-
-    root_node_ = RecursiveBuild(vertices, indices, primInfo, 0, triCount, &totalNodes, orderedTris);
-
-    rt_triangles_.swap(orderedTris);
+    unsigned total_nodes = 0;
+    rt_triangles_.reserve(triangle_count);
+    root_node_ = RecursiveBuild(vertices, indices, prim_info, 0, triangle_count, &total_nodes, rt_triangles_);
 
     // 3. Flatten
-    nodes_.resize(totalNodes);
+    nodes_.resize(total_nodes);
     unsigned off = 0;
     FlattenBVHTree(root_node_, &off);
-    assert(off == totalNodes);
+    assert(off == total_nodes);
 
-    std::cout << "BVH nodes: " << totalNodes << ", tris in buffer: " << rt_triangles_.size() << " ("
+    std::cout << "BVH nodes: " << total_nodes << ", tris in buffer: " << rt_triangles_.size() << " ("
               << (rt_triangles_.size() * sizeof(RTTriangle) / (1024.0 * 1024.0)) << " MiB)" << std::endl;
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
-    const std::vector<std::uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitiveInfo, unsigned start,
-    unsigned end, unsigned* totalNodes, std::vector<RTTriangle>& orderedTris)
+    const std::vector<std::uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitive_info, unsigned start,
+    unsigned end, unsigned* total_nodes, std::vector<RTTriangle>& ordered_tris)
 {
     BVHBuildNode* node = new BVHBuildNode;
-    (*totalNodes)++;
+    (*total_nodes)++;
 
     // Bounds' AABB
-    Bounds3 bounds;
+    Aabb bounds;
     for (unsigned i = start; i < end; ++i)
-        bounds = Union(bounds, primitiveInfo[i].bounds);
+        bounds = Union(bounds, primitive_info[i].bounds);
 
     const unsigned n = end - start;
 
@@ -106,27 +106,27 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
         tri.position3 = vertices[i2].position;
         tri.prim_id = primId;
 
-        orderedTris.push_back(tri);
+        ordered_tris.push_back(tri);
     };
 
     if (n == 1)
     {
-        const unsigned first = static_cast<unsigned>(orderedTris.size());
-        push_triangle(primitiveInfo[start].primitiveNumber);
+        const unsigned first = static_cast<unsigned>(ordered_tris.size());
+        push_triangle(primitive_info[start].primitiveNumber);
         node->InitLeaf(first, 1, bounds);
         return node;
     }
 
-    Bounds3 cBounds;
+    Aabb cBounds;
     for (unsigned i = start; i < end; ++i)
-        cBounds = Union(cBounds, primitiveInfo[i].centroid);
+        cBounds = Union(cBounds, primitive_info[i].centroid);
     const unsigned dim = cBounds.MaximumExtent();
 
     if (cBounds.max[dim] == cBounds.min[dim])
     {
-        const unsigned first = static_cast<unsigned>(orderedTris.size());
+        const unsigned first = static_cast<unsigned>(ordered_tris.size());
         for (unsigned i = start; i < end; ++i)
-            push_triangle(primitiveInfo[i].primitiveNumber);
+            push_triangle(primitive_info[i].primitiveNumber);
         node->InitLeaf(first, n, bounds);
         return node;
     }
@@ -134,9 +134,9 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
     unsigned mid = (start + end) / 2;
     if (n <= 2)
     {
-        std::nth_element(&primitiveInfo[start],
-            &primitiveInfo[mid],
-            &primitiveInfo[end - 1] + 1,
+        std::nth_element(&primitive_info[start],
+            &primitive_info[mid],
+            &primitive_info[end - 1] + 1,
             [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b) { return a.centroid[dim] < b.centroid[dim]; });
     }
     else
@@ -146,17 +146,17 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
 
         for (unsigned i = start; i < end; ++i)
         {
-            int b = int(nBuckets * cBounds.Offset(primitiveInfo[i].centroid)[dim]);
+            int b = int(nBuckets * cBounds.Offset(primitive_info[i].centroid)[dim]);
             if (b == int(nBuckets))
                 b = int(nBuckets) - 1;
             buckets[b].count++;
-            buckets[b].bounds = Union(buckets[b].bounds, primitiveInfo[i].bounds);
+            buckets[b].bounds = Union(buckets[b].bounds, primitive_info[i].bounds);
         }
 
         float cost[nBuckets - 1];
         for (unsigned i = 0; i < nBuckets - 1; ++i)
         {
-            Bounds3 b0, b1;
+            Aabb b0, b1;
             int c0 = 0, c1 = 0;
             for (unsigned j = 0; j <= i; ++j)
             {
@@ -183,8 +183,8 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
         const float leafCost = float(n);
         if (n > kMaxPrimitivesInNode || minCost < leafCost)
         {
-            BVHPrimitiveInfo* pmid = std::partition(&primitiveInfo[start],
-                &primitiveInfo[end - 1] + 1,
+            BVHPrimitiveInfo* pmid = std::partition(&primitive_info[start],
+                &primitive_info[end - 1] + 1,
                 [&](const BVHPrimitiveInfo& pi)
                 {
                     int b = int(nBuckets * cBounds.Offset(pi.centroid)[dim]);
@@ -192,29 +192,29 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
                         b = int(nBuckets) - 1;
                     return unsigned(b) <= minSplit;
                 });
-            mid = unsigned(pmid - &primitiveInfo[0]);
+            mid = unsigned(pmid - &primitive_info[0]);
         }
         else
         {
-            const unsigned first = static_cast<unsigned>(orderedTris.size());
+            const unsigned first = static_cast<unsigned>(ordered_tris.size());
             for (unsigned i = start; i < end; ++i)
-                push_triangle(primitiveInfo[i].primitiveNumber);
+                push_triangle(primitive_info[i].primitiveNumber);
             node->InitLeaf(first, n, bounds);
             return node;
         }
     }
 
     node->InitInterior(dim,
-        RecursiveBuild(vertices, src_indices, primitiveInfo, start, mid, totalNodes, orderedTris),
-        RecursiveBuild(vertices, src_indices, primitiveInfo, mid, end, totalNodes, orderedTris));
+        RecursiveBuild(vertices, src_indices, primitive_info, start, mid, total_nodes, ordered_tris),
+        RecursiveBuild(vertices, src_indices, primitive_info, mid, end, total_nodes, ordered_tris));
     return node;
 }
 
 unsigned int Bvh::FlattenBVHTree(BVHBuildNode* node, unsigned int* offset)
 {
     LinearBVHNode* linearNode = &nodes_[*offset];
-    linearNode->bmin = float4(node->bounds.min.x, node->bounds.min.y, node->bounds.min.z, 0.0f);
-    linearNode->bmax = float4(node->bounds.max.x, node->bounds.max.y, node->bounds.max.z, 0.0f);
+    linearNode->bmin = glm::vec4(node->bounds.min.x, node->bounds.min.y, node->bounds.min.z, 0.0f);
+    linearNode->bmax = glm::vec4(node->bounds.max.x, node->bounds.max.y, node->bounds.max.z, 0.0f);
     unsigned int myOffset = (*offset)++;
     if (node->nPrimitives > 0)
     {
