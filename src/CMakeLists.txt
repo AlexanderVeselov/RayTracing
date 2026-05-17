@@ -5,30 +5,27 @@ set(INTEGRATOR_SOURCES
     integrator/rhi_integrator.hpp
 )
 
-set(COMMON_KERNELS_SOURCES
-    kernels/common/shared_structures.h
-)
-
-set(HLSL_KERNELS_SOURCES
-    kernels/hlsl/accumulate_direct_samples.cs
-    kernels/hlsl/aov.cs
-    kernels/hlsl/clear_counter.cs
-    kernels/hlsl/clear_sample_counter.cs
-    kernels/hlsl/common.hlsli
-    kernels/hlsl/copy_history.cs
-    kernels/hlsl/denoiser.cs
-    kernels/hlsl/frame_data.hlsli
-    kernels/hlsl/hit_surface.cs
-    kernels/hlsl/increment_counter.cs
-    kernels/hlsl/light.hlsli
-    kernels/hlsl/material.hlsli
-    kernels/hlsl/miss.cs
-    kernels/hlsl/raygeneration.cs
-    kernels/hlsl/reset.cs
-    kernels/hlsl/resolve.cs
-    kernels/hlsl/trace_bvh.cs
-    kernels/hlsl/trace_common.hlsli
-    kernels/hlsl/trace_shadow_bvh.cs
+set(SHADER_SOURCES
+    shaders/shared_structures.h
+    shaders/accumulate_direct_samples.cs
+    shaders/aov.cs
+    shaders/clear_counter.cs
+    shaders/clear_sample_counter.cs
+    shaders/common.hlsli
+    shaders/copy_history.cs
+    shaders/denoiser.cs
+    shaders/frame_data.hlsli
+    shaders/hit_surface.cs
+    shaders/increment_counter.cs
+    shaders/light.hlsli
+    shaders/material.hlsli
+    shaders/miss.cs
+    shaders/raygeneration.cs
+    shaders/reset.cs
+    shaders/resolve.cs
+    shaders/trace_bvh.cs
+    shaders/trace_common.hlsli
+    shaders/trace_shadow_bvh.cs
 )
 
 set(LOADERS_SOURCES
@@ -62,8 +59,7 @@ set(MAIN_SOURCES
 
 set(SOURCES
     ${INTEGRATOR_SOURCES}
-    ${HLSL_KERNELS_SOURCES}
-    ${COMMON_KERNELS_SOURCES}
+    ${SHADER_SOURCES}
     ${LOADERS_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
@@ -71,8 +67,7 @@ set(SOURCES
 )
 
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
-source_group("kernels\\common" FILES ${COMMON_KERNELS_SOURCES})
-source_group("kernels\\hlsl" FILES ${HLSL_KERNELS_SOURCES})
+source_group("shaders" FILES ${SHADER_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
 source_group("utils" FILES ${UTILS_SOURCES})

@@ -40,21 +40,12 @@
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_DIRECTIONAL 1
 
-#ifdef GLSL
 #define STRUCT_BEGIN(x) \
     struct x            \
     {
 #define STRUCT_END(x) \
     }                 \
     ;
-#else
-#define STRUCT_BEGIN(x) \
-    typedef struct x    \
-    {
-#define STRUCT_END(x) \
-    }                 \
-    x;
-#endif
 
 STRUCT_BEGIN(Ray)
 float4 origin;     // w - t_min

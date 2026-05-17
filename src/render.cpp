@@ -33,19 +33,8 @@
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
 
-#include <fstream>
 #include <imgui.h>
-#include <iostream>
-#include <sstream>
 #include <stdexcept>
-
-namespace
-{
-bool IsRhiBackend(Render::RenderBackend backend)
-{
-    return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
-}
-}  // namespace
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()), height_(window.GetHeight())
@@ -59,19 +48,16 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         rhi_api_type_ = gpu::ApiType::kD3D12;
     }
 
-    if (IsRhiBackend(render_backend_))
+    rhi_api_.reset(gpu::Api::Create(rhi_api_type_));
+    if (!rhi_api_)
     {
-        rhi_api_.reset(gpu::Api::Create(rhi_api_type_));
-        if (!rhi_api_)
-        {
-            throw std::runtime_error("Failed to create GpuApi");
-        }
-
-        rhi_api_->SetShaderPath("src/kernels/hlsl");
-        rhi_device_ = rhi_api_->CreateDevice();
-        rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
-        rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
+        throw std::runtime_error("Failed to create GpuApi");
     }
+
+    rhi_api_->SetShaderPath("src/shaders");
+    rhi_device_ = rhi_api_->CreateDevice();
+    rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+    rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
 
     camera_controller_ = std::make_unique<CameraController>(window_);
 
@@ -85,16 +71,9 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     scene_.Finalize();
 
     // Create integrator
-    if (IsRhiBackend(render_backend_))
-    {
-        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
-        rhi_integrator_ = rhi_integrator.get();
-        integrator_ = std::move(rhi_integrator);
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported render backend");
-    }
+    auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
+    rhi_integrator_ = rhi_integrator.get();
+    integrator_ = std::move(rhi_integrator);
 
     // Upload scene data to the GPU
     integrator_->UploadGPUData(scene_, *acc_structure_);
@@ -138,7 +117,6 @@ void Render::DrawGUI()
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0f / ImGui::GetIO().Framerate,
             ImGui::GetIO().Framerate);
-        ImGui::Text("Press \"R\" to reload kernels");
     }
     ImGui::End();
 
@@ -189,11 +167,8 @@ void Render::RenderFrame()
 {
     FrameBegin();
 
-    if (IsRhiBackend(render_backend_))
-    {
-        rhi_imgui_renderer_->NewFrame();
-        DrawGUI();
-    }
+    rhi_imgui_renderer_->NewFrame();
+    DrawGUI();
 
     bool need_to_reset = false;
 
@@ -207,20 +182,17 @@ void Render::RenderFrame()
         integrator_->RequestReset();
     }
 
-    if (IsRhiBackend(render_backend_))
-    {
-        gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
-        rhi_command_buffer_ = queue.CreateCommandBuffer();
-        rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
-        integrator_->Integrate();
-        rhi_imgui_renderer_->Render(*rhi_command_buffer_);
-        rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
-            gpu::ImageLayout::kRenderTarget,
-            gpu::ImageLayout::kPresent);
-        rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
-        queue.Submit(std::move(rhi_command_buffer_));
-        rhi_swapchain_->Present();
-    }
+    gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
+    rhi_command_buffer_ = queue.CreateCommandBuffer();
+    rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
+    integrator_->Integrate();
+    rhi_imgui_renderer_->Render(*rhi_command_buffer_);
+    rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
+        gpu::ImageLayout::kRenderTarget,
+        gpu::ImageLayout::kPresent);
+    rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
+    queue.Submit(std::move(rhi_command_buffer_));
+    rhi_swapchain_->Present();
 
     FrameEnd();
 }

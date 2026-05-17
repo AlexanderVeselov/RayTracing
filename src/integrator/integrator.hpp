@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "kernels/common/shared_structures.h"
+#include "shaders/shared_structures.h"
 #include <memory>
 
 class Scene;

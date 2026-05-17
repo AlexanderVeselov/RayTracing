@@ -31,7 +31,7 @@ float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
         return 1.0f.xxx;
     }
 
-    TextureInfo texture_info = g_Textures[texture_index];
+    Texture texture_info = g_Textures[texture_index];
     uv = frac(uv);
     uv.y = 1.0f - uv.y;
 

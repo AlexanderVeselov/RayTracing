@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "kernels/common/shared_structures.h"
+#include "shaders/shared_structures.h"
 #include "loaders/image_loader.hpp"
 
 #include <string>

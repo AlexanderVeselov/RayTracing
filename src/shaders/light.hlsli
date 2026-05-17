@@ -40,16 +40,16 @@ float3 Light_Sample(float3 position, float3 normal, float s, out float3 outgoing
     Light light = g_Lights[light_idx];
 
     pdf = 1.0f / float(g_SceneCounts.z);
-    float3 light_radiance = light.radiance;
+    float3 light_radiance = light.radiance.xyz;
 
     if (light.type == LIGHT_TYPE_POINT)
     {
-        outgoing = light.origin - position;
+        outgoing = light.origin.xyz - position;
         float sq_length = max(dot(outgoing, outgoing), EPS);
         return light_radiance / sq_length;
     }
 
-    outgoing = light.origin * MAX_RENDER_DIST;
+    outgoing = light.origin.xyz * MAX_RENDER_DIST;
     return light_radiance;
 }
 
