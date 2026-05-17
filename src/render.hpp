@@ -25,14 +25,11 @@
 #pragma once
 
 #include "acceleration_structure.hpp"
-#include "gpu_wrappers/cl_context.hpp"
+#include "gpu_api.hpp"
 #include "integrator/integrator.hpp"
 #include "scene/scene.hpp"
 #include "utils/camera_controller.hpp"
-#include "utils/framebuffer.hpp"
-#ifdef RAYTRACING_ENABLE_RHI
-#include "gpu_api.hpp"
-#endif
+
 #include <ctime>
 #include <memory>
 
@@ -43,12 +40,8 @@ class Render
 public:
     enum class RenderBackend
     {
-        kOpenCL,
-        kOpenGL,
-#ifdef RAYTRACING_ENABLE_RHI
         kVulkan,
         kD3D12
-#endif
     };
 
     Render(Window& window, RenderBackend backend, Scene& scene);
@@ -59,13 +52,10 @@ public:
     double GetDeltaTime() const;
     Window& GetWindow() const { return window_; }
 
-    std::shared_ptr<CLContext> GetCLContext() const { return cl_context_; }
-
 private:
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
-    void ReloadKernels();
 
 private:
     // Window
@@ -80,8 +70,7 @@ private:
     // Timing
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
-    std::shared_ptr<CLContext> cl_context_;
-#ifdef RAYTRACING_ENABLE_RHI
+
     gpu::ApiType rhi_api_type_ = gpu::ApiType::kVulkan;
     std::unique_ptr<gpu::Api> rhi_api_;
     gpu::DevicePtr rhi_device_;
@@ -89,14 +78,13 @@ private:
     gpu::ImGuiRendererPtr rhi_imgui_renderer_;
     gpu::CommandBufferPtr rhi_command_buffer_;
     RhiIntegrator* rhi_integrator_ = nullptr;
-#endif
+
     // Integrator
     std::unique_ptr<Integrator> integrator_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
 
     std::unique_ptr<CameraController> camera_controller_;
-    std::unique_ptr<Framebuffer> framebuffer_;
 
     struct GuiParams
     {

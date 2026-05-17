@@ -35,32 +35,20 @@ namespace
 std::map<std::string, Render::RenderBackend> CreateBackendMap()
 {
     std::map<std::string, Render::RenderBackend> backends = {
-        {"opencl", Render::RenderBackend::kOpenCL},
-        {"opengl", Render::RenderBackend::kOpenGL},
+        {"vulkan", Render::RenderBackend::kVulkan},
+        {"d3d12", Render::RenderBackend::kD3D12},
     };
-#ifdef RAYTRACING_ENABLE_RHI
-    backends.emplace("vulkan", Render::RenderBackend::kVulkan);
-    backends.emplace("d3d12", Render::RenderBackend::kD3D12);
-#endif
     return backends;
 }
 
 char const* GetBackendHelpText()
 {
-#ifdef RAYTRACING_ENABLE_RHI
-    return "Render backend: opencl, opengl, vulkan, d3d12";
-#else
-    return "Render backend: opencl, opengl";
-#endif
+    return "Render backend: vulkan, d3d12";
 }
 
 char const* GetBackendTypeName()
 {
-#ifdef RAYTRACING_ENABLE_RHI
-    return "opencl|opengl|vulkan|d3d12";
-#else
-    return "opencl|opengl";
-#endif
+    return "vulkan|d3d12";
 }
 }  // namespace
 
@@ -71,7 +59,7 @@ int main(int argc, char** argv)
         // Default parameters
         uint32_t window_width = 1280;
         uint32_t window_height = 720;
-        Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
+        Render::RenderBackend backend = Render::RenderBackend::kVulkan;
         std::string scene_path = "assets/ShaderBalls.obj";
         float scene_scale = 1.0f;
         bool flip_yz = false;
@@ -106,11 +94,7 @@ int main(int argc, char** argv)
         scene.AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
 
         // Create the window
-        bool no_window_api = false;
-#ifdef RAYTRACING_ENABLE_RHI
-        no_window_api = backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
-#endif
-        Window window(window_width, window_height, "RayTracing", no_window_api);
+        Window window(window_width, window_height, "RayTracing");
 
         Render render(window, backend, scene);
 

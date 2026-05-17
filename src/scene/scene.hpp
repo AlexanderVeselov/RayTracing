@@ -31,7 +31,6 @@
 #include <unordered_map>
 #include <vector>
 
-class CLContext;
 class Scene
 {
 public:

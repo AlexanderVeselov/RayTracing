@@ -28,7 +28,6 @@
 
 #include <vector>
 
-class CLContext;
 class AccelerationStructure
 {
 public:
