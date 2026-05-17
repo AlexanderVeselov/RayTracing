@@ -26,7 +26,6 @@
 #define SHARED_STRUCTURES_H
 
 #ifdef __cplusplus
-#include <CL/cl.h>
 #include <algorithm>
 #include <glm/glm.hpp>
 #define float2 glm::vec2
@@ -41,13 +40,12 @@
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_DIRECTIONAL 1
 
-#ifdef GLSL
-#define STRUCT_BEGIN(x) struct x {
-#define STRUCT_END(x) };
-#else
-#define STRUCT_BEGIN(x) typedef struct x {
-#define STRUCT_END(x) } x;
-#endif
+#define STRUCT_BEGIN(x) \
+    struct x            \
+    {
+#define STRUCT_END(x) \
+    }                 \
+    ;
 
 STRUCT_BEGIN(Ray)
 float4 origin;     // w - t_min
@@ -73,7 +71,8 @@ unsigned int diffuse_albedo;       // 24 bit - RGB, 8 bit - texture index
 unsigned int specular_albedo;      // 24 bit - RGB, 8 bit - texture index
 unsigned int emission;             // 32 bit - RGBE
 unsigned int roughness_metalness;  // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
-unsigned int ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
+unsigned int
+    ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
 STRUCT_END(PackedMaterial)
 
 STRUCT_BEGIN(Light)

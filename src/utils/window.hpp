@@ -146,7 +146,7 @@ public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
-    Window(uint32_t width, uint32_t height, char const* title, bool no_api = false);
+    Window(uint32_t width, uint32_t height, char const* title);
     ~Window() = default;
 
     // Returns HWND in the case of WIN32 platform
@@ -162,7 +162,6 @@ public:
     bool ShouldClose() const;
     bool GetKey(KeyCode code) const;
     bool GetMouseButton(MouseButton button) const;
-    void SwapBuffers();
     void AddScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
 
 private:
@@ -172,5 +171,4 @@ private:
     std::vector<std::function<void(float)>> scroll_callbacks_;
     uint32_t width_ = ~0u;
     uint32_t height_ = ~0u;
-    bool has_graphics_context_ = false;
 };

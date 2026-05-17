@@ -27,8 +27,6 @@
 
 #include "render.hpp"
 #include "scene.hpp"
-#include "utils/cl_exception.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <ctime>
@@ -144,8 +142,7 @@ glm::vec3 UnpackRGBE(unsigned int rgbe)
     }
 }
 
-unsigned int PackRoughnessMetalness(float roughness, uint32_t roughness_idx, float metalness,
-    uint32_t metalness_idx)
+unsigned int PackRoughnessMetalness(float roughness, uint32_t roughness_idx, float metalness, uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
     roughness = std::clamp(roughness, 0.0f, 1.0f);

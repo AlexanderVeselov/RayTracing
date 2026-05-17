@@ -24,11 +24,10 @@
 
 #pragma once
 
-#include "kernels/common/shared_structures.h"
+#include "shaders/shared_structures.h"
 
 #include <vector>
 
-class CLContext;
 class AccelerationStructure
 {
 public:

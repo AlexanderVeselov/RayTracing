@@ -22,12 +22,9 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include <GL/glew.h>
 #include "window.hpp"
 
-#ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
-#endif
 
 #ifdef WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -157,37 +154,25 @@ const std::unordered_map<MouseButton, int> kMouseButtonToGlfwButton = {
 // clang-format on
 bool ImGuiWantsKeyboard()
 {
-#ifdef RAYTRACING_ENABLE_RHI
     return ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureKeyboard;
-#else
-    return false;
-#endif
 }
 
 bool ImGuiWantsMouse()
 {
-#ifdef RAYTRACING_ENABLE_RHI
     return ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
-#else
-    return false;
-#endif
 }
 
 }  // namespace
 
-Window::Window(uint32_t width, uint32_t height, char const* title, bool no_api)
-    : window_(nullptr, glfwDestroyWindow), width_(width), height_(height), has_graphics_context_(!no_api)
+Window::Window(uint32_t width, uint32_t height, char const* title)
+    : window_(nullptr, glfwDestroyWindow), width_(width), height_(height)
 {
     if (!glfwInit())
     {
         throw std::runtime_error("glfwInit() failed");
     }
 
-    if (no_api)
-    {
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    }
-
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     // Create the main window
@@ -200,22 +185,6 @@ Window::Window(uint32_t width, uint32_t height, char const* title, bool no_api)
 
     glfwSetWindowUserPointer(window_.get(), this);
     glfwSetScrollCallback(window_.get(), ScrollCallback);
-
-    if (no_api)
-    {
-        return;
-    }
-
-    glfwMakeContextCurrent(window_.get());
-
-    GLenum glew_status = glewInit();
-
-    if (glew_status != GLEW_OK)
-    {
-        fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
-
-        throw std::runtime_error("Failed to init GLEW");
-    }
 }
 
 void Window::PollEvents()
@@ -272,14 +241,6 @@ void Window::SetMousePos(int x, int y) const
 void* Window::GetNativeHandle() const
 {
     return glfwGetWin32Window(window_.get());
-}
-
-void Window::SwapBuffers()
-{
-    if (has_graphics_context_)
-    {
-        glfwSwapBuffers(window_.get());
-    }
 }
 
 void Window::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)

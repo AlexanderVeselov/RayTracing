@@ -26,45 +26,19 @@
 
 #include "Utils/window.hpp"
 #include "bvh.hpp"
-#include "integrator/cl_pt_integrator.hpp"
-#include "integrator/gl_pt_integrator.hpp"
-#ifdef RAYTRACING_ENABLE_RHI
 #include "gpu_command_buffer.hpp"
 #include "gpu_device.hpp"
 #include "gpu_imgui.hpp"
 #include "gpu_queue.hpp"
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
-#endif
-#include "utils/cl_exception.hpp"
 
-#include <fstream>
-#ifdef RAYTRACING_ENABLE_RHI
 #include <imgui.h>
-#endif
-#include <iostream>
-#include <sstream>
 #include <stdexcept>
-
-namespace
-{
-bool IsGlBackend(Render::RenderBackend backend)
-{
-    return backend == Render::RenderBackend::kOpenCL || backend == Render::RenderBackend::kOpenGL;
-}
-
-#ifdef RAYTRACING_ENABLE_RHI
-bool IsRhiBackend(Render::RenderBackend backend)
-{
-    return backend == Render::RenderBackend::kVulkan || backend == Render::RenderBackend::kD3D12;
-}
-#endif
-}  // namespace
 
 Render::Render(Window& window, RenderBackend backend, Scene& scene)
     : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()), height_(window.GetHeight())
 {
-#ifdef RAYTRACING_ENABLE_RHI
     if (render_backend_ == RenderBackend::kVulkan)
     {
         rhi_api_type_ = gpu::ApiType::kVulkan;
@@ -74,37 +48,17 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
         rhi_api_type_ = gpu::ApiType::kD3D12;
     }
 
-    if (IsRhiBackend(render_backend_))
+    rhi_api_.reset(gpu::Api::Create(rhi_api_type_));
+    if (!rhi_api_)
     {
-        rhi_api_.reset(gpu::Api::Create(rhi_api_type_));
-        if (!rhi_api_)
-        {
-            throw std::runtime_error("Failed to create GpuApi");
-        }
-
-        rhi_api_->SetShaderPath("src/kernels/hlsl");
-        rhi_device_ = rhi_api_->CreateDevice();
-        rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
-        rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
-    }
-#endif
-
-    if (render_backend_ == RenderBackend::kOpenCL)
-    {
-        std::vector<cl::Platform> all_platforms;
-        cl::Platform::get(&all_platforms);
-        if (all_platforms.empty())
-        {
-            throw std::runtime_error("No OpenCL platforms found");
-        }
-
-        cl_context_ = std::make_shared<CLContext>(all_platforms[0]);
+        throw std::runtime_error("Failed to create GpuApi");
     }
 
-    if (IsGlBackend(render_backend_))
-    {
-        framebuffer_ = std::make_unique<Framebuffer>(width_, height_);
-    }
+    rhi_api_->SetShaderPath("src/shaders");
+    rhi_device_ = rhi_api_->CreateDevice();
+    rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+    rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
+
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
@@ -117,29 +71,9 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     scene_.Finalize();
 
     // Create integrator
-    if (render_backend_ == RenderBackend::kOpenCL)
-    {
-        integrator_ = std::make_unique<CLPathTraceIntegrator>(width_,
-            height_,
-            *cl_context_,
-            framebuffer_->GetGLImage());
-    }
-    else if (render_backend_ == RenderBackend::kOpenGL)
-    {
-        integrator_ = std::make_unique<GLPathTraceIntegrator>(width_, height_, framebuffer_->GetGLImage());
-    }
-#ifdef RAYTRACING_ENABLE_RHI
-    else if (IsRhiBackend(render_backend_))
-    {
-        auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
-        rhi_integrator_ = rhi_integrator.get();
-        integrator_ = std::move(rhi_integrator);
-    }
-#endif
-    else
-    {
-        throw std::runtime_error("Unsupported render backend");
-    }
+    auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
+    rhi_integrator_ = rhi_integrator.get();
+    integrator_ = std::move(rhi_integrator);
 
     // Upload scene data to the GPU
     integrator_->UploadGPUData(scene_, *acc_structure_);
@@ -147,12 +81,10 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
 
 Render::~Render()
 {
-#ifdef RAYTRACING_ENABLE_RHI
     if (rhi_device_)
     {
         rhi_device_->GetQueue(gpu::QueueType::kGraphics).WaitIdle();
     }
-#endif
 }
 
 double Render::GetCurtime() const
@@ -173,25 +105,11 @@ void Render::FrameBegin()
 void Render::FrameEnd()
 {
     camera_controller_->OnEndFrame();
-    if (IsGlBackend(render_backend_))
-    {
-        glFinish();
-        window_.SwapBuffers();
-    }
     prev_frame_time_ = start_frame_time_;
-}
-
-void Render::ReloadKernels()
-{
-    if (cl_context_)
-    {
-        cl_context_->ReloadKernels();
-    }
 }
 
 void Render::DrawGUI()
 {
-#ifdef RAYTRACING_ENABLE_RHI
     ImGui::Begin("PerformanceStats", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar);
     {
         ImGui::SetWindowPos(ImVec2(10, 10));
@@ -199,7 +117,6 @@ void Render::DrawGUI()
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0f / ImGui::GetIO().Framerate,
             ImGui::GetIO().Framerate);
-        ImGui::Text("Press \"R\" to reload kernels");
     }
     ImGui::End();
 
@@ -244,34 +161,16 @@ void Render::DrawGUI()
         }
     }
     ImGui::End();
-#endif
 }
 
 void Render::RenderFrame()
 {
     FrameBegin();
 
-    if (IsGlBackend(render_backend_))
-    {
-        glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-    }
-
-#ifdef RAYTRACING_ENABLE_RHI
-    if (IsRhiBackend(render_backend_))
-    {
-        rhi_imgui_renderer_->NewFrame();
-        DrawGUI();
-    }
-#endif
+    rhi_imgui_renderer_->NewFrame();
+    DrawGUI();
 
     bool need_to_reset = false;
-
-    if (window_.GetKey(KeyCode::kR))
-    {
-        ReloadKernels();
-        need_to_reset = true;
-    }
 
     camera_controller_->Update((float)GetDeltaTime());
     integrator_->SetCameraData(camera_controller_->GetData());
@@ -283,31 +182,17 @@ void Render::RenderFrame()
         integrator_->RequestReset();
     }
 
-#ifdef RAYTRACING_ENABLE_RHI
-    if (IsRhiBackend(render_backend_))
-    {
-        gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
-        rhi_command_buffer_ = queue.CreateCommandBuffer();
-        rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
-        integrator_->Integrate();
-        rhi_imgui_renderer_->Render(*rhi_command_buffer_);
-        rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
-            gpu::ImageLayout::kRenderTarget,
-            gpu::ImageLayout::kPresent);
-        rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
-        queue.Submit(std::move(rhi_command_buffer_));
-        rhi_swapchain_->Present();
-    }
-    else
-#endif
-    {
-        integrator_->Integrate();
-    }
-
-    if (IsGlBackend(render_backend_))
-    {
-        framebuffer_->Present();
-    }
+    gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
+    rhi_command_buffer_ = queue.CreateCommandBuffer();
+    rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
+    integrator_->Integrate();
+    rhi_imgui_renderer_->Render(*rhi_command_buffer_);
+    rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
+        gpu::ImageLayout::kRenderTarget,
+        gpu::ImageLayout::kPresent);
+    rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
+    queue.Submit(std::move(rhi_command_buffer_));
+    rhi_swapchain_->Present();
 
     FrameEnd();
 }

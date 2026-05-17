@@ -63,7 +63,7 @@ StructuredBuffer<PackedMaterial> g_Materials : register(t19);
 StructuredBuffer<Light> g_Lights : register(t20);
 
 // Texture data
-StructuredBuffer<TextureInfo> g_Textures : register(t21);
+StructuredBuffer<Texture> g_Textures : register(t21);
 StructuredBuffer<uint> g_TextureData : register(t22);
 
 #include "light.hlsli"
@@ -98,11 +98,12 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     Vertex v1 = g_Vertices[g_Indices[index_offset + 0]];
     Vertex v2 = g_Vertices[g_Indices[index_offset + 1]];
     Vertex v3 = g_Vertices[g_Indices[index_offset + 2]];
-    float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
+    float3 position = InterpolateAttributes(v1.position.xyz, v2.position.xyz, v3.position.xyz, hit.bc);
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
-    float3 geometry_normal = normalize(cross(v2.position - v1.position, v3.position - v1.position));
-    float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
+    float3 geometry_normal =
+        normalize(cross(v2.position.xyz - v1.position.xyz, v3.position.xyz - v1.position.xyz));
+    float3 normal = normalize(InterpolateAttributes(v1.normal.xyz, v2.normal.xyz, v3.normal.xyz, hit.bc));
     if (dot(normal, incoming) < 0.0f)
     {
         normal = -normal;

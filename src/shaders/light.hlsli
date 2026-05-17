@@ -22,56 +22,35 @@
  SOFTWARE.
  *****************************************************************************/
 
-layout (local_size_x = 256) in;
+#ifndef LIGHT_HLSLI
+#define LIGHT_HLSLI
 
-#include "src/kernels/common/constants.h"
-
-uniform uint width;
-
-layout(std430, binding = 0) buffer ShadowHits 
+// Samples one analytic light. Matches the OpenCL Light_Sample helper shape:
+// returns radiance, writes the unnormalized direction to outgoing and selection pdf to pdf.
+float3 Light_Sample(float3 position, float3 normal, float s, out float3 outgoing, out float pdf)
 {
-    uint shadow_hits[];
-};
-
-layout(std430, binding = 1) buffer ShadowRayCounter 
-{
-    uint shadow_ray_counter[];
-};
-
-layout(std430, binding = 2) buffer ShadowPixelIndices
-{
-    uint shadow_pixel_indices[];
-};
-
-layout(std430, binding = 3) buffer DirectLightSamples
-{
-    float3 direct_light_samples[];
-};
-
-layout(binding = 4, rgba32f) uniform image2D radiance_image;
-
-void main()
-{
-    uint ray_idx = gl_GlobalInvocationID.x;
-    uint num_rays = shadow_ray_counter[0];
-
-    if (ray_idx >= num_rays)
+    if (g_SceneCounts.z == 0u)
     {
-        return;
+        outgoing = 0.0f.xxx;
+        pdf = 0.0f;
+        return 0.0f.xxx;
     }
 
-    uint shadow_hit = shadow_hits[ray_idx];
+    uint light_idx = min(uint(s * float(g_SceneCounts.z)), g_SceneCounts.z - 1u);
+    Light light = g_Lights[light_idx];
 
-    if (shadow_hit == INVALID_ID)
+    pdf = 1.0f / float(g_SceneCounts.z);
+    float3 light_radiance = light.radiance.xyz;
+
+    if (light.type == LIGHT_TYPE_POINT)
     {
-        uint pixel_idx = shadow_pixel_indices[ray_idx];
-
-        uint pixel_x = pixel_idx % width;
-        uint pixel_y = pixel_idx / width;
-
-        vec4 radiance = imageLoad(radiance_image, ivec2(pixel_x, pixel_y));
-        radiance.xyz += direct_light_samples[ray_idx];
-
-        imageStore(radiance_image, ivec2(pixel_x, pixel_y), radiance);
+        outgoing = light.origin.xyz - position;
+        float sq_length = max(dot(outgoing, outgoing), EPS);
+        return light_radiance / sq_length;
     }
+
+    outgoing = light.origin.xyz * MAX_RENDER_DIST;
+    return light_radiance;
 }
+
+#endif // LIGHT_HLSLI

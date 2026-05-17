@@ -24,14 +24,13 @@
 
 #pragma once
 
-#include "kernels/common/shared_structures.h"
+#include "shaders/shared_structures.h"
 #include "loaders/image_loader.hpp"
 
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-class CLContext;
 class Scene
 {
 public:

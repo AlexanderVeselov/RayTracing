@@ -30,7 +30,6 @@ static const float TWO_PI = 6.283185307f;
 static const float MAX_RENDER_DIST = 1000000.0f;
 static const uint INVALID_ID = 0xFFFFFFFFu;
 static const uint INVALID_TEXTURE_IDX = 0xFFu;
-static const uint LIGHT_TYPE_POINT = 0u;
 
 static const uint SAMPLE_TYPE_SUBPIXEL = 0u;
 static const uint SAMPLE_TYPE_BXDF_LAYER = 1u;
@@ -39,60 +38,7 @@ static const uint SAMPLE_TYPE_BXDF_V = 3u;
 static const uint SAMPLE_TYPE_LIGHT = 4u;
 static const uint SAMPLE_TYPE_MAX = 5u;
 
-struct Ray
-{
-    float4 origin;
-    float4 direction;
-};
-
-struct Hit
-{
-    float2 bc;
-    uint primitive_id;
-    float t;
-};
-
-struct Vertex
-{
-    float3 position;
-    float position_padding;
-    float2 texcoord;
-    float2 texcoord_padding;
-    float3 normal;
-    float normal_padding;
-};
-
-struct RTTriangle
-{
-    float3 position1;
-    float position1_padding;
-    float3 position2;
-    float position2_padding;
-    float3 position3;
-    float position3_padding;
-    uint primitive_id;
-    uint3 padding;
-};
-
-struct LinearBVHNode
-{
-    float3 bmin;
-    float bmin_padding;
-    float3 bmax;
-    float bmax_padding;
-    uint offset;
-    uint num_primitives_axis;
-    uint2 padding;
-};
-
-struct PackedMaterial
-{
-    uint diffuse_albedo;
-    uint specular_albedo;
-    uint emission;
-    uint roughness_metalness;
-    uint ior_emission_idx_transparency;
-};
+#include "shared_structures.h"
 
 struct Material
 {
@@ -103,24 +49,6 @@ struct Material
     float3 emission;
     float ior;
     float transparency;
-};
-
-struct Light
-{
-    float3 origin;
-    float origin_padding;
-    float3 radiance;
-    float radiance_padding;
-    uint type;
-    uint3 padding;
-};
-
-struct TextureInfo
-{
-    int data_start;
-    int width;
-    int height;
-    int padding;
 };
 
 float3 InterpolateAttributes(float3 a, float3 b, float3 c, float2 uv)
