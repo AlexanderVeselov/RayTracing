@@ -35,7 +35,7 @@
 class RhiIntegrator : public Integrator
 {
 public:
-    RhiIntegrator(std::uint32_t width, std::uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
+    RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
     ~RhiIntegrator() = default;
 
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
@@ -54,21 +54,21 @@ protected:
     void Reset() override;
     void AdvanceSampleCount() override;
     void GenerateRays() override;
-    void IntersectRays(std::uint32_t bounce) override;
+    void IntersectRays(uint32_t bounce) override;
     void ComputeAOVs() override;
-    void ShadeMissedRays(std::uint32_t bounce) override;
-    void ShadeSurfaceHits(std::uint32_t bounce) override;
+    void ShadeMissedRays(uint32_t bounce) override;
+    void ShadeSurfaceHits(uint32_t bounce) override;
     void IntersectShadowRays() override;
     void AccumulateDirectSamples() override;
-    void ClearOutgoingRayCounter(std::uint32_t bounce) override;
+    void ClearOutgoingRayCounter(uint32_t bounce) override;
     void ClearShadowRayCounter() override;
     void Denoise() override;
     void CopyHistoryBuffers() override;
     void ResolveRadiance() override;
 
 private:
-    gpu::BufferPtr CreateStagingBuffer(void const* data, std::size_t size, std::uint32_t stride);
-    gpu::BufferPtr CreateStorageBuffer(std::size_t size, std::uint32_t stride);
+    gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
+    gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
@@ -169,10 +169,10 @@ private:
 
     gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
     std::vector<gpu::ImageLayout> swapchain_image_layouts_;
-    std::uint32_t triangle_count_ = 0u;
-    std::uint32_t node_count_ = 0u;
-    std::uint32_t light_count_ = 0u;
-    std::uint32_t texture_count_ = 0u;
-    std::uint32_t env_map_width_ = 0u;
-    std::uint32_t env_map_height_ = 0u;
+    uint32_t triangle_count_ = 0u;
+    uint32_t node_count_ = 0u;
+    uint32_t light_count_ = 0u;
+    uint32_t texture_count_ = 0u;
+    uint32_t env_map_width_ = 0u;
+    uint32_t env_map_height_ = 0u;
 };

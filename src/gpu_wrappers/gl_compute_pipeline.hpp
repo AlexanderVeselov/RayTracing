@@ -35,7 +35,7 @@ public:
     ComputePipeline(char const* vs_source, std::vector<std::string> const& definitions = std::vector<std::string>());
     void Bind() const { glUseProgram(shader_program_); }
     GLuint GetProgram() const { return shader_program_; }
-    void BindConstant(char const* name, std::uint32_t value);
+    void BindConstant(char const* name, uint32_t value);
     void BindConstant(char const* name, float value);
     void BindConstant(char const* name, glm::vec3 value);
     void BindConstant(char const* name, glm::vec4 value);

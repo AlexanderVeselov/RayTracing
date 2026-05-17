@@ -36,7 +36,7 @@ void Integrator::Integrate()
 
     GenerateRays();
 
-    for (std::uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
+    for (uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
     {
         IntersectRays(bounce);
         if (bounce == 0)
@@ -62,7 +62,7 @@ void Integrator::Integrate()
     EndFrame();
 }
 
-void Integrator::SetMaxBounces(std::uint32_t max_bounces)
+void Integrator::SetMaxBounces(uint32_t max_bounces)
 {
     max_bounces_ = max_bounces;
     RequestReset();

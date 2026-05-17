@@ -26,7 +26,7 @@
 
 #include <vector>
 
-Framebuffer::Framebuffer(std::uint32_t width, std::uint32_t height) : width_(width), height_(height)
+Framebuffer::Framebuffer(uint32_t width, uint32_t height) : width_(width), height_(height)
 {
     // Enable SRGB framebuffer
     glEnable(GL_FRAMEBUFFER_SRGB);

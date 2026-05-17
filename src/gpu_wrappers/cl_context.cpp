@@ -109,14 +109,14 @@ void CLContext::ReadBuffer(const cl::Buffer& buffer, void* data, size_t size) co
     ThrowIfFailed(status, "Failed to read buffer");
 }
 
-void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer, std::size_t src_offset,
-    std::size_t dst_offset, std::size_t size) const
+void CLContext::CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer, size_t src_offset,
+    size_t dst_offset, size_t size) const
 {
     cl_int status = queue_.enqueueCopyBuffer(src_buffer, dst_buffer, src_offset, dst_offset, size);
     ThrowIfFailed(status, "Failed to copy buffer");
 }
 
-void CLContext::ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const
+void CLContext::ExecuteKernel(CLKernel const& kernel, size_t work_size) const
 {
     cl_int status = queue_.enqueueNDRangeKernel(kernel.GetKernel(),
         cl::NullRange,
@@ -224,21 +224,21 @@ void CLKernel::Reload()
     }
 }
 
-void CLKernel::SetArgument(std::uint32_t arg_index, void const* data, std::size_t size)
+void CLKernel::SetArgument(uint32_t arg_index, void const* data, size_t size)
 {
     kernel_args_[arg_index] = KernelArg{data, size, KernelArg::ArgType::kConstant};
     cl_int status = kernel_.setArg(arg_index, size, (void*)data);
     ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
-void CLKernel::SetArgument(std::uint32_t arg_index, cl_mem buffer)
+void CLKernel::SetArgument(uint32_t arg_index, cl_mem buffer)
 {
     kernel_args_[arg_index] = KernelArg{buffer, sizeof(cl_mem), KernelArg::ArgType::kBuffer};
     cl_int status = kernel_.setArg(arg_index, sizeof(cl_mem), &buffer);
     ThrowIfFailed(status, (kernel_name_ + ": failed to set kernel argument #" + std::to_string(arg_index)).c_str());
 }
 
-void CLKernel::SetArgument(std::uint32_t arg_index, cl::Buffer buffer)
+void CLKernel::SetArgument(uint32_t arg_index, cl::Buffer buffer)
 {
     SetArgument(arg_index, buffer());
 }

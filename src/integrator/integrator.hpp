@@ -49,7 +49,7 @@ public:
         kMotionVectors
     };
 
-    Integrator(std::uint32_t width, std::uint32_t height) : width_(width), height_(height) {}
+    Integrator(uint32_t width, uint32_t height) : width_(width), height_(height) {}
     virtual ~Integrator() = default;
 
     void Integrate();
@@ -57,7 +57,7 @@ public:
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
     void EnableWhiteFurnace(bool enable);
-    void SetMaxBounces(std::uint32_t max_bounces);
+    void SetMaxBounces(uint32_t max_bounces);
     virtual void SetSamplerType(SamplerType sampler_type) = 0;
     virtual void SetAOV(AOV aov) = 0;
     virtual void EnableDenoiser(bool enable) = 0;
@@ -69,26 +69,26 @@ protected:
     virtual void Reset() = 0;
     virtual void AdvanceSampleCount() = 0;
     virtual void GenerateRays() = 0;
-    virtual void IntersectRays(std::uint32_t bounce) = 0;
+    virtual void IntersectRays(uint32_t bounce) = 0;
     virtual void ComputeAOVs() = 0;
-    virtual void ShadeMissedRays(std::uint32_t bounce) = 0;
-    virtual void ShadeSurfaceHits(std::uint32_t bounce) = 0;
+    virtual void ShadeMissedRays(uint32_t bounce) = 0;
+    virtual void ShadeSurfaceHits(uint32_t bounce) = 0;
     virtual void IntersectShadowRays() = 0;
     virtual void AccumulateDirectSamples() = 0;
-    virtual void ClearOutgoingRayCounter(std::uint32_t bounce) = 0;
+    virtual void ClearOutgoingRayCounter(uint32_t bounce) = 0;
     virtual void ClearShadowRayCounter() = 0;
     virtual void Denoise() = 0;
     virtual void CopyHistoryBuffers() = 0;
     virtual void ResolveRadiance() = 0;
 
     // Render size
-    std::uint32_t width_;
-    std::uint32_t height_;
+    uint32_t width_;
+    uint32_t height_;
 
     Camera camera_ = {};
     Camera prev_camera_ = {};
 
-    std::uint32_t max_bounces_ = 3u;
+    uint32_t max_bounces_ = 3u;
     SamplerType sampler_type_ = SamplerType::kRandom;
     AOV aov_ = AOV::kShadedColor;
 

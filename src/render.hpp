@@ -74,8 +74,8 @@ private:
     Scene& scene_;
 
     // Render size
-    std::uint32_t width_;
-    std::uint32_t height_;
+    uint32_t width_;
+    uint32_t height_;
 
     // Timing
     double start_frame_time_ = 0.0;

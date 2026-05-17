@@ -61,7 +61,7 @@ ComputePipeline::~ComputePipeline()
     glDeleteShader(shader_);
 }
 
-void ComputePipeline::BindConstant(char const* name, std::uint32_t value)
+void ComputePipeline::BindConstant(char const* name, uint32_t value)
 {
     GLuint uniform_index = glGetUniformLocation(shader_program_, name);
     if (uniform_index == GL_INVALID_INDEX)

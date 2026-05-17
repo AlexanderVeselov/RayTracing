@@ -217,7 +217,7 @@ void Render::DrawGUI()
 
         if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
         {
-            integrator_->SetMaxBounces((std::uint32_t)gui_params_.max_bounces);
+            integrator_->SetMaxBounces((uint32_t)gui_params_.max_bounces);
         }
 
         if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))

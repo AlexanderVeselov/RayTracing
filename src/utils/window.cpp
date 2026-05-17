@@ -175,7 +175,7 @@ bool ImGuiWantsMouse()
 
 }  // namespace
 
-Window::Window(std::uint32_t width, std::uint32_t height, char const* title, bool no_api)
+Window::Window(uint32_t width, uint32_t height, char const* title, bool no_api)
     : window_(nullptr, glfwDestroyWindow), width_(width), height_(height), has_graphics_context_(!no_api)
 {
     if (!glfwInit())

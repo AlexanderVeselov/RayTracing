@@ -69,8 +69,8 @@ int main(int argc, char** argv)
     try
     {
         // Default parameters
-        std::uint32_t window_width = 1280;
-        std::uint32_t window_height = 720;
+        uint32_t window_width = 1280;
+        uint32_t window_height = 720;
         Render::RenderBackend backend = Render::RenderBackend::kOpenCL;
         std::string scene_path = "assets/ShaderBalls.obj";
         float scene_scale = 1.0f;

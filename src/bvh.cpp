@@ -33,7 +33,7 @@ namespace
 constexpr auto kMaxPrimitivesInNode = 4u;
 }
 
-void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::uint32_t>& indices)
+void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
     std::cout << "Building BVH (VB/IB -> compact tri buffer) ..." << std::endl;
 
@@ -81,7 +81,7 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<std::u
 }
 
 Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
-    const std::vector<std::uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitive_info, unsigned start,
+    const std::vector<uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitive_info, unsigned start,
     unsigned end, unsigned* total_nodes, std::vector<RTTriangle>& ordered_tris)
 {
     BVHBuildNode* node = new BVHBuildNode;

@@ -31,15 +31,15 @@
 class Framebuffer
 {
 public:
-    Framebuffer(std::uint32_t width, std::uint32_t height);
+    Framebuffer(uint32_t width, uint32_t height);
     void Present();
-    std::uint32_t GetWidth() const { return width_; }
-    std::uint32_t GetHeight() const { return height_; }
+    uint32_t GetWidth() const { return width_; }
+    uint32_t GetHeight() const { return height_; }
     GLuint GetGLImage() const { return render_texture_; }
 
 private:
-    std::uint32_t width_;
-    std::uint32_t height_;
+    uint32_t width_;
+    uint32_t height_;
     std::unique_ptr<GraphicsPipeline> draw_pipeline_;
     GLuint render_texture_;
 };

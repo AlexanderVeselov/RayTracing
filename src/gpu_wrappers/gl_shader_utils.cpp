@@ -44,11 +44,11 @@ std::string ReadHeader(char const* filename)
     {
         std::string include_str("#include");
 
-        std::size_t start_pos = 0;
+        size_t start_pos = 0;
         if ((start_pos = line.find(include_str)) != std::string::npos)
         {
             start_pos = line.find("\"", start_pos) + 1;
-            std::size_t end_pos = line.find("\"", start_pos);
+            size_t end_pos = line.find("\"", start_pos);
 
             std::string include_filename = line.substr(start_pos, end_pos - start_pos);
             source += ReadHeader(include_filename.c_str()) + "\n";
@@ -91,11 +91,11 @@ std::string ReadShader(char const* filename, std::vector<std::string> const& def
     {
         std::string include_str("#include");
 
-        std::size_t start_pos = 0;
+        size_t start_pos = 0;
         if ((start_pos = line.find(include_str)) != std::string::npos)
         {
             start_pos = line.find("\"", start_pos) + 1;
-            std::size_t end_pos = line.find("\"", start_pos);
+            size_t end_pos = line.find("\"", start_pos);
 
             std::string include_filename = line.substr(start_pos, end_pos - start_pos);
             source += ReadHeader(include_filename.c_str()) + "\n";

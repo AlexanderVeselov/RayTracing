@@ -180,7 +180,7 @@ namespace Resolve
 }  // namespace Resolve
 }  // namespace args
 
-cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
+cl::Buffer CLPathTraceIntegrator::CreateBuffer(size_t size)
 {
     cl_int status;
     cl::Buffer buffer(cl_context_.GetContext(), CL_MEM_READ_WRITE, size, nullptr, &status);
@@ -189,11 +189,11 @@ cl::Buffer CLPathTraceIntegrator::CreateBuffer(std::size_t size)
     return buffer;
 }
 
-CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, CLContext& cl_context,
+CLPathTraceIntegrator::CLPathTraceIntegrator(uint32_t width, uint32_t height, CLContext& cl_context,
     unsigned int output_image)
     : Integrator(width, height), cl_context_(cl_context), gl_interop_image_(output_image)
 {
-    std::uint32_t num_rays = width_ * height_;
+    uint32_t num_rays = width_ * height_;
 
     // Create buffers and images
     cl_int status;
@@ -208,17 +208,17 @@ CLPathTraceIntegrator::CLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     for (int i = 0; i < 2; ++i)
     {
         rays_buffer_[i] = CreateBuffer(num_rays * sizeof(Ray));
-        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(std::uint32_t));
-        ray_counter_buffer_[i] = CreateBuffer(sizeof(std::uint32_t));
+        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(uint32_t));
+        ray_counter_buffer_[i] = CreateBuffer(sizeof(uint32_t));
     }
 
     shadow_rays_buffer_ = CreateBuffer(num_rays * sizeof(Ray));
-    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
-    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(uint32_t));
+    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(uint32_t));
     hits_buffer_ = CreateBuffer(num_rays * sizeof(Hit));
-    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(uint32_t));
     throughputs_buffer_ = CreateBuffer(num_rays * sizeof(cl_float3));
-    sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    sample_counter_buffer_ = CreateBuffer(sizeof(uint32_t));
     direct_light_samples_buffer_ = CreateBuffer(num_rays * sizeof(cl_float4));
 
     // Sampler buffers
@@ -362,7 +362,7 @@ void CLPathTraceIntegrator::CreateKernels()
     resolve_kernel_->SetArgument(args::Resolve::kNormal, normal_buffer_);
     resolve_kernel_->SetArgument(args::Resolve::kMotionVectors, velocity_buffer_);
     resolve_kernel_->SetArgument(args::Resolve::kResolvedTexture, output_image_mem);
-    std::uint32_t aov_index = aov_;
+    uint32_t aov_index = aov_;
     resolve_kernel_->SetArgument(args::Resolve::kAovIndex, &aov_index, sizeof(aov_index));
 
     if (enable_denoiser_)
@@ -472,7 +472,7 @@ void CLPathTraceIntegrator::SetAOV(AOV aov)
 
     aov_ = aov;
 
-    std::uint32_t aov_idx = aov;
+    uint32_t aov_idx = aov;
     resolve_kernel_->SetArgument(args::Resolve::kAovIndex, &aov_idx, sizeof(aov_idx));
 
     RequestReset();
@@ -511,14 +511,14 @@ void CLPathTraceIntegrator::AdvanceSampleCount()
 
 void CLPathTraceIntegrator::GenerateRays()
 {
-    std::uint32_t num_rays = width_ * height_;
+    uint32_t num_rays = width_ * height_;
     cl_context_.ExecuteKernel(*raygen_kernel_, num_rays);
 }
 
-void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
+void CLPathTraceIntegrator::IntersectRays(uint32_t bounce)
 {
-    std::uint32_t max_num_rays = width_ * height_;
-    std::uint32_t incoming_idx = bounce & 1;
+    uint32_t max_num_rays = width_ * height_;
+    uint32_t incoming_idx = bounce & 1;
 
     CLKernel& kernel = *intersect_kernel_;
     kernel.SetArgument(0, rays_buffer_[incoming_idx]);
@@ -533,7 +533,7 @@ void CLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
 
 void CLPathTraceIntegrator::ComputeAOVs()
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
     // Setup AOV kernel
     aov_kernel_->SetArgument(args::Aov::kRayBuffer, rays_buffer_[0]);
@@ -558,7 +558,7 @@ void CLPathTraceIntegrator::ComputeAOVs()
 
 void CLPathTraceIntegrator::IntersectShadowRays()
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
     CLKernel& kernel = *intersect_shadow_kernel_;
     kernel.SetArgument(0, shadow_rays_buffer_);
@@ -571,10 +571,10 @@ void CLPathTraceIntegrator::IntersectShadowRays()
     cl_context_.ExecuteKernel(kernel, max_num_rays);
 }
 
-void CLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
+void CLPathTraceIntegrator::ShadeMissedRays(uint32_t bounce)
 {
-    std::uint32_t max_num_rays = width_ * height_;
-    std::uint32_t incoming_idx = bounce & 1;
+    uint32_t max_num_rays = width_ * height_;
+    uint32_t incoming_idx = bounce & 1;
 
     miss_kernel_->SetArgument(args::Miss::kRayBuffer, rays_buffer_[incoming_idx]);
     miss_kernel_->SetArgument(args::Miss::kPixelIndicesBuffer, pixel_indices_buffer_[incoming_idx]);
@@ -583,12 +583,12 @@ void CLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     cl_context_.ExecuteKernel(*miss_kernel_, max_num_rays);
 }
 
-void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
+void CLPathTraceIntegrator::ShadeSurfaceHits(uint32_t bounce)
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
-    std::uint32_t incoming_idx = bounce & 1;
-    std::uint32_t outgoing_idx = (bounce + 1) & 1;
+    uint32_t incoming_idx = bounce & 1;
+    uint32_t outgoing_idx = (bounce + 1) & 1;
 
     // Incoming rays
     hit_surface_kernel_->SetArgument(args::HitSurface::kIncomingRayBuffer, rays_buffer_[incoming_idx]);
@@ -640,13 +640,13 @@ void CLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
 
 void CLPathTraceIntegrator::AccumulateDirectSamples()
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
     cl_context_.ExecuteKernel(*accumulate_direct_samples_kernel_, max_num_rays);
 }
 
-void CLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
+void CLPathTraceIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
 {
-    std::uint32_t outgoing_idx = (bounce + 1) & 1;
+    uint32_t outgoing_idx = (bounce + 1) & 1;
 
     clear_counter_kernel_->SetArgument(0, ray_counter_buffer_[outgoing_idx]);
     cl_context_.ExecuteKernel(*clear_counter_kernel_, 1);

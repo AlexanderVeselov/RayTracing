@@ -30,7 +30,7 @@
 class CLPathTraceIntegrator : public Integrator
 {
 public:
-    CLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, CLContext& cl_context, unsigned int out_image);
+    CLPathTraceIntegrator(uint32_t width, uint32_t height, CLContext& cl_context, unsigned int out_image);
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
     void SetCameraData(Camera const& camera) override;
     void SetSamplerType(SamplerType sampler_type) override;
@@ -42,13 +42,13 @@ protected:
     void Reset() override;
     void AdvanceSampleCount() override;
     void GenerateRays() override;
-    void IntersectRays(std::uint32_t bounce) override;
+    void IntersectRays(uint32_t bounce) override;
     void ComputeAOVs() override;
-    void ShadeMissedRays(std::uint32_t bounce) override;
-    void ShadeSurfaceHits(std::uint32_t bounce) override;
+    void ShadeMissedRays(uint32_t bounce) override;
+    void ShadeSurfaceHits(uint32_t bounce) override;
     void IntersectShadowRays() override;
     void AccumulateDirectSamples() override;
-    void ClearOutgoingRayCounter(std::uint32_t bounce) override;
+    void ClearOutgoingRayCounter(uint32_t bounce) override;
     void ClearShadowRayCounter() override;
     void Denoise() override;
     void CopyHistoryBuffers() override;

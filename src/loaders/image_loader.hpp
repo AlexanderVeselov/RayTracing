@@ -30,9 +30,9 @@
 class Image
 {
 public:
-    std::uint32_t width;
-    std::uint32_t height;
-    std::vector<std::uint32_t> data;
+    uint32_t width;
+    uint32_t height;
+    std::vector<uint32_t> data;
 };
 
 bool LoadHDR(const char* filename, Image& result);

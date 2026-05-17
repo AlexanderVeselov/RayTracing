@@ -35,8 +35,8 @@ public:
     {
         char const* vs_filename;
         char const* fs_filename;
-        std::uint32_t width = 0;
-        std::uint32_t height = 0;
+        uint32_t width = 0;
+        uint32_t height = 0;
         std::vector<GLuint> color_attachments;
         GLuint depth_attachment = 0u;
         bool clear_color = false;

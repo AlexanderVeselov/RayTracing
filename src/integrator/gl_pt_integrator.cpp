@@ -31,16 +31,16 @@
 
 namespace
 {
-constexpr std::uint32_t kMaxTextures = 512u;
-constexpr std::uint32_t kResetGroupSize = 32u;
-constexpr std::uint32_t kRayGenerationGroupSize = 256u;
-constexpr std::uint32_t kIntersectGroupSize = 64u;
-constexpr std::uint32_t kMissGroupSize = 32u;
-constexpr std::uint32_t kShadeGroupSize = 32u;
-constexpr std::uint32_t kAccumulateDirectSamplesGroupSize = 256u;
-constexpr std::uint32_t kResolveGroupSize = 32u;
+constexpr uint32_t kMaxTextures = 512u;
+constexpr uint32_t kResetGroupSize = 32u;
+constexpr uint32_t kRayGenerationGroupSize = 256u;
+constexpr uint32_t kIntersectGroupSize = 64u;
+constexpr uint32_t kMissGroupSize = 32u;
+constexpr uint32_t kShadeGroupSize = 32u;
+constexpr uint32_t kAccumulateDirectSamplesGroupSize = 256u;
+constexpr uint32_t kResolveGroupSize = 32u;
 
-GLuint CreateBuffer(std::size_t size)
+GLuint CreateBuffer(size_t size)
 {
     GLuint buffer;
     glCreateBuffers(1, &buffer);
@@ -49,10 +49,10 @@ GLuint CreateBuffer(std::size_t size)
 }
 }  // namespace
 
-GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t height, std::uint32_t out_image)
+GLPathTraceIntegrator::GLPathTraceIntegrator(uint32_t width, uint32_t height, uint32_t out_image)
     : Integrator(width, height), out_image_(out_image)
 {
-    std::uint32_t num_rays = width_ * height_;
+    uint32_t num_rays = width_ * height_;
 
     glCreateTextures(GL_TEXTURE_2D, 1, &radiance_image_);
     glTextureStorage2D(radiance_image_, 1, GL_RGBA32F, width_, height_);
@@ -72,17 +72,17 @@ GLPathTraceIntegrator::GLPathTraceIntegrator(std::uint32_t width, std::uint32_t 
     for (int i = 0; i < 2; ++i)
     {
         rays_buffer_[i] = CreateBuffer(num_rays * sizeof(Ray));
-        ray_counter_buffer_[i] = CreateBuffer(sizeof(std::uint32_t));
-        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(std::uint32_t));
+        ray_counter_buffer_[i] = CreateBuffer(sizeof(uint32_t));
+        pixel_indices_buffer_[i] = CreateBuffer(num_rays * sizeof(uint32_t));
     }
 
     shadow_rays_buffer_ = CreateBuffer(num_rays * sizeof(Ray));
-    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
-    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    shadow_ray_counter_buffer_ = CreateBuffer(sizeof(uint32_t));
+    shadow_pixel_indices_buffer_ = CreateBuffer(num_rays * sizeof(uint32_t));
     hits_buffer_ = CreateBuffer(num_rays * sizeof(Hit));
-    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(std::uint32_t));
+    shadow_hits_buffer_ = CreateBuffer(num_rays * sizeof(uint32_t));
     throughputs_buffer_ = CreateBuffer(num_rays * sizeof(float) * 4);
-    sample_counter_buffer_ = CreateBuffer(sizeof(std::uint32_t));
+    sample_counter_buffer_ = CreateBuffer(sizeof(uint32_t));
     direct_light_samples_buffer_ = CreateBuffer(num_rays * sizeof(float) * 4);
 
     CreateKernels();
@@ -105,11 +105,11 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     glNamedBufferData(vertex_buffer_, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
 
     glCreateBuffers(1, &index_buffer_);
-    glNamedBufferData(index_buffer_, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
+    glNamedBufferData(index_buffer_, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
 
     glCreateBuffers(1, &triangle_material_index_buffer_);
     glNamedBufferData(triangle_material_index_buffer_,
-        triangle_material_indices.size() * sizeof(std::uint32_t),
+        triangle_material_indices.size() * sizeof(uint32_t),
         triangle_material_indices.data(),
         GL_STATIC_DRAW);
 
@@ -129,7 +129,7 @@ void GLPathTraceIntegrator::UploadGPUData(Scene const& scene, AccelerationStruct
     {
         glCreateBuffers(1, &emissive_buffer_);
         glNamedBufferData(emissive_buffer_,
-            emissive_indices.size() * sizeof(std::uint32_t),
+            emissive_indices.size() * sizeof(uint32_t),
             emissive_indices.data(),
             GL_STATIC_DRAW);
     }
@@ -274,8 +274,8 @@ void GLPathTraceIntegrator::Reset()
     reset_pipeline_->BindConstant("height", height_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    std::uint32_t num_groups_x = (width_ + kResetGroupSize - 1) / kResetGroupSize;
-    std::uint32_t num_groups_y = (height_ + kResetGroupSize - 1) / kResetGroupSize;
+    uint32_t num_groups_x = (width_ + kResetGroupSize - 1) / kResetGroupSize;
+    uint32_t num_groups_y = (height_ + kResetGroupSize - 1) / kResetGroupSize;
     glDispatchCompute(num_groups_x, num_groups_y, 1);
 }
 
@@ -304,7 +304,7 @@ void GLPathTraceIntegrator::GenerateRays()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, pixel_indices_buffer_[0]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, throughputs_buffer_);
 
-    std::uint32_t num_groups = (width_ * height_ + kRayGenerationGroupSize - 1) / kRayGenerationGroupSize;
+    uint32_t num_groups = (width_ * height_ + kRayGenerationGroupSize - 1) / kRayGenerationGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
@@ -333,14 +333,14 @@ void GLPathTraceIntegrator::RasterizePrimaryBounce()
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, rays_buffer_[0]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, rt_triangle_buffer_);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, hits_buffer_);
-        std::uint32_t num_groups_x = (width_ + 31) / 32;
-        std::uint32_t num_groups_y = (height_ + 31) / 32;
+        uint32_t num_groups_x = (width_ + 31) / 32;
+        uint32_t num_groups_y = (height_ + 31) / 32;
         glDispatchCompute(num_groups_x, num_groups_y, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 }
 
-void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
+void GLPathTraceIntegrator::IntersectRays(uint32_t bounce)
 {
     if (bounce == 0)
     {
@@ -348,8 +348,8 @@ void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
         return;
     }
 
-    std::uint32_t max_num_rays = width_ * height_;
-    std::uint32_t incoming_idx = bounce & 1;
+    uint32_t max_num_rays = width_ * height_;
+    uint32_t incoming_idx = bounce & 1;
 
     intersect_pipeline_->Bind();
 
@@ -360,16 +360,16 @@ void GLPathTraceIntegrator::IntersectRays(std::uint32_t bounce)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, hits_buffer_);
 
     ///@TODO: use indirect dispatch
-    std::uint32_t num_groups = (max_num_rays + kIntersectGroupSize - 1) / kIntersectGroupSize;
+    uint32_t num_groups = (max_num_rays + kIntersectGroupSize - 1) / kIntersectGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
 void GLPathTraceIntegrator::ComputeAOVs() {}
 
-void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
+void GLPathTraceIntegrator::ShadeMissedRays(uint32_t bounce)
 {
-    std::uint32_t max_num_rays = width_ * height_;
-    std::uint32_t incoming_idx = bounce & 1;
+    uint32_t max_num_rays = width_ * height_;
+    uint32_t incoming_idx = bounce & 1;
 
     miss_pipeline_->Bind();
     miss_pipeline_->BindConstant("width", width_);
@@ -382,16 +382,16 @@ void GLPathTraceIntegrator::ShadeMissedRays(std::uint32_t bounce)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, throughputs_buffer_);
     glBindImageTexture(0, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    std::uint32_t num_groups = (max_num_rays + kMissGroupSize - 1) / kMissGroupSize;
+    uint32_t num_groups = (max_num_rays + kMissGroupSize - 1) / kMissGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
-void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
+void GLPathTraceIntegrator::ShadeSurfaceHits(uint32_t bounce)
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
-    std::uint32_t incoming_idx = bounce & 1;
-    std::uint32_t outgoing_idx = (bounce + 1) & 1;
+    uint32_t incoming_idx = bounce & 1;
+    uint32_t outgoing_idx = (bounce + 1) & 1;
 
     hit_surface_pipeline_->Bind();
     hit_surface_pipeline_->BindConstant("bounce", bounce);
@@ -423,13 +423,13 @@ void GLPathTraceIntegrator::ShadeSurfaceHits(std::uint32_t bounce)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, emissive_buffer_);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, material_buffer_);
 
-    std::uint32_t num_groups = (max_num_rays + kShadeGroupSize - 1) / kShadeGroupSize;
+    uint32_t num_groups = (max_num_rays + kShadeGroupSize - 1) / kShadeGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
 void GLPathTraceIntegrator::IntersectShadowRays()
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
     intersect_shadow_pipeline_->Bind();
 
@@ -440,13 +440,13 @@ void GLPathTraceIntegrator::IntersectShadowRays()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, shadow_hits_buffer_);
 
     ///@TODO: use indirect dispatch
-    std::uint32_t num_groups = (max_num_rays + kIntersectGroupSize - 1) / kIntersectGroupSize;
+    uint32_t num_groups = (max_num_rays + kIntersectGroupSize - 1) / kIntersectGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
 void GLPathTraceIntegrator::AccumulateDirectSamples()
 {
-    std::uint32_t max_num_rays = width_ * height_;
+    uint32_t max_num_rays = width_ * height_;
 
     accumulate_direct_samples_pipeline_->Bind();
     accumulate_direct_samples_pipeline_->BindConstant("width", width_);
@@ -456,14 +456,14 @@ void GLPathTraceIntegrator::AccumulateDirectSamples()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, direct_light_samples_buffer_);
     glBindImageTexture(4, radiance_image_, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    std::uint32_t num_groups = (max_num_rays + kAccumulateDirectSamplesGroupSize - 1)
+    uint32_t num_groups = (max_num_rays + kAccumulateDirectSamplesGroupSize - 1)
         / kAccumulateDirectSamplesGroupSize;
     glDispatchCompute(num_groups, 1, 1);
 }
 
-void GLPathTraceIntegrator::ClearOutgoingRayCounter(std::uint32_t bounce)
+void GLPathTraceIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
 {
-    std::uint32_t outgoing_idx = (bounce + 1) & 1;
+    uint32_t outgoing_idx = (bounce + 1) & 1;
 
     clear_counter_pipeline_->Bind();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ray_counter_buffer_[outgoing_idx]);
@@ -490,7 +490,7 @@ void GLPathTraceIntegrator::ResolveRadiance()
     glBindImageTexture(1, out_image_, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, sample_counter_buffer_);
 
-    std::uint32_t num_groups_x = (width_ + kResolveGroupSize - 1) / kResolveGroupSize;
-    std::uint32_t num_groups_y = (height_ + kResolveGroupSize - 1) / kResolveGroupSize;
+    uint32_t num_groups_x = (width_ + kResolveGroupSize - 1) / kResolveGroupSize;
+    uint32_t num_groups_y = (height_ + kResolveGroupSize - 1) / kResolveGroupSize;
     glDispatchCompute(num_groups_x, num_groups_y, 1);
 }

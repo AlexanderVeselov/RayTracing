@@ -146,14 +146,14 @@ public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
-    Window(std::uint32_t width, std::uint32_t height, char const* title, bool no_api = false);
+    Window(uint32_t width, uint32_t height, char const* title, bool no_api = false);
     ~Window() = default;
 
     // Returns HWND in the case of WIN32 platform
     void* GetNativeHandle() const;
     GLFWwindow* GetGlfwWindow() const { return window_.get(); }
-    std::uint32_t GetWidth() const { return width_; }
-    std::uint32_t GetHeight() const { return height_; }
+    uint32_t GetWidth() const { return width_; }
+    uint32_t GetHeight() const { return height_; }
 
     void GetMousePos(int& x, int& y) const;
     void SetMousePos(int x, int y) const;
@@ -170,7 +170,7 @@ private:
 
     std::unique_ptr<GLFWwindow, void (*)(GLFWwindow*)> window_;
     std::vector<std::function<void(float)>> scroll_callbacks_;
-    std::uint32_t width_ = ~0u;
-    std::uint32_t height_ = ~0u;
+    uint32_t width_ = ~0u;
+    uint32_t height_ = ~0u;
     bool has_graphics_context_ = false;
 };

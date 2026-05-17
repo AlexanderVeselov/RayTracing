@@ -44,9 +44,9 @@ public:
 
     void WriteBuffer(const cl::Buffer& buffer, const void* data, size_t size) const;
     void ReadBuffer(const cl::Buffer& buffer, void* ptr, size_t size) const;
-    void CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer, std::size_t src_offset,
-        std::size_t dst_offset, std::size_t size) const;
-    void ExecuteKernel(CLKernel const& kernel, std::size_t work_size) const;
+    void CopyBuffer(const cl::Buffer& src_buffer, const cl::Buffer& dst_buffer, size_t src_offset,
+        size_t dst_offset, size_t size) const;
+    void ExecuteKernel(CLKernel const& kernel, size_t work_size) const;
     void Finish() const { queue_.finish(); }
     void AcquireGLObject(cl_mem mem);
     void ReleaseGLObject(cl_mem mem);
@@ -71,9 +71,9 @@ public:
         std::vector<std::string> const& definitions = std::vector<std::string>());
     void Reload();
 
-    void SetArgument(std::uint32_t arg_index, cl_mem buffer);
-    void SetArgument(std::uint32_t arg_index, cl::Buffer buffer);
-    void SetArgument(std::uint32_t arg_index, void const* data, std::size_t size);
+    void SetArgument(uint32_t arg_index, cl_mem buffer);
+    void SetArgument(uint32_t arg_index, cl::Buffer buffer);
+    void SetArgument(uint32_t arg_index, void const* data, size_t size);
     const cl::Kernel& GetKernel() const { return kernel_; }
     std::string const& GetName() const { return kernel_name_; }
 
@@ -81,7 +81,7 @@ private:
     struct KernelArg
     {
         void const* data;
-        std::size_t size;
+        size_t size;
 
         enum class ArgType
         {
@@ -95,5 +95,5 @@ private:
     std::string kernel_name_;
     std::vector<std::string> definitions_;
     cl::Kernel kernel_;
-    std::unordered_map<std::uint32_t, KernelArg> kernel_args_;
+    std::unordered_map<uint32_t, KernelArg> kernel_args_;
 };

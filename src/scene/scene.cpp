@@ -48,7 +48,7 @@ Scene::Scene(const char* filename, float scale, bool flip_yz)
 namespace
 {
 // Simple FNV-1a hash combiner for 32-bit values
-inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
+inline size_t hash_combine_u32(size_t h, uint32_t v)
 {
     h ^= v;
     h *= 16777619u;  // FNV prime
@@ -57,12 +57,12 @@ inline std::size_t hash_combine_u32(std::size_t h, std::uint32_t v)
 
 struct VertexHasher
 {
-    std::size_t operator()(Vertex const& v) const noexcept
+    size_t operator()(Vertex const& v) const noexcept
     {
-        std::size_t h = 2166136261u;  // FNV offset basis
+        size_t h = 2166136261u;  // FNV offset basis
         auto hash_float = [&](float f)
         {
-            std::uint32_t bits;
+            uint32_t bits;
             static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
             std::memcpy(&bits, &f, sizeof(f));
             h = hash_combine_u32(h, bits);
@@ -89,7 +89,7 @@ struct VertexEqual
     }
 };
 
-unsigned int PackAlbedo(float r, float g, float b, std::uint32_t texture_index)
+unsigned int PackAlbedo(float r, float g, float b, uint32_t texture_index)
 {
     assert(texture_index < 256);
     r = std::clamp(r, 0.0f, 1.0f);
@@ -144,8 +144,8 @@ glm::vec3 UnpackRGBE(unsigned int rgbe)
     }
 }
 
-unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx, float metalness,
-    std::uint32_t metalness_idx)
+unsigned int PackRoughnessMetalness(float roughness, uint32_t roughness_idx, float metalness,
+    uint32_t metalness_idx)
 {
     assert(roughness_idx < 256 && metalness_idx < 256);
     roughness = std::clamp(roughness, 0.0f, 1.0f);
@@ -154,8 +154,8 @@ unsigned int PackRoughnessMetalness(float roughness, std::uint32_t roughness_idx
         | (metalness_idx << 24);
 }
 
-unsigned int PackIorEmissionIdxTransparency(float ior, std::uint32_t emission_idx, float transparency,
-    std::uint32_t transparency_idx)
+unsigned int PackIorEmissionIdxTransparency(float ior, uint32_t emission_idx, float transparency,
+    uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);
     ior = std::clamp(ior, 0.0f, 10.0f);
@@ -186,9 +186,9 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     materials_.resize(materials.size());
 
     const float kGamma = 2.2f;
-    const std::uint32_t kInvalidTextureIndex = 0xFF;
+    const uint32_t kInvalidTextureIndex = 0xFF;
 
-    for (std::uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
+    for (uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
         auto& out_material = materials_[material_idx];
         auto const& in_material = materials[material_idx];
@@ -246,7 +246,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     indices_.reserve(indices_.size() + approx_triangles * 3);
 
     // Cache for vertex deduplication (position+normal+texcoord)
-    std::unordered_map<Vertex, std::uint32_t, VertexHasher, VertexEqual> vertex_cache;
+    std::unordered_map<Vertex, uint32_t, VertexHasher, VertexEqual> vertex_cache;
 
     for (auto const& shape : shapes)
     {
@@ -254,7 +254,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
         // The mesh is triangular
         assert(indices.size() % 3 == 0);
 
-        for (std::uint32_t face = 0; face < indices.size() / 3; ++face)
+        for (uint32_t face = 0; face < indices.size() / 3; ++face)
         {
             auto pos_idx_1 = indices[face * 3 + 0].vertex_index;
             auto pos_idx_2 = indices[face * 3 + 1].vertex_index;
@@ -326,20 +326,20 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             flip_vector(v3.normal, flip_yz);
 
             // Vertex deduplication: reuse vertices with identical attributes
-            auto find_or_add = [&](Vertex const& v) -> std::uint32_t
+            auto find_or_add = [&](Vertex const& v) -> uint32_t
             {
                 auto it = vertex_cache.find(v);
                 if (it != vertex_cache.end())
                     return it->second;
-                std::uint32_t idx = static_cast<std::uint32_t>(vertices_.size());
+                uint32_t idx = static_cast<uint32_t>(vertices_.size());
                 vertices_.push_back(v);
                 vertex_cache.emplace(v, idx);
                 return idx;
             };
 
-            std::uint32_t i1 = find_or_add(v1);
-            std::uint32_t i2 = find_or_add(v2);
-            std::uint32_t i3 = find_or_add(v3);
+            uint32_t i1 = find_or_add(v1);
+            uint32_t i2 = find_or_add(v2);
+            uint32_t i3 = find_or_add(v3);
 
             indices_.push_back(i1);
             indices_.push_back(i2);
@@ -360,7 +360,7 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     std::cout << "Load successful (" << indices_.size() / 3 << " triangles)" << std::endl;
 }
 
-std::size_t Scene::LoadTexture(char const* filename)
+size_t Scene::LoadTexture(char const* filename)
 {
     // Try to lookup the cache
     auto it = loaded_textures_.find(filename);
@@ -397,9 +397,9 @@ std::size_t Scene::LoadTexture(char const* filename)
     Texture texture;
     texture.width = image.width;
     texture.height = image.height;
-    texture.data_start = (std::uint32_t)texture_data_.size();
+    texture.data_start = (uint32_t)texture_data_.size();
 
-    std::size_t texture_idx = textures_.size();
+    size_t texture_idx = textures_.size();
     textures_.push_back(std::move(texture));
 
     texture_data_.insert(texture_data_.end(), image.data.begin(), image.data.end());
@@ -423,7 +423,7 @@ void Scene::CollectEmissiveTriangles()
         }
     }
 
-    scene_info_.emissive_count = (std::uint32_t)emissive_indices_.size();
+    scene_info_.emissive_count = (uint32_t)emissive_indices_.size();
 }
 
 void Scene::AddPointLight(glm::vec3 origin, glm::vec3 radiance)
@@ -451,7 +451,7 @@ void Scene::Finalize()
     CollectEmissiveTriangles();
 
     // scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
-    scene_info_.analytic_light_count = (std::uint32_t)lights_.size();
+    scene_info_.analytic_light_count = (uint32_t)lights_.size();
 
     LoadHDR("assets/ibl/CGSkies_0036_free.hdr", env_image_);
 }
