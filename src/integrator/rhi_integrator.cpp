@@ -31,6 +31,7 @@
 #include "gpu_image.hpp"
 #include "gpu_pipeline.hpp"
 #include "gpu_queue.hpp"
+#include "gpu_sampler.hpp"
 #include "gpu_swapchain.hpp"
 #include "scene/scene.hpp"
 
@@ -210,7 +211,14 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     light_buffer_ = CreateGpuBuffer(lights, upload_command_buffer, staging_buffers);
     texture_buffer_ = CreateGpuBuffer(textures, upload_command_buffer, staging_buffers);
     texture_data_buffer_ = CreateGpuBuffer(texture_data, upload_command_buffer, staging_buffers);
-    env_map_buffer_ = CreateGpuBuffer(env_image.data, upload_command_buffer, staging_buffers);
+    env_map_image_ = CreateGpuImage(env_image, gpu::ImageFormat::kRGBA32_Float, upload_command_buffer, staging_buffers);
+    gpu::SamplerDesc env_sampler_desc = {};
+    env_sampler_desc.min_filter = gpu::SamplerFilter::kLinear;
+    env_sampler_desc.mag_filter = gpu::SamplerFilter::kLinear;
+    env_sampler_desc.address_u = gpu::SamplerAddressMode::kRepeat;
+    env_sampler_desc.address_v = gpu::SamplerAddressMode::kClampToEdge;
+    env_sampler_desc.address_w = gpu::SamplerAddressMode::kClampToEdge;
+    env_map_sampler_ = device_.GetSampler(env_sampler_desc);
 
     rt_triangles_buffer_ = CreateGpuBuffer(rt_triangles, upload_command_buffer, staging_buffers);
     nodes_buffer_ = CreateGpuBuffer(nodes, upload_command_buffer, staging_buffers);
@@ -541,6 +549,32 @@ gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kStorage);
 }
 
+gpu::ImagePtr RhiIntegrator::CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
+    gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers)
+{
+    gpu::ImagePtr image = device_.CreateImage(cpu_image.width,
+        cpu_image.height,
+        format,
+        gpu::ImageFlags::kShaderResource);
+
+    if (!cpu_image.data.empty())
+    {
+        gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_image.data.data(),
+            cpu_image.data.size() * sizeof(uint32_t),
+            sizeof(uint32_t));
+        upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kCopyDst);
+        upload_command_buffer->CopyBufferToImage(image, staging_buffer);
+        upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kShaderRead);
+        staging_buffers.push_back(std::move(staging_buffer));
+    }
+    else
+    {
+        upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderRead);
+    }
+
+    return image;
+}
+
 void RhiIntegrator::RebuildDescriptorSets()
 {
     reset_set_ = reset_pipeline_->CreateDescriptorSet();
@@ -575,7 +609,8 @@ void RhiIntegrator::RebuildDescriptorSets()
         miss_sets_[i]->BindImage(*throughputs_image_, 4);
         miss_sets_[i]->BindImage(*radiance_image_, 5);
         miss_sets_[i]->BindBuffer(*rays_buffers_[i], 6);
-        miss_sets_[i]->BindBuffer(*env_map_buffer_, 7);
+        miss_sets_[i]->BindImage(*env_map_image_, 7);
+        miss_sets_[i]->BindSampler(*env_map_sampler_, 8);
 
         clear_counter_sets_[i] = clear_counter_pipeline_->CreateDescriptorSet();
         clear_counter_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 0);

@@ -32,6 +32,8 @@
 #include <memory>
 #include <vector>
 
+class Image;
+
 class RhiIntegrator : public Integrator
 {
 public:
@@ -69,6 +71,8 @@ protected:
 private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
+    gpu::ImagePtr CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
+        gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers);
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
@@ -161,7 +165,8 @@ private:
     gpu::BufferPtr light_buffer_;
     gpu::BufferPtr texture_buffer_;
     gpu::BufferPtr texture_data_buffer_;
-    gpu::BufferPtr env_map_buffer_;
+    gpu::ImagePtr env_map_image_;
+    gpu::SamplerPtr env_map_sampler_;
 
     // Acceleration structure buffers
     gpu::BufferPtr rt_triangles_buffer_;

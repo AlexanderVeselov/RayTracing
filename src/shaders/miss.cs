@@ -42,14 +42,8 @@ IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u5);
 
 // Environment map data
-StructuredBuffer<float4> g_EnvMap : register(t7);
-
-float3 LoadEnvMapTexel(int x, int y, uint width, uint height)
-{
-    x = (x % int(width) + int(width)) % int(width);
-    y = clamp(y, 0, int(height) - 1);
-    return g_EnvMap[uint(y) * width + uint(x)].xyz;
-}
+Texture2D<float4> g_EnvMap : register(t7);
+SamplerState g_EnvMapSampler : register(s8);
 
 float3 SampleSky(float3 dir)
 {
@@ -65,20 +59,7 @@ float3 SampleSky(float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    float x = frac(coords.x) * float(width) - 0.5f;
-    float y = saturate(coords.y) * float(height) - 0.5f;
-
-    int x0 = int(floor(x));
-    int y0 = int(floor(y));
-    float tx = frac(x);
-    float ty = frac(y);
-
-    float3 c00 = LoadEnvMapTexel(x0, y0, width, height);
-    float3 c10 = LoadEnvMapTexel(x0 + 1, y0, width, height);
-    float3 c01 = LoadEnvMapTexel(x0, y0 + 1, width, height);
-    float3 c11 = LoadEnvMapTexel(x0 + 1, y0 + 1, width, height);
-
-    return lerp(lerp(c00, c10, tx), lerp(c01, c11, tx), ty);
+    return g_EnvMap.SampleLevel(g_EnvMapSampler, coords, 0.0f).xyz;
 }
 
 [numthreads(256, 1, 1)]
