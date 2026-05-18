@@ -185,7 +185,6 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
     auto const& materials = scene.GetMaterials();
     auto const& lights = scene.GetLights();
-    auto const& textures = scene.GetTextures();
     auto const& texture_images = scene.GetTextureImages();
     auto const& env_image = scene.GetEnvImage();
 
@@ -195,7 +194,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     triangle_count_ = static_cast<uint32_t>(rt_triangles.size());
     node_count_ = static_cast<uint32_t>(nodes.size());
     light_count_ = static_cast<uint32_t>(lights.size());
-    texture_count_ = static_cast<uint32_t>(textures.size());
+    texture_count_ = static_cast<uint32_t>(texture_images.size());
     env_map_width_ = env_image.width;
     env_map_height_ = env_image.height;
 
@@ -590,9 +589,8 @@ gpu::ImagePtr RhiIntegrator::CreateGpuImage(Image const& cpu_image, gpu::ImageFo
 
     if (!cpu_image.data.empty())
     {
-        gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_image.data.data(),
-            cpu_image.data.size() * sizeof(uint32_t),
-            sizeof(uint32_t));
+        gpu::BufferPtr staging_buffer =
+            CreateStagingBuffer(cpu_image.data.data(), cpu_image.data.size() * sizeof(uint32_t), sizeof(uint32_t));
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kCopyDst);
         upload_command_buffer->CopyBufferToImage(image, staging_buffer);
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kShaderRead);

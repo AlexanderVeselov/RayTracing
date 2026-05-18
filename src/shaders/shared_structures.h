@@ -79,14 +79,6 @@ struct Light
     unsigned int padding;
 };
 
-struct Texture
-{
-    int data_start;
-    int width;
-    int height;
-    int padding;
-};
-
 struct Vertex
 {
     float3 position;
@@ -136,7 +128,6 @@ static_assert(sizeof(Hit) == 16, "Hit layout must match HLSL");
 static_assert(sizeof(SceneInfo) == 16, "SceneInfo layout must match HLSL");
 static_assert(sizeof(PackedMaterial) == 20, "PackedMaterial layout must match HLSL");
 static_assert(sizeof(Light) == 32, "Light layout must match HLSL");
-static_assert(sizeof(Texture) == 16, "Texture layout must match HLSL");
 static_assert(sizeof(Vertex) == 48, "Vertex layout must match HLSL");
 static_assert(sizeof(RTTriangle) == 48, "RTTriangle layout must match HLSL");
 static_assert(sizeof(LinearBVHNode) == 32, "LinearBVHNode layout must match HLSL");
