@@ -30,7 +30,6 @@ static const float TWO_PI = 6.283185307f;
 static const float MAX_RENDER_DIST = 1000000.0f;
 static const uint INVALID_ID = 0xFFFFFFFFu;
 static const uint INVALID_TEXTURE_IDX = 0xFFu;
-static const uint MAX_TEXTURES = 256u;
 
 static const uint SAMPLE_TYPE_SUBPIXEL = 0u;
 static const uint SAMPLE_TYPE_BXDF_LAYER = 1u;

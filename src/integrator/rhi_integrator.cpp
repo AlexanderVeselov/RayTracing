@@ -52,7 +52,7 @@ struct RhiCameraData
 
 constexpr uint32_t kRenderFlagWhiteFurnace = 1u;
 constexpr uint32_t kRenderFlagDenoiser = 2u;
-constexpr uint32_t kMaxTextureCount = 256u;
+constexpr uint32_t kMaxTextureCount = MAX_TEXTURES;
 
 inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 {

@@ -36,6 +36,7 @@
 
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_DIRECTIONAL 1
+#define MAX_TEXTURES 255u
 
 struct Ray
 {
