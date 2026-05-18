@@ -82,25 +82,27 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     float x = (float(pixel_x) + RandomFloat(seed)) / float(width);
     float y = (float(pixel_y) + RandomFloat(seed)) / float(height);
-    float angle = tan(0.5f * g_CameraPositionFov.w);
-    x = (x * 2.0f - 1.0f) * angle * g_CameraFrontAspect.w;
+    float angle = tan(0.5f * g_Camera.fov);
+    x = (x * 2.0f - 1.0f) * angle * g_Camera.aspect_ratio;
     y = -((y * 2.0f - 1.0f) * angle);
 
-    float3 camera_position = g_CameraPositionFov.xyz;
-    float3 camera_front = normalize(g_CameraFrontAspect.xyz);
-    float3 camera_up = normalize(g_CameraUpAperture.xyz);
+    float3 camera_position = g_Camera.position;
+    float3 camera_front = normalize(g_Camera.front);
+    float3 camera_up = normalize(g_Camera.up);
     float3 camera_right = normalize(cross(camera_front, camera_up));
     float3 dir = normalize(x * camera_right + y * camera_up + camera_front);
 
-    float3 point_aimed = camera_position + g_CameraLens.x * dir;
+    float3 point_aimed = camera_position + g_Camera.focus_distance * dir;
     float2 dof_dir = PointInHexagon(seed);
-    float aperture = g_CameraUpAperture.w;
+    float aperture = g_Camera.aperture;
     float3 ray_origin =
         camera_position + dof_dir.x * aperture * camera_right + dof_dir.y * aperture * camera_up;
 
     Ray ray;
-    ray.origin = float4(ray_origin, 0.0f);
-    ray.direction = float4(normalize(point_aimed - ray_origin), MAX_RENDER_DIST);
+    ray.origin = ray_origin;
+    ray.t_min = 0.0f;
+    ray.direction = normalize(point_aimed - ray_origin);
+    ray.t_max = MAX_RENDER_DIST;
 
     g_Rays[pixel_idx] = ray;
     g_PixelIndices[pixel_idx] = pixel_idx;

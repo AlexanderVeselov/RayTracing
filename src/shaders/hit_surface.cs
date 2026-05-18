@@ -92,18 +92,17 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint bounce = g_Bounce[0];
 
     Ray incoming_ray = g_IncomingRays[ray_idx];
-    float3 incoming = -incoming_ray.direction.xyz;
+    float3 incoming = -incoming_ray.direction;
 
     uint index_offset = hit.primitive_id * 3;
     Vertex v1 = g_Vertices[g_Indices[index_offset + 0]];
     Vertex v2 = g_Vertices[g_Indices[index_offset + 1]];
     Vertex v3 = g_Vertices[g_Indices[index_offset + 2]];
-    float3 position = InterpolateAttributes(v1.position.xyz, v2.position.xyz, v3.position.xyz, hit.bc);
+    float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
-    float3 geometry_normal =
-        normalize(cross(v2.position.xyz - v1.position.xyz, v3.position.xyz - v1.position.xyz));
-    float3 normal = normalize(InterpolateAttributes(v1.normal.xyz, v2.normal.xyz, v3.normal.xyz, hit.bc));
+    float3 geometry_normal = normalize(cross(v2.position - v1.position, v3.position - v1.position));
+    float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
     if (dot(normal, incoming) < 0.0f)
     {
         normal = -normal;
@@ -144,8 +143,10 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         if (spawn_shadow_ray)
         {
             Ray shadow_ray;
-            shadow_ray.origin = float4(position + normal * EPS, 0.0f);
-            shadow_ray.direction = float4(outgoing, distance_to_light);
+            shadow_ray.origin = position + normal * EPS;
+            shadow_ray.t_min = 0.0f;
+            shadow_ray.direction = outgoing;
+            shadow_ray.t_max = distance_to_light;
 
             uint shadow_ray_idx;
             InterlockedAdd(g_ShadowRayCounter[0], 1, shadow_ray_idx);
@@ -185,8 +186,10 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
             InterlockedAdd(g_OutgoingRayCounter[0], 1, outgoing_ray_idx);
 
             Ray outgoing_ray;
-            outgoing_ray.origin = float4(position + geometry_normal * EPS * offset, 0.0f);
-            outgoing_ray.direction = float4(outgoing, MAX_RENDER_DIST);
+            outgoing_ray.origin = position + geometry_normal * EPS * offset;
+            outgoing_ray.t_min = 0.0f;
+            outgoing_ray.direction = outgoing;
+            outgoing_ray.t_max = MAX_RENDER_DIST;
 
             g_OutgoingRays[outgoing_ray_idx] = outgoing_ray;
             g_OutgoingPixelIndices[outgoing_ray_idx] = pixel_idx;

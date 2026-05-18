@@ -25,16 +25,12 @@
 #ifndef FRAME_DATA_HLSLI
 #define FRAME_DATA_HLSLI
 
+#include "shared_structures.h"
+
 cbuffer FrameData : register(b0)
 {
-    float4 g_CameraPositionFov;
-    float4 g_CameraFrontAspect;
-    float4 g_CameraUpAperture;
-    float4 g_CameraLens;
-    float4 g_PrevCameraPositionFov;
-    float4 g_PrevCameraFrontAspect;
-    float4 g_PrevCameraUpAperture;
-    float4 g_PrevCameraLens;
+    Camera g_Camera;
+    Camera g_PrevCamera;
     uint4 g_RenderSize;
     uint4 g_SceneCounts;
     uint4 g_RenderParams;

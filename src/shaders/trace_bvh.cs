@@ -44,6 +44,5 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint stride;
     g_Nodes.GetDimensions(node_count, stride);
     Ray ray = g_Rays[ray_idx];
-    g_Hits[ray_idx] = TraceBVH(
-        ray.origin.xyz, ray.direction.xyz, ray.origin.w, ray.direction.w, node_count, false);
+    g_Hits[ray_idx] = TraceBVH(ray.origin, ray.direction, ray.t_min, ray.t_max, node_count, false);
 }

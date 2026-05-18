@@ -298,12 +298,10 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
             }
             else
             {
-                glm::vec3 n = compute_face_normal(glm::vec3(v1.position),
-                    glm::vec3(v2.position),
-                    glm::vec3(v3.position));
-                v1.normal = glm::vec4(n, v1.normal.w);
-                v2.normal = glm::vec4(n, v2.normal.w);
-                v3.normal = glm::vec4(n, v3.normal.w);
+                glm::vec3 n = compute_face_normal(v1.position, v2.position, v3.position);
+                v1.normal = n;
+                v2.normal = n;
+                v3.normal = n;
             }
 
             v1.texcoord.x = texcoord_idx_1 < 0 ? 0.0f : attrib.texcoords[texcoord_idx_1 * 2 + 0];
@@ -426,8 +424,8 @@ void Scene::CollectEmissiveTriangles()
 void Scene::AddPointLight(glm::vec3 origin, glm::vec3 radiance)
 {
     Light light = {};
-    light.origin = glm::vec4(origin.x, origin.y, origin.z, 0.0f);
-    light.radiance = glm::vec4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.origin = origin;
+    light.radiance = radiance;
     light.type = LIGHT_TYPE_POINT;
     lights_.push_back(std::move(light));
 }
@@ -437,8 +435,8 @@ void Scene::AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance)
     direction = glm::normalize(direction);
 
     Light light = {};
-    light.origin = glm::vec4(direction.x, direction.y, direction.z, 0.0f);
-    light.radiance = glm::vec4(radiance.x, radiance.y, radiance.z, 0.0f);
+    light.origin = direction;
+    light.radiance = radiance;
     light.type = LIGHT_TYPE_DIRECTIONAL;
     lights_.emplace_back(std::move(light));
 }

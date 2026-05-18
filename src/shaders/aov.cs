@@ -88,21 +88,20 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     Vertex v1 = g_Vertices[g_Indices[index_offset + 0]];
     Vertex v2 = g_Vertices[g_Indices[index_offset + 1]];
     Vertex v3 = g_Vertices[g_Indices[index_offset + 2]];
-    float3 position = InterpolateAttributes(v1.position.xyz, v2.position.xyz, v3.position.xyz, hit.bc);
+    float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
-    float3 normal = normalize(InterpolateAttributes(v1.normal.xyz, v2.normal.xyz, v3.normal.xyz, hit.bc));
+    float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
     uint material_index = g_TriangleMaterialIndices[hit.primitive_id];
     Material material = ApplyTextures(g_Materials[material_index], texcoord, g_SceneCounts.w);
 
     g_DiffuseAlbedo[pixel_coord] = float4(material.diffuse_albedo, 1.0f);
-    g_Depth[pixel_coord] = length(ray.origin.xyz - position);
+    g_Depth[pixel_coord] = length(ray.origin - position);
     g_Normal[pixel_coord] = float4(normal, 0.0f);
-    float2 current_uv =
-        ProjectScreen(position, g_CameraPositionFov.xyz, normalize(g_CameraFrontAspect.xyz),
-            normalize(g_CameraUpAperture.xyz), g_CameraPositionFov.w, g_CameraFrontAspect.w);
-    float2 prev_uv = ProjectScreen(position, g_PrevCameraPositionFov.xyz,
-        normalize(g_PrevCameraFrontAspect.xyz), normalize(g_PrevCameraUpAperture.xyz),
-        g_PrevCameraPositionFov.w, g_PrevCameraFrontAspect.w);
+    float2 current_uv = ProjectScreen(position, g_Camera.position, normalize(g_Camera.front),
+        normalize(g_Camera.up), g_Camera.fov, g_Camera.aspect_ratio);
+    float2 prev_uv = ProjectScreen(position, g_PrevCamera.position,
+        normalize(g_PrevCamera.front), normalize(g_PrevCamera.up), g_PrevCamera.fov,
+        g_PrevCamera.aspect_ratio);
     g_MotionVectors[pixel_coord] = float4(current_uv - prev_uv, 0.0f, 0.0f) * float4(1.0f, -1.0f, 1.0f, 1.0f);
 }

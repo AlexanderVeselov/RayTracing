@@ -36,8 +36,9 @@ CameraController::CameraController(Window& window)
     : window_(window), pitch_(glm::half_pi<float>()), yaw_(glm::half_pi<float>()), speed_(1.0f), up_(0.0f, 0.0f, 1.0f)
 {
     camera_data_.focus_distance = 10.0f;
-    camera_data_.position_fov = glm::vec4(0.0f, -1.0f, 1.0f, 75.0f * 3.1415f / 180.0f);
-    camera_data_.front_aspect.w = (float)window_.GetWidth() / (float)window_.GetHeight();
+    camera_data_.position = glm::vec3(0.0f, -1.0f, 1.0f);
+    camera_data_.fov = 75.0f * 3.1415f / 180.0f;
+    camera_data_.aspect_ratio = (float)window_.GetWidth() / (float)window_.GetHeight();
 }
 
 void CameraController::Update(float dt)
@@ -77,19 +78,13 @@ void CameraController::Update(float dt)
     glm::vec3 front = glm::vec3(std::cosf(yaw_) * std::sinf(pitch_),
         std::sinf(yaw_) * std::sinf(pitch_),
         std::cosf(pitch_));
-    camera_data_.front_aspect.x = front.x;
-    camera_data_.front_aspect.y = front.y;
-    camera_data_.front_aspect.z = front.z;
+    camera_data_.front = front;
     glm::vec3 right = glm::normalize(glm::cross(front, up_));
     // Compute the actual up vector
     glm::vec3 camera_up = glm::cross(right, front);
-    camera_data_.up_aperture.x = camera_up.x;
-    camera_data_.up_aperture.y = camera_up.y;
-    camera_data_.up_aperture.z = camera_up.z;
+    camera_data_.up = camera_up;
     // Move the camera
-    glm::vec3 position = glm::vec3(camera_data_.position_fov);
+    glm::vec3 position = camera_data_.position;
     position += (front * (float)frontback + right * (float)strafe + camera_up * (float)updown) * dt * speed;
-    camera_data_.position_fov.x = position.x;
-    camera_data_.position_fov.y = position.y;
-    camera_data_.position_fov.z = position.z;
+    camera_data_.position = position;
 }

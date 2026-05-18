@@ -102,7 +102,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     float3 throughput = g_Throughputs[pixel_coord].xyz;
     float3 sky_radiance = (g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) != 0u
                               ? 0.5f.xxx
-                              : SampleSky(normalize(ray.direction.xyz));
+                              : SampleSky(normalize(ray.direction));
     float4 radiance = g_Radiance[pixel_coord];
     radiance.xyz += throughput * sky_radiance;
     g_Radiance[pixel_coord] = radiance;

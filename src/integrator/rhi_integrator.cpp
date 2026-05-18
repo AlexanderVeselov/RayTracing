@@ -42,14 +42,8 @@ namespace
 {
 struct RhiCameraData
 {
-    float camera_position_fov[4];
-    float camera_front_aspect[4];
-    float camera_up_aperture[4];
-    float camera_lens[4];
-    float prev_camera_position_fov[4];
-    float prev_camera_front_aspect[4];
-    float prev_camera_up_aperture[4];
-    float prev_camera_lens[4];
+    Camera camera;
+    Camera prev_camera;
     uint32_t render_size[4];
     uint32_t scene_counts[4];
     uint32_t render_params[4];
@@ -231,7 +225,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
 
 void RhiIntegrator::SetCameraData(Camera const& camera)
 {
-    if (prev_camera_.position_fov.w == 0.0f)
+    if (prev_camera_.fov == 0.0f)
     {
         prev_camera_ = camera;
     }
@@ -280,45 +274,8 @@ void RhiIntegrator::EnableDenoiser(bool enable)
 void RhiIntegrator::UpdateFrameData()
 {
     RhiCameraData data = {};
-    data.camera_position_fov[0] = camera_.position_fov.x;
-    data.camera_position_fov[1] = camera_.position_fov.y;
-    data.camera_position_fov[2] = camera_.position_fov.z;
-    data.camera_position_fov[3] = camera_.position_fov.w;
-
-    data.camera_front_aspect[0] = camera_.front_aspect.x;
-    data.camera_front_aspect[1] = camera_.front_aspect.y;
-    data.camera_front_aspect[2] = camera_.front_aspect.z;
-    data.camera_front_aspect[3] = camera_.front_aspect.w;
-
-    data.camera_up_aperture[0] = camera_.up_aperture.x;
-    data.camera_up_aperture[1] = camera_.up_aperture.y;
-    data.camera_up_aperture[2] = camera_.up_aperture.z;
-    data.camera_up_aperture[3] = camera_.up_aperture.w;
-
-    data.camera_lens[0] = camera_.focus_distance;
-    data.camera_lens[1] = 0.0f;
-    data.camera_lens[2] = 0.0f;
-    data.camera_lens[3] = 0.0f;
-
-    data.prev_camera_position_fov[0] = prev_camera_.position_fov.x;
-    data.prev_camera_position_fov[1] = prev_camera_.position_fov.y;
-    data.prev_camera_position_fov[2] = prev_camera_.position_fov.z;
-    data.prev_camera_position_fov[3] = prev_camera_.position_fov.w;
-
-    data.prev_camera_front_aspect[0] = prev_camera_.front_aspect.x;
-    data.prev_camera_front_aspect[1] = prev_camera_.front_aspect.y;
-    data.prev_camera_front_aspect[2] = prev_camera_.front_aspect.z;
-    data.prev_camera_front_aspect[3] = prev_camera_.front_aspect.w;
-
-    data.prev_camera_up_aperture[0] = prev_camera_.up_aperture.x;
-    data.prev_camera_up_aperture[1] = prev_camera_.up_aperture.y;
-    data.prev_camera_up_aperture[2] = prev_camera_.up_aperture.z;
-    data.prev_camera_up_aperture[3] = prev_camera_.up_aperture.w;
-
-    data.prev_camera_lens[0] = prev_camera_.focus_distance;
-    data.prev_camera_lens[1] = 0.0f;
-    data.prev_camera_lens[2] = 0.0f;
-    data.prev_camera_lens[3] = 0.0f;
+    data.camera = camera_;
+    data.prev_camera = prev_camera_;
 
     data.render_size[0] = width_;
     data.render_size[1] = height_;

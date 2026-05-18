@@ -41,7 +41,7 @@ public:
 
     void SetAperture(float aperture)
     {
-        camera_data_.up_aperture.w = aperture;
+        camera_data_.aperture = aperture;
         is_changed_ = true;
     }
     void SetFocusDistance(float focus_distance)
