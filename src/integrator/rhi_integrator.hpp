@@ -163,8 +163,9 @@ private:
     gpu::BufferPtr triangle_material_index_buffer_;
     gpu::BufferPtr material_buffer_;
     gpu::BufferPtr light_buffer_;
-    gpu::BufferPtr texture_buffer_;
-    gpu::BufferPtr texture_data_buffer_;
+    std::vector<gpu::ImagePtr> texture_images_;
+    gpu::ImagePtr fallback_texture_image_;
+    gpu::SamplerPtr texture_sampler_;
     gpu::ImagePtr env_map_image_;
     gpu::SamplerPtr env_map_sampler_;
 

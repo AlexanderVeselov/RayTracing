@@ -396,8 +396,7 @@ size_t Scene::LoadTexture(char const* filename)
 
     size_t texture_idx = textures_.size();
     textures_.push_back(std::move(texture));
-
-    texture_data_.insert(texture_data_.end(), image.data.begin(), image.data.end());
+    texture_images_.push_back(std::move(image));
 
     // Cache the texture
     loaded_textures_.emplace(filename, texture_idx);

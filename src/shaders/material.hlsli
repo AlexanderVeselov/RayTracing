@@ -31,14 +31,10 @@ float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
         return 1.0f.xxx;
     }
 
-    Texture texture_info = g_Textures[texture_index];
     uv = frac(uv);
     uv.y = 1.0f - uv.y;
 
-    int texel_x = clamp(int(uv.x * texture_info.width), 0, texture_info.width - 1);
-    int texel_y = clamp(int(uv.y * texture_info.height), 0, texture_info.height - 1);
-    int texel_addr = texture_info.data_start + texel_y * texture_info.width + texel_x;
-    return saturate(UnpackRGBA8(g_TextureData[texel_addr]).xyz);
+    return saturate(g_TextureImages[NonUniformResourceIndex(texture_index)].SampleLevel(g_TextureSampler, uv, 0.0f).xyz);
 }
 
 Material ApplyTextures(PackedMaterial packed_material, float2 uv, uint texture_count)
