@@ -29,10 +29,14 @@ set(SHADER_SOURCES
 )
 
 set(LOADERS_SOURCES
-    loaders/dds_loader.cpp
     loaders/hdr_loader.cpp
     loaders/image_loader.cpp
     loaders/image_loader.hpp
+)
+
+set(MANAGERS_SOURCES
+    managers/texture_manager.cpp
+    managers/texture_manager.hpp
 )
 
 set(SCENE_SOURCES
@@ -61,6 +65,7 @@ set(SOURCES
     ${INTEGRATOR_SOURCES}
     ${SHADER_SOURCES}
     ${LOADERS_SOURCES}
+    ${MANAGERS_SOURCES}
     ${SCENE_SOURCES}
     ${UTILS_SOURCES}
     ${MAIN_SOURCES}
@@ -69,6 +74,7 @@ set(SOURCES
 source_group("integrator" FILES ${INTEGRATOR_SOURCES})
 source_group("shaders" FILES ${SHADER_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
+source_group("managers" FILES ${MANAGERS_SOURCES})
 source_group("scene" FILES ${SCENE_SOURCES})
 source_group("utils" FILES ${UTILS_SOURCES})
 

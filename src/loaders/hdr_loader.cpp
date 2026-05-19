@@ -26,7 +26,7 @@ static void WorkOnRGBE(RGBE* scan, int len, float* cols);
 static bool Decrunch(RGBE* scanline, int len, FILE* file);
 static bool OldDecrunch(RGBE* scanline, int len, FILE* file);
 
-bool LoadHDR(const char* fileName, Image& res)
+bool LoadHDR(const char* fileName, uint32_t& width, uint32_t& height, std::vector<uint32_t>& data)
 {
     int i;
     char str[200];
@@ -74,11 +74,11 @@ bool LoadHDR(const char* fileName, Image& res)
         return false;
     }
 
-    res.width = w;
-    res.height = h;
+    width = static_cast<uint32_t>(w);
+    height = static_cast<uint32_t>(h);
 
-    res.data.resize(w * h * 4);
-    float* cols = (float*)res.data.data();
+    data.resize(w * h * 4);
+    float* cols = (float*)data.data();
 
     RGBE* scanline = new RGBE[w];
     if (!scanline)

@@ -32,7 +32,7 @@
 #include <memory>
 #include <vector>
 
-class Image;
+class TextureManager;
 
 class RhiIntegrator : public Integrator
 {
@@ -43,7 +43,8 @@ public:
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
     void SetCurrentSwapchainImageLayout(gpu::ImageLayout layout);
 
-    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) override;
+    void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
+        TextureManager const& texture_manager) override;
     void SetCameraData(Camera const& camera) override;
     void SetSamplerType(SamplerType sampler_type) override;
     void SetAOV(AOV aov) override;
@@ -71,8 +72,7 @@ protected:
 private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
-    gpu::ImagePtr CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
-        gpu::CommandBufferPtr& upload_command_buffer);
+    gpu::ImagePtr CreateFallbackTexture(gpu::CommandBufferPtr& upload_command_buffer);
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
@@ -96,6 +96,7 @@ private:
 
     gpu::Device& device_;
     gpu::Swapchain& swapchain_;
+    TextureManager const* texture_manager_ = nullptr;
     gpu::ImagePtr output_image_;
     gpu::CommandBuffer* command_buffer_ = nullptr;
 
@@ -163,11 +164,8 @@ private:
     gpu::BufferPtr triangle_material_index_buffer_;
     gpu::BufferPtr material_buffer_;
     gpu::BufferPtr light_buffer_;
-    std::vector<gpu::ImagePtr> texture_images_;
     gpu::ImagePtr fallback_texture_image_;
     gpu::SamplerPtr texture_sampler_;
-    gpu::ImagePtr env_map_image_;
-    gpu::SamplerPtr env_map_sampler_;
 
     // Acceleration structure buffers
     gpu::BufferPtr rt_triangles_buffer_;
@@ -179,6 +177,7 @@ private:
     uint32_t node_count_ = 0u;
     uint32_t light_count_ = 0u;
     uint32_t texture_count_ = 0u;
+    uint32_t env_map_index_ = 0u;
     uint32_t env_map_width_ = 0u;
     uint32_t env_map_height_ = 0u;
 };

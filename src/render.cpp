@@ -32,12 +32,20 @@
 #include "gpu_queue.hpp"
 #include "gpu_swapchain.hpp"
 #include "integrator/rhi_integrator.hpp"
+#include "managers/texture_manager.hpp"
+#include "scene/scene.hpp"
 
 #include <imgui.h>
 #include <stdexcept>
 
-Render::Render(Window& window, RenderBackend backend, Scene& scene)
-    : window_(window), render_backend_(backend), scene_(scene), width_(window.GetWidth()), height_(window.GetHeight())
+Render::Render(Window& window, RenderBackend backend, std::string const& scene_path, float scene_scale, bool flip_yz)
+    : window_(window)
+    , render_backend_(backend)
+    , scene_path_(scene_path)
+    , scene_scale_(scene_scale)
+    , flip_yz_(flip_yz)
+    , width_(window.GetWidth())
+    , height_(window.GetHeight())
 {
     if (render_backend_ == RenderBackend::kVulkan)
     {
@@ -58,17 +66,21 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     rhi_device_ = rhi_api_->CreateDevice();
     rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
     rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
+    texture_manager_ = std::make_unique<TextureManager>(*rhi_device_);
+    scene_ = std::make_unique<Scene>(scene_path_.c_str(), scene_scale_, flip_yz_, *texture_manager_);
+    scene_->AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
 
     camera_controller_ = std::make_unique<CameraController>(window_);
 
     // Create acc structure
     acc_structure_ = std::make_unique<Bvh>();
     // Build it right here
-    acc_structure_->BuildCPU(scene_.GetVertices(), scene_.GetIndices());
+    acc_structure_->BuildCPU(scene_->GetVertices(), scene_->GetIndices());
 
     // TODO, NOTE: this is done after building the acc structure because it
     // reorders triangles Need to get rid of reordering
-    scene_.Finalize();
+    scene_->Finalize();
+    texture_manager_->UploadPendingTextures();
 
     // Create integrator
     auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
@@ -76,7 +88,7 @@ Render::Render(Window& window, RenderBackend backend, Scene& scene)
     integrator_ = std::move(rhi_integrator);
 
     // Upload scene data to the GPU
-    integrator_->UploadGPUData(scene_, *acc_structure_);
+    integrator_->UploadGPUData(*scene_, *acc_structure_, *texture_manager_);
 }
 
 Render::~Render()

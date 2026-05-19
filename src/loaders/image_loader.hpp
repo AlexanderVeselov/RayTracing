@@ -24,16 +24,9 @@
 
 #pragma once
 
+#include <cstdint>
 #include <numeric>
 #include <vector>
 
-class Image
-{
-public:
-    uint32_t width;
-    uint32_t height;
-    std::vector<uint32_t> data;
-};
-
-bool LoadHDR(const char* filename, Image& result);
-bool LoadSTB(const char* filename, Image& result);
+bool LoadHDR(const char* filename, uint32_t& width, uint32_t& height, std::vector<uint32_t>& data);
+bool LoadSTB(const char* filename, uint32_t& width, uint32_t& height, std::vector<uint32_t>& data);

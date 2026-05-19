@@ -88,15 +88,10 @@ int main(int argc, char** argv)
             return cli_app.exit(ex);
         }
 
-        // Load the scene
-        Scene scene(scene_path.c_str(), scene_scale, flip_yz);
-        // Add a directional light since obj format doesn't support lights
-        scene.AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
-
         // Create the window
         Window window(window_width, window_height, "RayTracing");
 
-        Render render(window, backend, scene);
+        Render render(window, backend, scene_path, scene_scale, flip_yz);
 
         // Render loop
         while (!window.ShouldClose())

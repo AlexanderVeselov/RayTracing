@@ -38,7 +38,8 @@
 
 #undef max
 
-Scene::Scene(const char* filename, float scale, bool flip_yz)
+Scene::Scene(const char* filename, float scale, bool flip_yz, TextureManager& texture_manager)
+    : texture_manager_(texture_manager)
 {
     Load(filename, scale, flip_yz);
 }
@@ -355,46 +356,9 @@ void Scene::Load(const char* filename, float scale, bool flip_yz)
     std::cout << "Load successful (" << indices_.size() / 3 << " triangles)" << std::endl;
 }
 
-size_t Scene::LoadTexture(char const* filename)
+uint32_t Scene::LoadTexture(char const* filename)
 {
-    // Try to lookup the cache
-    auto it = loaded_textures_.find(filename);
-    if (it != loaded_textures_.cend())
-    {
-        return it->second;
-    }
-
-    // Load the texture
-    char const* file_extension = strrchr(filename, '.');
-    if (file_extension == nullptr)
-    {
-        throw std::runtime_error("Invalid texture extension");
-    }
-
-    bool success = false;
-    Image image;
-    if (strcmp(file_extension, ".hdr") == 0)
-    {
-        assert(!"Not implemented yet!");
-        success = LoadHDR(filename, image);
-    }
-    else if (strcmp(file_extension, ".jpg") == 0 || strcmp(file_extension, ".tga") == 0
-        || strcmp(file_extension, ".png") == 0)
-    {
-        success = LoadSTB(filename, image);
-    }
-
-    if (!success)
-    {
-        throw std::runtime_error((std::string("Failed to load file ") + filename).c_str());
-    }
-
-    size_t texture_idx = texture_images_.size();
-    texture_images_.push_back(std::move(image));
-
-    // Cache the texture
-    loaded_textures_.emplace(filename, texture_idx);
-    return texture_idx;
+    return texture_manager_.LoadTexture(filename);
 }
 
 void Scene::CollectEmissiveTriangles()
@@ -438,8 +402,6 @@ void Scene::Finalize()
 {
     CollectEmissiveTriangles();
 
-    // scene_info_.environment_map_index = LoadTexture("textures/studio_small_03_4k.hdr");
     scene_info_.analytic_light_count = (uint32_t)lights_.size();
-
-    LoadHDR("assets/ibl/CGSkies_0036_free.hdr", env_image_);
+    scene_info_.environment_map_index = texture_manager_.LoadTexture("assets/ibl/CGSkies_0036_free.hdr");
 }

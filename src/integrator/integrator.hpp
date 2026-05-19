@@ -30,6 +30,7 @@
 class Scene;
 class CameraController;
 class AccelerationStructure;
+class TextureManager;
 
 class Integrator
 {
@@ -53,7 +54,8 @@ public:
     virtual ~Integrator() = default;
 
     void Integrate();
-    virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure) = 0;
+    virtual void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
+        TextureManager const& texture_manager) = 0;
     virtual void SetCameraData(Camera const& camera) = 0;
     void RequestReset() { request_reset_ = true; }
     void EnableWhiteFurnace(bool enable);

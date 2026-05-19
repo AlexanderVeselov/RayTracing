@@ -41,9 +41,9 @@ RWTexture2D<float4> g_Throughputs : register(u4);
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u5);
 
-// Environment map data
-Texture2D<float4> g_EnvMap : register(t7);
-SamplerState g_EnvMapSampler : register(s8);
+// Texture data
+Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t7);
+SamplerState g_TextureSampler : register(s8);
 
 float3 SampleSky(float3 dir)
 {
@@ -59,7 +59,13 @@ float3 SampleSky(float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    return g_EnvMap.SampleLevel(g_EnvMapSampler, coords, 0.0f).xyz;
+    uint texture_index = g_RenderSize.z;
+    if (texture_index == INVALID_TEXTURE_IDX || texture_index >= g_SceneCounts.w)
+    {
+        return float3(0.02f, 0.02f, 0.025f);
+    }
+
+    return g_TextureImages[NonUniformResourceIndex(texture_index)].SampleLevel(g_TextureSampler, coords, 0.0f).xyz;
 }
 
 [numthreads(256, 1, 1)]

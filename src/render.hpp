@@ -27,14 +27,16 @@
 #include "acceleration_structure.hpp"
 #include "gpu_api.hpp"
 #include "integrator/integrator.hpp"
-#include "scene/scene.hpp"
 #include "utils/camera_controller.hpp"
 
 #include <ctime>
 #include <memory>
+#include <string>
 
 class Window;
 class RhiIntegrator;
+class Scene;
+class TextureManager;
 class Render
 {
 public:
@@ -44,7 +46,7 @@ public:
         kD3D12
     };
 
-    Render(Window& window, RenderBackend backend, Scene& scene);
+    Render(Window& window, RenderBackend backend, std::string const& scene_path, float scene_scale, bool flip_yz);
     ~Render();
 
     void RenderFrame();
@@ -61,7 +63,10 @@ private:
     // Window
     Window& window_;
     RenderBackend render_backend_;
-    Scene& scene_;
+    std::string scene_path_;
+    float scene_scale_ = 1.0f;
+    bool flip_yz_ = false;
+    std::unique_ptr<Scene> scene_;
 
     // Render size
     uint32_t width_;
@@ -78,6 +83,7 @@ private:
     gpu::ImGuiRendererPtr rhi_imgui_renderer_;
     gpu::CommandBufferPtr rhi_command_buffer_;
     RhiIntegrator* rhi_integrator_ = nullptr;
+    std::unique_ptr<TextureManager> texture_manager_;
 
     // Integrator
     std::unique_ptr<Integrator> integrator_;

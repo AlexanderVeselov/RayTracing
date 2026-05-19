@@ -24,35 +24,32 @@
 
 #pragma once
 
+#include "managers/texture_manager.hpp"
 #include "shaders/shared_structures.h"
-#include "loaders/image_loader.hpp"
 
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 class Scene
 {
 public:
-    Scene(const char* filename, float scale, bool flip_yz);
+    Scene(const char* filename, float scale, bool flip_yz, TextureManager& texture_manager);
 
     std::vector<Vertex> const& GetVertices() const { return vertices_; }
     std::vector<uint32_t> const& GetIndices() const { return indices_; }
     std::vector<uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
     std::vector<uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
-    std::vector<Image> const& GetTextureImages() const { return texture_images_; }
     std::vector<Light> const& GetLights() const { return lights_; }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
-    Image const& GetEnvImage() const { return env_image_; }
     void Finalize();
     void AddPointLight(glm::vec3 origin, glm::vec3 radiance);
     void AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance);
 
 private:
     void Load(char const* filename, float scale, bool flip_yz);
-    // Returns texture index in texture_images_
-    size_t LoadTexture(char const* filename);
+    // Returns texture index in TextureManager.
+    uint32_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
     std::vector<Vertex> vertices_;
@@ -61,8 +58,6 @@ private:
     std::vector<uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
-    std::vector<Image> texture_images_;
-    std::unordered_map<std::string, size_t> loaded_textures_;
     SceneInfo scene_info_ = {};
-    Image env_image_;
+    TextureManager& texture_manager_;
 };

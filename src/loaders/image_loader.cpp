@@ -28,34 +28,32 @@
 
 #include <cassert>
 
-bool LoadSTB(const char* filename, Image& result)
+bool LoadSTB(const char* filename, uint32_t& width, uint32_t& height, std::vector<uint32_t>& result)
 {
-    int width;
-    int height;
+    int image_width;
+    int image_height;
     int num_channels;
-    unsigned char* data = stbi_load(filename, &width, &height, &num_channels, 0);
+    unsigned char* data = stbi_load(filename, &image_width, &image_height, &num_channels, 0);
     if (!data)
     {
         return false;
     }
 
-    uint32_t* uint32_data = (uint32_t*)data;
+    width = static_cast<uint32_t>(image_width);
+    height = static_cast<uint32_t>(image_height);
+    result.resize(width * height);
 
-    result.width = width;
-    result.height = height;
-    result.data.resize(width * height);
-
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < image_height; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < image_width; ++x)
         {
-            int input_base = (y * width + x) * num_channels;
+            int input_base = (y * image_width + x) * num_channels;
             int r = data[input_base];
             int g = num_channels > 1 ? data[input_base + 1] : 0;
             int b = num_channels > 2 ? data[input_base + 2] : 0;
             int a = num_channels > 3 ? data[input_base + 3] : 0;
             uint32_t value = (r << 0) | (g << 8) | (b << 16) | (a << 24);
-            result.data[y * width + x] = value;
+            result[y * image_width + x] = value;
         }
     }
 
