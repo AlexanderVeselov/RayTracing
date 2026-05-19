@@ -72,12 +72,12 @@ uint32_t TextureManager::LoadTexture(std::filesystem::path const& path)
         throw std::runtime_error("TextureManager::LoadTexture: too many textures");
     }
 
-    TextureRecord record = {};
+    Texture texture = {};
     gpu::ImageFormat format = gpu::ImageFormat::kUnknown;
     std::string extension = LowercaseExtension(normalized_path);
     if (extension == ".hdr")
     {
-        if (!LoadHDR(normalized_path.c_str(), record.desc.width, record.desc.height, record.cpu_data))
+        if (!LoadHDR(normalized_path.c_str(), texture.width, texture.height, texture.cpu_data))
         {
             throw std::runtime_error("TextureManager::LoadTexture: failed to load HDR texture " + normalized_path);
         }
@@ -86,7 +86,7 @@ uint32_t TextureManager::LoadTexture(std::filesystem::path const& path)
     else if (extension == ".jpg" || extension == ".jpeg" || extension == ".png" || extension == ".tga"
         || extension == ".bmp")
     {
-        if (!LoadSTB(normalized_path.c_str(), record.desc.width, record.desc.height, record.cpu_data))
+        if (!LoadSTB(normalized_path.c_str(), texture.width, texture.height, texture.cpu_data))
         {
             throw std::runtime_error("TextureManager::LoadTexture: failed to load texture " + normalized_path);
         }
@@ -98,9 +98,9 @@ uint32_t TextureManager::LoadTexture(std::filesystem::path const& path)
     }
 
     uint32_t texture_index = static_cast<uint32_t>(textures_.size());
-    record.path = normalized_path;
-    record.desc.format = format;
-    textures_.push_back(std::move(record));
+    texture.path = normalized_path;
+    texture.format = format;
+    textures_.push_back(std::move(texture));
     loaded_textures_.emplace(normalized_path, texture_index);
 
     return texture_index;
@@ -111,7 +111,7 @@ void TextureManager::UploadPendingTextures()
     gpu::CommandBufferPtr command_buffer = upload_queue_.CreateCommandBuffer();
     bool has_pending_textures = false;
 
-    for (TextureRecord& texture : textures_)
+    for (Texture& texture : textures_)
     {
         if (texture.uploaded)
         {
@@ -135,27 +135,27 @@ void TextureManager::UploadPendingTextures()
 
     gpu_images_.clear();
     gpu_images_.reserve(textures_.size());
-    for (TextureRecord const& texture : textures_)
+    for (Texture const& texture : textures_)
     {
         gpu_images_.push_back(texture.gpu_image);
     }
 }
 
-TextureDesc const& TextureManager::GetTextureDesc(uint32_t texture_index) const
+Texture const& TextureManager::GetTexture(uint32_t texture_index) const
 {
     if (texture_index >= textures_.size())
     {
-        throw std::runtime_error("TextureManager::GetTextureDesc: invalid texture index");
+        throw std::runtime_error("TextureManager::GetTexture: invalid texture index");
     }
 
-    return textures_[texture_index].desc;
+    return textures_[texture_index];
 }
 
-gpu::ImagePtr TextureManager::CreateGpuImage(TextureRecord const& texture, gpu::CommandBuffer& command_buffer)
+gpu::ImagePtr TextureManager::CreateGpuImage(Texture const& texture, gpu::CommandBuffer& command_buffer)
 {
-    gpu::ImagePtr image = device_.CreateImage(texture.desc.width,
-        texture.desc.height,
-        texture.desc.format,
+    gpu::ImagePtr image = device_.CreateImage(texture.width,
+        texture.height,
+        texture.format,
         gpu::ImageFlags::kShaderResource);
 
     if (!texture.cpu_data.empty())

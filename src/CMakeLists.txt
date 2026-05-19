@@ -1,8 +1,10 @@
-set(INTEGRATOR_SOURCES
-    integrator/integrator.cpp
-    integrator/integrator.hpp
-    integrator/rhi_integrator.cpp
-    integrator/rhi_integrator.hpp
+set(RENDER_SOURCES
+    render/integrator.cpp
+    render/integrator.hpp
+    render/render.cpp
+    render/render.hpp
+    render/rhi_integrator.cpp
+    render/rhi_integrator.hpp
 )
 
 set(SHADER_SOURCES
@@ -32,6 +34,8 @@ set(LOADERS_SOURCES
     loaders/hdr_loader.cpp
     loaders/image_loader.cpp
     loaders/image_loader.hpp
+    loaders/obj_loader.cpp
+    loaders/obj_loader.hpp
 )
 
 set(MANAGERS_SOURCES
@@ -56,13 +60,11 @@ set(MAIN_SOURCES
     acceleration_structure.hpp
     bvh.cpp
     bvh.hpp
-    render.cpp
-    render.hpp
     main.cpp
 )
 
 set(SOURCES
-    ${INTEGRATOR_SOURCES}
+    ${RENDER_SOURCES}
     ${SHADER_SOURCES}
     ${LOADERS_SOURCES}
     ${MANAGERS_SOURCES}
@@ -71,7 +73,7 @@ set(SOURCES
     ${MAIN_SOURCES}
 )
 
-source_group("integrator" FILES ${INTEGRATOR_SOURCES})
+source_group("render" FILES ${RENDER_SOURCES})
 source_group("shaders" FILES ${SHADER_SOURCES})
 source_group("loaders" FILES ${LOADERS_SOURCES})
 source_group("managers" FILES ${MANAGERS_SOURCES})

@@ -31,7 +31,7 @@
 #include "gpu_imgui.hpp"
 #include "gpu_queue.hpp"
 #include "gpu_swapchain.hpp"
-#include "integrator/rhi_integrator.hpp"
+#include "rhi_integrator.hpp"
 #include "managers/texture_manager.hpp"
 #include "scene/scene.hpp"
 

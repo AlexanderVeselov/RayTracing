@@ -178,6 +178,4 @@ private:
     uint32_t light_count_ = 0u;
     uint32_t texture_count_ = 0u;
     uint32_t env_map_index_ = 0u;
-    uint32_t env_map_width_ = 0u;
-    uint32_t env_map_height_ = 0u;
 };

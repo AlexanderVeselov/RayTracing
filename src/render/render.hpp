@@ -26,7 +26,7 @@
 
 #include "acceleration_structure.hpp"
 #include "gpu_api.hpp"
-#include "integrator/integrator.hpp"
+#include "integrator.hpp"
 #include "utils/camera_controller.hpp"
 
 #include <ctime>

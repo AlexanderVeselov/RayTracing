@@ -184,9 +184,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = texture_manager.TextureCount();
     env_map_index_ = scene_info.environment_map_index;
-    TextureDesc const& env_map_desc = texture_manager.GetTextureDesc(env_map_index_);
-    env_map_width_ = env_map_desc.width;
-    env_map_height_ = env_map_desc.height;
+    Texture const& env_map = texture_manager.GetTexture(env_map_index_);
 
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
@@ -292,8 +290,6 @@ void RhiIntegrator::UpdateFrameData()
     data.render_params[0] = static_cast<uint32_t>(aov_);
     data.render_params[1] = (enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u)
         | (enable_denoiser_ ? kRenderFlagDenoiser : 0u);
-    data.render_params[2] = env_map_width_;
-    data.render_params[3] = env_map_height_;
 
     // Copy data to staging buffer
     void* mapped_data = camera_cpu_buffer_->Map();

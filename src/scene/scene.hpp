@@ -27,8 +27,9 @@
 #include "managers/texture_manager.hpp"
 #include "shaders/shared_structures.h"
 
-#include <string>
 #include <vector>
+
+class ObjLoader;
 
 class Scene
 {
@@ -47,9 +48,8 @@ public:
     void AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance);
 
 private:
-    void Load(char const* filename, float scale, bool flip_yz);
-    // Returns texture index in TextureManager.
-    uint32_t LoadTexture(char const* filename);
+    friend class ObjLoader;
+
     void CollectEmissiveTriangles();
 
     std::vector<Vertex> vertices_;

@@ -39,11 +39,15 @@ class Device;
 class Queue;
 }  // namespace gpu
 
-struct TextureDesc
+struct Texture
 {
+    std::filesystem::path path;
     uint32_t width = 0;
     uint32_t height = 0;
     gpu::ImageFormat format = gpu::ImageFormat::kUnknown;
+    std::vector<uint32_t> cpu_data;
+    gpu::ImagePtr gpu_image;
+    bool uploaded = false;
 };
 
 class TextureManager
@@ -58,24 +62,16 @@ public:
     void UploadPendingTextures();
 
     uint32_t TextureCount() const { return static_cast<uint32_t>(gpu_images_.size()); }
-    TextureDesc const& GetTextureDesc(uint32_t texture_index) const;
+    Texture const& GetTexture(uint32_t texture_index) const;
     std::vector<gpu::ImagePtr> const& GetImages() const { return gpu_images_; }
 
 private:
-    struct TextureRecord
-    {
-        std::filesystem::path path;
-        TextureDesc desc;
-        std::vector<uint32_t> cpu_data;
-        gpu::ImagePtr gpu_image;
-        bool uploaded = false;
-    };
 
-    gpu::ImagePtr CreateGpuImage(TextureRecord const& texture, gpu::CommandBuffer& command_buffer);
+    gpu::ImagePtr CreateGpuImage(Texture const& texture, gpu::CommandBuffer& command_buffer);
 
     gpu::Device& device_;
     gpu::Queue& upload_queue_;
     std::unordered_map<std::string, uint32_t> loaded_textures_;
-    std::vector<TextureRecord> textures_;
+    std::vector<Texture> textures_;
     std::vector<gpu::ImagePtr> gpu_images_;
 };

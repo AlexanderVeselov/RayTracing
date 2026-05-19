@@ -47,13 +47,6 @@ SamplerState g_TextureSampler : register(s8);
 
 float3 SampleSky(float3 dir)
 {
-    uint width = g_RenderParams.z;
-    uint height = g_RenderParams.w;
-    if (width == 0u || height == 0u)
-    {
-        return float3(0.02f, 0.02f, 0.025f);
-    }
-
     float2 coords = float2(atan2(dir.x, dir.y) + PI, acos(clamp(dir.z, -1.0f, 1.0f)));
     coords.x = coords.x < 0.0f ? coords.x + TWO_PI : coords.x;
     coords.x *= INV_TWO_PI;

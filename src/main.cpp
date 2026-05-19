@@ -23,7 +23,7 @@
  *****************************************************************************/
 
 #include "CLI/CLI.hpp"
-#include "render.hpp"
+#include "render/render.hpp"
 #include "utils/window.hpp"
 
 #include <iostream>
