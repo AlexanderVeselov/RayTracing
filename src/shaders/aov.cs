@@ -49,8 +49,8 @@ StructuredBuffer<uint> g_TriangleMaterialIndices : register(t11);
 StructuredBuffer<PackedMaterial> g_Materials : register(t12);
 
 // Texture data
-StructuredBuffer<Texture> g_Textures : register(t13);
-StructuredBuffer<uint> g_TextureData : register(t14);
+Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t13);
+SamplerState g_TextureSampler : register(s14);
 
 #include "material.hlsli"
 

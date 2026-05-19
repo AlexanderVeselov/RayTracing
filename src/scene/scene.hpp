@@ -41,8 +41,7 @@ public:
     std::vector<uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
     std::vector<uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
-    std::vector<Texture> const& GetTextures() const { return textures_; }
-    std::vector<uint32_t> const& GetTextureData() const { return texture_data_; }
+    std::vector<Image> const& GetTextureImages() const { return texture_images_; }
     std::vector<Light> const& GetLights() const { return lights_; }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
     Image const& GetEnvImage() const { return env_image_; }
@@ -52,7 +51,7 @@ public:
 
 private:
     void Load(char const* filename, float scale, bool flip_yz);
-    // Returns texture index in textures_
+    // Returns texture index in texture_images_
     size_t LoadTexture(char const* filename);
     void CollectEmissiveTriangles();
 
@@ -62,8 +61,7 @@ private:
     std::vector<uint32_t> emissive_indices_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
-    std::vector<Texture> textures_;
-    std::vector<uint32_t> texture_data_;
+    std::vector<Image> texture_images_;
     std::unordered_map<std::string, size_t> loaded_textures_;
     SceneInfo scene_info_ = {};
     Image env_image_;

@@ -52,6 +52,7 @@ struct RhiCameraData
 
 constexpr uint32_t kRenderFlagWhiteFurnace = 1u;
 constexpr uint32_t kRenderFlagDenoiser = 2u;
+constexpr uint32_t kMaxTextureCount = MAX_TEXTURES;
 
 inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 {
@@ -184,8 +185,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
     auto const& materials = scene.GetMaterials();
     auto const& lights = scene.GetLights();
-    auto const& textures = scene.GetTextures();
-    auto const& texture_data = scene.GetTextureData();
+    auto const& texture_images = scene.GetTextureImages();
     auto const& env_image = scene.GetEnvImage();
 
     auto const& rt_triangles = acc_structure.GetTriangles();
@@ -194,7 +194,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     triangle_count_ = static_cast<uint32_t>(rt_triangles.size());
     node_count_ = static_cast<uint32_t>(nodes.size());
     light_count_ = static_cast<uint32_t>(lights.size());
-    texture_count_ = static_cast<uint32_t>(textures.size());
+    texture_count_ = static_cast<uint32_t>(texture_images.size());
     env_map_width_ = env_image.width;
     env_map_height_ = env_image.height;
 
@@ -209,9 +209,33 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
         staging_buffers);
     material_buffer_ = CreateGpuBuffer(materials, upload_command_buffer, staging_buffers);
     light_buffer_ = CreateGpuBuffer(lights, upload_command_buffer, staging_buffers);
-    texture_buffer_ = CreateGpuBuffer(textures, upload_command_buffer, staging_buffers);
-    texture_data_buffer_ = CreateGpuBuffer(texture_data, upload_command_buffer, staging_buffers);
-    env_map_image_ = CreateGpuImage(env_image, gpu::ImageFormat::kRGBA32_Float, upload_command_buffer, staging_buffers);
+    if (texture_images.size() > kMaxTextureCount)
+    {
+        throw std::runtime_error("RhiIntegrator::UploadGPUData: too many textures for shader descriptor array");
+    }
+
+    Image fallback_texture = {};
+    fallback_texture.width = 1;
+    fallback_texture.height = 1;
+    fallback_texture.data = {0xFFFFFFFFu};
+    fallback_texture_image_ = CreateGpuImage(fallback_texture, gpu::ImageFormat::kRGBA8_UNorm, upload_command_buffer);
+
+    texture_images_.clear();
+    texture_images_.reserve(texture_images.size());
+    for (Image const& texture_image : texture_images)
+    {
+        texture_images_.push_back(CreateGpuImage(texture_image, gpu::ImageFormat::kRGBA8_UNorm, upload_command_buffer));
+    }
+
+    gpu::SamplerDesc texture_sampler_desc = {};
+    texture_sampler_desc.min_filter = gpu::SamplerFilter::kLinear;
+    texture_sampler_desc.mag_filter = gpu::SamplerFilter::kLinear;
+    texture_sampler_desc.address_u = gpu::SamplerAddressMode::kRepeat;
+    texture_sampler_desc.address_v = gpu::SamplerAddressMode::kRepeat;
+    texture_sampler_desc.address_w = gpu::SamplerAddressMode::kRepeat;
+    texture_sampler_ = device_.GetSampler(texture_sampler_desc);
+
+    env_map_image_ = CreateGpuImage(env_image, gpu::ImageFormat::kRGBA32_Float, upload_command_buffer);
     gpu::SamplerDesc env_sampler_desc = {};
     env_sampler_desc.min_filter = gpu::SamplerFilter::kLinear;
     env_sampler_desc.mag_filter = gpu::SamplerFilter::kLinear;
@@ -550,22 +574,15 @@ gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 }
 
 gpu::ImagePtr RhiIntegrator::CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
-    gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers)
+    gpu::CommandBufferPtr& upload_command_buffer)
 {
-    gpu::ImagePtr image = device_.CreateImage(cpu_image.width,
-        cpu_image.height,
-        format,
-        gpu::ImageFlags::kShaderResource);
+    gpu::ImagePtr image = device_.CreateImage(cpu_image.width, cpu_image.height, format, gpu::ImageFlags::kShaderResource);
 
     if (!cpu_image.data.empty())
     {
-        gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_image.data.data(),
-            cpu_image.data.size() * sizeof(uint32_t),
-            sizeof(uint32_t));
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kCopyDst);
-        upload_command_buffer->CopyBufferToImage(image, staging_buffer);
+        upload_command_buffer->UploadImage(image, cpu_image.data.data(), cpu_image.data.size() * sizeof(uint32_t));
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kShaderRead);
-        staging_buffers.push_back(std::move(staging_buffer));
     }
     else
     {
@@ -577,6 +594,17 @@ gpu::ImagePtr RhiIntegrator::CreateGpuImage(Image const& cpu_image, gpu::ImageFo
 
 void RhiIntegrator::RebuildDescriptorSets()
 {
+    std::vector<gpu::ImageDescriptor> texture_descriptors;
+    texture_descriptors.reserve(kMaxTextureCount);
+    for (gpu::ImagePtr const& texture_image : texture_images_)
+    {
+        texture_descriptors.push_back({texture_image.get(), {}});
+    }
+    while (texture_descriptors.size() < kMaxTextureCount)
+    {
+        texture_descriptors.push_back({fallback_texture_image_.get(), {}});
+    }
+
     reset_set_ = reset_pipeline_->CreateDescriptorSet();
     reset_set_->BindImage(*radiance_image_, 0);
 
@@ -650,8 +678,8 @@ void RhiIntegrator::RebuildDescriptorSets()
         hit_surface_sets_[i]->BindBuffer(*material_buffer_, 19);
         hit_surface_sets_[i]->BindBuffer(*light_buffer_, 20);
 
-        hit_surface_sets_[i]->BindBuffer(*texture_buffer_, 21);
-        hit_surface_sets_[i]->BindBuffer(*texture_data_buffer_, 22);
+        hit_surface_sets_[i]->BindImageArray(texture_descriptors, 21);
+        hit_surface_sets_[i]->BindSampler(*texture_sampler_, 22);
     }
 
     trace_shadow_set_ = trace_shadow_pipeline_->CreateDescriptorSet();
@@ -675,8 +703,8 @@ void RhiIntegrator::RebuildDescriptorSets()
     aov_set_->BindBuffer(*index_buffer_, 10);
     aov_set_->BindBuffer(*triangle_material_index_buffer_, 11);
     aov_set_->BindBuffer(*material_buffer_, 12);
-    aov_set_->BindBuffer(*texture_buffer_, 13);
-    aov_set_->BindBuffer(*texture_data_buffer_, 14);
+    aov_set_->BindImageArray(texture_descriptors, 13);
+    aov_set_->BindSampler(*texture_sampler_, 14);
 
     accumulate_direct_set_ = accumulate_direct_pipeline_->CreateDescriptorSet();
     accumulate_direct_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);

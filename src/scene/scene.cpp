@@ -389,15 +389,8 @@ size_t Scene::LoadTexture(char const* filename)
         throw std::runtime_error((std::string("Failed to load file ") + filename).c_str());
     }
 
-    Texture texture;
-    texture.width = image.width;
-    texture.height = image.height;
-    texture.data_start = (uint32_t)texture_data_.size();
-
-    size_t texture_idx = textures_.size();
-    textures_.push_back(std::move(texture));
-
-    texture_data_.insert(texture_data_.end(), image.data.begin(), image.data.end());
+    size_t texture_idx = texture_images_.size();
+    texture_images_.push_back(std::move(image));
 
     // Cache the texture
     loaded_textures_.emplace(filename, texture_idx);

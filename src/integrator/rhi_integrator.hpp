@@ -72,7 +72,7 @@ private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
     gpu::ImagePtr CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
-        gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers);
+        gpu::CommandBufferPtr& upload_command_buffer);
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
@@ -163,8 +163,9 @@ private:
     gpu::BufferPtr triangle_material_index_buffer_;
     gpu::BufferPtr material_buffer_;
     gpu::BufferPtr light_buffer_;
-    gpu::BufferPtr texture_buffer_;
-    gpu::BufferPtr texture_data_buffer_;
+    std::vector<gpu::ImagePtr> texture_images_;
+    gpu::ImagePtr fallback_texture_image_;
+    gpu::SamplerPtr texture_sampler_;
     gpu::ImagePtr env_map_image_;
     gpu::SamplerPtr env_map_sampler_;
 

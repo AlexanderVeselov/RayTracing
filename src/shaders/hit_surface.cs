@@ -63,8 +63,8 @@ StructuredBuffer<PackedMaterial> g_Materials : register(t19);
 StructuredBuffer<Light> g_Lights : register(t20);
 
 // Texture data
-StructuredBuffer<Texture> g_Textures : register(t21);
-StructuredBuffer<uint> g_TextureData : register(t22);
+Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t21);
+SamplerState g_TextureSampler : register(s22);
 
 #include "light.hlsli"
 #include "material.hlsli"
