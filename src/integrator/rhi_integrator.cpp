@@ -218,19 +218,13 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     fallback_texture.width = 1;
     fallback_texture.height = 1;
     fallback_texture.data = {0xFFFFFFFFu};
-    fallback_texture_image_ = CreateGpuImage(fallback_texture,
-        gpu::ImageFormat::kRGBA8_UNorm,
-        upload_command_buffer,
-        staging_buffers);
+    fallback_texture_image_ = CreateGpuImage(fallback_texture, gpu::ImageFormat::kRGBA8_UNorm, upload_command_buffer);
 
     texture_images_.clear();
     texture_images_.reserve(texture_images.size());
     for (Image const& texture_image : texture_images)
     {
-        texture_images_.push_back(CreateGpuImage(texture_image,
-            gpu::ImageFormat::kRGBA8_UNorm,
-            upload_command_buffer,
-            staging_buffers));
+        texture_images_.push_back(CreateGpuImage(texture_image, gpu::ImageFormat::kRGBA8_UNorm, upload_command_buffer));
     }
 
     gpu::SamplerDesc texture_sampler_desc = {};
@@ -241,7 +235,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     texture_sampler_desc.address_w = gpu::SamplerAddressMode::kRepeat;
     texture_sampler_ = device_.GetSampler(texture_sampler_desc);
 
-    env_map_image_ = CreateGpuImage(env_image, gpu::ImageFormat::kRGBA32_Float, upload_command_buffer, staging_buffers);
+    env_map_image_ = CreateGpuImage(env_image, gpu::ImageFormat::kRGBA32_Float, upload_command_buffer);
     gpu::SamplerDesc env_sampler_desc = {};
     env_sampler_desc.min_filter = gpu::SamplerFilter::kLinear;
     env_sampler_desc.mag_filter = gpu::SamplerFilter::kLinear;
@@ -580,21 +574,15 @@ gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 }
 
 gpu::ImagePtr RhiIntegrator::CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
-    gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers)
+    gpu::CommandBufferPtr& upload_command_buffer)
 {
-    gpu::ImagePtr image = device_.CreateImage(cpu_image.width,
-        cpu_image.height,
-        format,
-        gpu::ImageFlags::kShaderResource);
+    gpu::ImagePtr image = device_.CreateImage(cpu_image.width, cpu_image.height, format, gpu::ImageFlags::kShaderResource);
 
     if (!cpu_image.data.empty())
     {
-        gpu::BufferPtr staging_buffer =
-            CreateStagingBuffer(cpu_image.data.data(), cpu_image.data.size() * sizeof(uint32_t), sizeof(uint32_t));
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kUndefined, gpu::ImageLayout::kCopyDst);
-        upload_command_buffer->CopyBufferToImage(image, staging_buffer);
+        upload_command_buffer->UploadImage(image, cpu_image.data.data(), cpu_image.data.size() * sizeof(uint32_t));
         upload_command_buffer->TransitionBarrier(image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kShaderRead);
-        staging_buffers.push_back(std::move(staging_buffer));
     }
     else
     {

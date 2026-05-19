@@ -72,7 +72,7 @@ private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
     gpu::ImagePtr CreateGpuImage(Image const& cpu_image, gpu::ImageFormat format,
-        gpu::CommandBufferPtr& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers);
+        gpu::CommandBufferPtr& upload_command_buffer);
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
