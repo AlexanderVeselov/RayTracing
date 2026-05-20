@@ -27,15 +27,43 @@
 #include "managers/texture_manager.hpp"
 #include "shaders/shared_structures.h"
 
+#include <glm/glm.hpp>
+
 #include <vector>
 
 class ObjLoader;
+
+struct Mesh
+{
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    uint32_t material_index = 0;
+};
+
+struct Model
+{
+    std::vector<uint32_t> mesh_indices;
+};
+
+struct SceneInstance
+{
+    uint32_t model_index = 0;
+    glm::mat4 transform = glm::mat4(1.0f);
+    glm::mat4 inverse_transform = glm::mat4(1.0f);
+    glm::mat3 normal_transform = glm::mat3(1.0f);
+};
 
 class Scene
 {
 public:
     Scene(const char* filename, float scale, bool flip_yz, TextureManager& texture_manager);
 
+    uint32_t AddInstance(uint32_t model_index, glm::mat4 const& transform);
+    void RebuildFlattenedGeometry();
+
+    std::vector<Mesh> const& GetMeshes() const { return meshes_; }
+    std::vector<Model> const& GetModels() const { return models_; }
+    std::vector<SceneInstance> const& GetInstances() const { return instances_; }
     std::vector<Vertex> const& GetVertices() const { return vertices_; }
     std::vector<uint32_t> const& GetIndices() const { return indices_; }
     std::vector<uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
@@ -52,6 +80,9 @@ private:
 
     void CollectEmissiveTriangles();
 
+    std::vector<Mesh> meshes_;
+    std::vector<Model> models_;
+    std::vector<SceneInstance> instances_;
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;
     std::vector<uint32_t> triangle_material_indices_;
