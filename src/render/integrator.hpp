@@ -67,7 +67,7 @@ public:
 protected:
     virtual void BeginFrame() {}
     virtual void EndFrame() {}
-    virtual void CreateKernels() = 0;
+    virtual void CreatePipelines() = 0;
     virtual void Reset() = 0;
     virtual void AdvanceSampleCount() = 0;
     virtual void GenerateRays() = 0;

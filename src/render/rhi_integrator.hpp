@@ -53,7 +53,7 @@ public:
 protected:
     void BeginFrame() override;
     void EndFrame() override;
-    void CreateKernels() override;
+    void CreatePipelines() override;
     void Reset() override;
     void AdvanceSampleCount() override;
     void GenerateRays() override;

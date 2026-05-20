@@ -58,6 +58,7 @@ private:
     void FrameBegin();
     void FrameEnd();
     void DrawGUI();
+    void HandlePipelineHotReload();
 
 private:
     // Window
@@ -75,6 +76,7 @@ private:
     // Timing
     double start_frame_time_ = 0.0;
     double prev_frame_time_ = 0.0;
+    bool was_reload_key_pressed_ = false;
 
     gpu::ApiType rhi_api_type_ = gpu::ApiType::kVulkan;
     std::unique_ptr<gpu::Api> rhi_api_;

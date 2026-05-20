@@ -36,6 +36,7 @@
 #include "scene/scene.hpp"
 
 #include <imgui.h>
+#include <iostream>
 #include <stdexcept>
 
 Render::Render(Window& window, RenderBackend backend, std::string const& scene_path, float scene_scale, bool flip_yz)
@@ -95,7 +96,7 @@ Render::~Render()
 {
     if (rhi_device_)
     {
-        rhi_device_->GetQueue(gpu::QueueType::kGraphics).WaitIdle();
+        rhi_device_->WaitIdle();
     }
 }
 
@@ -129,6 +130,7 @@ void Render::DrawGUI()
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0f / ImGui::GetIO().Framerate,
             ImGui::GetIO().Framerate);
+        ImGui::Text("Press \"R\" to reload pipelines");
     }
     ImGui::End();
 
@@ -175,6 +177,28 @@ void Render::DrawGUI()
     ImGui::End();
 }
 
+void Render::HandlePipelineHotReload()
+{
+    bool const is_reload_key_pressed = window_.GetKey(KeyCode::kR);
+    if (!is_reload_key_pressed || was_reload_key_pressed_)
+    {
+        was_reload_key_pressed_ = is_reload_key_pressed;
+        return;
+    }
+
+    was_reload_key_pressed_ = true;
+
+    gpu::PipelineReloadResult const result = rhi_device_->ReloadPipelines();
+    if (result.success)
+    {
+        std::cout << "Reloaded " << result.reloaded_count << " pipelines" << std::endl;
+        integrator_->RequestReset();
+        return;
+    }
+
+    std::cerr << "Pipeline reload failed: " << result.error << std::endl;
+}
+
 void Render::RenderFrame()
 {
     FrameBegin();
@@ -186,6 +210,7 @@ void Render::RenderFrame()
 
     camera_controller_->Update((float)GetDeltaTime());
     integrator_->SetCameraData(camera_controller_->GetData());
+    HandlePipelineHotReload();
 
     need_to_reset = need_to_reset || camera_controller_->IsChanged();
 

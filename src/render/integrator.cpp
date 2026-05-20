@@ -76,6 +76,6 @@ void Integrator::EnableWhiteFurnace(bool enable)
     }
 
     enable_white_furnace_ = enable;
-    CreateKernels();
+    CreatePipelines();
     RequestReset();
 }

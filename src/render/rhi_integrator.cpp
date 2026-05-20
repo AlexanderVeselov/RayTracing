@@ -152,7 +152,7 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
     swapchain_image_layouts_.resize(swapchain_.GetImageCount(), gpu::ImageLayout::kUndefined);
 
-    CreateKernels();
+    CreatePipelines();
 }
 
 void RhiIntegrator::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
@@ -297,7 +297,7 @@ void RhiIntegrator::UpdateFrameData()
     camera_cpu_buffer_->Unmap();
 }
 
-void RhiIntegrator::CreateKernels()
+void RhiIntegrator::CreatePipelines()
 {
     reset_pipeline_ = device_.CreateComputePipeline("reset.cs");
     raygen_pipeline_ = device_.CreateComputePipeline("raygeneration.cs");
