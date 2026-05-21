@@ -48,7 +48,7 @@ ReferenceAlignment: Left
 ReflowComments: false
 
 # Namespaces
-NamespaceIndentation: Inner
+NamespaceIndentation: None
 
 # Empty lines
 MaxEmptyLinesToKeep: 1

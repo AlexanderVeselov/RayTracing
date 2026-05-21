@@ -24,20 +24,30 @@
 
 #pragma once
 
-#include "shaders/shared_structures.h"
+#include "acceleration_structure.hpp"
+#include "gpu_acceleration_structure.hpp"
 
 #include <vector>
 
-enum class AccelerationStructureBackend
-{
-    kCpuBvh,
-    kHardwareRt
-};
+class Scene;
 
-class AccelerationStructure
+namespace gpu
+{
+class CommandBuffer;
+class Device;
+}  // namespace gpu
+
+class HardwareRtAccelerationStructure final : public AccelerationStructure
 {
 public:
-    virtual ~AccelerationStructure() = default;
+    AccelerationStructureBackend GetBackend() const override { return AccelerationStructureBackend::kHardwareRt; }
 
-    virtual AccelerationStructureBackend GetBackend() const = 0;
+    void Build(gpu::Device& device, gpu::CommandBuffer& command_buffer, Scene const& scene,
+        gpu::BufferPtr const& vertex_buffer, gpu::BufferPtr const& index_buffer);
+
+    gpu::AccelerationStructure& GetTopLevelAS() const { return *top_level_as_; }
+
+private:
+    std::vector<gpu::AccelerationStructurePtr> bottom_level_as_;
+    gpu::AccelerationStructurePtr top_level_as_;
 };
