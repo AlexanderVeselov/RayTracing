@@ -59,6 +59,13 @@ struct VertexHasher
         size_t h = 2166136261u;  // FNV offset basis
         auto hash_float = [&](float f)
         {
+            // VertexEqual uses float operator==, where -0.0f equals 0.0f. Hash the canonical zero so equal vertices
+            // always produce equal hashes for unordered_map.
+            if (f == 0.0f)
+            {
+                f = 0.0f;
+            }
+
             uint32_t bits;
             static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
             std::memcpy(&bits, &f, sizeof(f));
