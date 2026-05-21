@@ -22,22 +22,36 @@
  SOFTWARE.
  *****************************************************************************/
 
-#pragma once
+#include "common.hlsli"
 
-#include "shaders/shared_structures.h"
+RWStructuredBuffer<Ray> g_ShadowRays : register(u0);
+RWStructuredBuffer<uint> g_ShadowRayCounter : register(u1);
+RWStructuredBuffer<uint> g_ShadowHits : register(u2);
+RaytracingAccelerationStructure g_TLAS : register(t3);
 
-#include <vector>
-
-enum class AccelerationStructureBackend
+[numthreads(256, 1, 1)]
+void main(uint3 dispatch_thread_id : SV_DispatchThreadID)
 {
-    kCpuBvh,
-    kHardwareRt
-};
+    uint ray_idx = dispatch_thread_id.x;
+    if (ray_idx >= g_ShadowRayCounter[0])
+    {
+        return;
+    }
 
-class AccelerationStructure
-{
-public:
-    virtual ~AccelerationStructure() = default;
+    Ray ray = g_ShadowRays[ray_idx];
 
-    virtual AccelerationStructureBackend GetBackend() const = 0;
-};
+    RayDesc ray_desc;
+    ray_desc.Origin = ray.origin;
+    ray_desc.TMin = ray.t_min;
+    ray_desc.Direction = ray.direction;
+    ray_desc.TMax = ray.t_max;
+
+    RayQuery<RAY_FLAG_NONE> query;
+    query.TraceRayInline(
+        g_TLAS, RAY_FLAG_CULL_BACK_FACING_TRIANGLES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xff, ray_desc);
+    while (query.Proceed())
+    {
+    }
+
+    g_ShadowHits[ray_idx] = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0u : INVALID_ID;
+}

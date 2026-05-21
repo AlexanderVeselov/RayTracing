@@ -27,7 +27,9 @@ set(SHADER_SOURCES
     shaders/resolve.cs
     shaders/trace_bvh.cs
     shaders/trace_common.hlsli
+    shaders/trace_rayquery.cs
     shaders/trace_shadow_bvh.cs
+    shaders/trace_shadow_rayquery.cs
 )
 
 set(LOADERS_SOURCES
@@ -60,6 +62,8 @@ set(MAIN_SOURCES
     acceleration_structure.hpp
     bvh.cpp
     bvh.hpp
+    hardware_rt_acceleration_structure.cpp
+    hardware_rt_acceleration_structure.hpp
     main.cpp
 )
 

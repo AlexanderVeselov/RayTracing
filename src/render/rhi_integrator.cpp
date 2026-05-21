@@ -25,6 +25,7 @@
 #include "rhi_integrator.hpp"
 
 #include "acceleration_structure.hpp"
+#include "bvh.hpp"
 #include "gpu_command_buffer.hpp"
 #include "gpu_descriptor_set.hpp"
 #include "gpu_device.hpp"
@@ -33,6 +34,7 @@
 #include "gpu_queue.hpp"
 #include "gpu_sampler.hpp"
 #include "gpu_swapchain.hpp"
+#include "hardware_rt_acceleration_structure.hpp"
 #include "managers/texture_manager.hpp"
 #include "scene/scene.hpp"
 
@@ -65,6 +67,8 @@ inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain)
     : Integrator(width, height), device_(device), swapchain_(swapchain)
 {
+    use_hardware_rt_ = device_.SupportsRayQuery();
+
     output_image_ = device_.CreateImage(width_,
         height_,
         swapchain_.GetFormat(),
@@ -176,12 +180,11 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     auto const& lights = scene.GetLights();
     auto const& scene_info = scene.GetSceneInfo();
 
-    auto const& rt_triangles = acc_structure.GetTriangles();
-    auto const& nodes = acc_structure.GetNodes();
-
     texture_manager_ = &texture_manager;
-    triangle_count_ = static_cast<uint32_t>(rt_triangles.size());
-    node_count_ = static_cast<uint32_t>(nodes.size());
+    hardware_rt_acc_structure_ = nullptr;
+    use_hardware_rt_ = acc_structure.GetBackend() == AccelerationStructureBackend::kHardwareRt;
+    triangle_count_ = static_cast<uint32_t>(indices.size() / 3);
+    node_count_ = 0u;
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = texture_manager.TextureCount();
     env_map_index_ = scene_info.environment_map_index;
@@ -191,8 +194,12 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
 
-    vertex_buffer_ = CreateGpuBuffer(vertices, upload_command_buffer, staging_buffers);
-    index_buffer_ = CreateGpuBuffer(indices, upload_command_buffer, staging_buffers);
+    gpu::BufferFlags const geometry_buffer_flags = use_hardware_rt_
+        ? gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kAccelerationStructureBuildInput
+        : gpu::BufferFlags::kShaderResource;
+
+    vertex_buffer_ = CreateGpuBuffer(vertices, upload_command_buffer, staging_buffers, geometry_buffer_flags);
+    index_buffer_ = CreateGpuBuffer(indices, upload_command_buffer, staging_buffers, geometry_buffer_flags);
     mesh_info_buffer_ = CreateGpuBuffer(mesh_infos, upload_command_buffer, staging_buffers);
     instance_info_buffer_ = CreateGpuBuffer(instance_infos, upload_command_buffer, staging_buffers);
     material_buffer_ = CreateGpuBuffer(materials, upload_command_buffer, staging_buffers);
@@ -212,8 +219,23 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     texture_sampler_desc.address_w = gpu::SamplerAddressMode::kRepeat;
     texture_sampler_ = device_.GetSampler(texture_sampler_desc);
 
-    rt_triangles_buffer_ = CreateGpuBuffer(rt_triangles, upload_command_buffer, staging_buffers);
-    nodes_buffer_ = CreateGpuBuffer(nodes, upload_command_buffer, staging_buffers);
+    if (use_hardware_rt_)
+    {
+        auto& hardware_rt_acc_structure = const_cast<
+            HardwareRtAccelerationStructure&>(static_cast<HardwareRtAccelerationStructure const&>(acc_structure));
+        hardware_rt_acc_structure.Build(device_, *upload_command_buffer, scene, vertex_buffer_, index_buffer_);
+        hardware_rt_acc_structure_ = &hardware_rt_acc_structure;
+    }
+    else
+    {
+        auto const& bvh = static_cast<Bvh const&>(acc_structure);
+        auto const& rt_triangles = bvh.GetTriangles();
+        auto const& nodes = bvh.GetNodes();
+        triangle_count_ = static_cast<uint32_t>(rt_triangles.size());
+        node_count_ = static_cast<uint32_t>(nodes.size());
+        rt_triangles_buffer_ = CreateGpuBuffer(rt_triangles, upload_command_buffer, staging_buffers);
+        nodes_buffer_ = CreateGpuBuffer(nodes, upload_command_buffer, staging_buffers);
+    }
 
     queue.Submit(std::move(upload_command_buffer));
     queue.WaitIdle();
@@ -301,8 +323,9 @@ void RhiIntegrator::CreatePipelines()
 {
     reset_pipeline_ = device_.CreateComputePipeline("reset.cs");
     raygen_pipeline_ = device_.CreateComputePipeline("raygeneration.cs");
-    trace_pipeline_ = device_.CreateComputePipeline("trace_bvh.cs");
-    trace_shadow_pipeline_ = device_.CreateComputePipeline("trace_shadow_bvh.cs");
+    trace_pipeline_ = device_.CreateComputePipeline(use_hardware_rt_ ? "trace_rayquery.cs" : "trace_bvh.cs");
+    trace_shadow_pipeline_ = device_.CreateComputePipeline(use_hardware_rt_ ? "trace_shadow_rayquery.cs"
+                                                                            : "trace_shadow_bvh.cs");
     aov_pipeline_ = device_.CreateComputePipeline("aov.cs");
     miss_pipeline_ = device_.CreateComputePipeline("miss.cs");
     hit_surface_pipeline_ = device_.CreateComputePipeline("hit_surface.cs");
@@ -586,8 +609,16 @@ void RhiIntegrator::RebuildDescriptorSets()
         trace_sets_[i]->BindBuffer(*rays_buffers_[i], 0);
         trace_sets_[i]->BindBuffer(*ray_counter_buffers_[i], 1);
         trace_sets_[i]->BindBuffer(*hits_buffer_, 2);
-        trace_sets_[i]->BindBuffer(*rt_triangles_buffer_, 3);
-        trace_sets_[i]->BindBuffer(*nodes_buffer_, 4);
+        if (use_hardware_rt_)
+        {
+            assert(hardware_rt_acc_structure_);
+            trace_sets_[i]->BindAccelerationStructure(hardware_rt_acc_structure_->GetTopLevelAS(), 3);
+        }
+        else
+        {
+            trace_sets_[i]->BindBuffer(*rt_triangles_buffer_, 3);
+            trace_sets_[i]->BindBuffer(*nodes_buffer_, 4);
+        }
 
         miss_sets_[i] = miss_pipeline_->CreateDescriptorSet();
         miss_sets_[i]->BindBuffer(*camera_buffer_, 0);
@@ -647,8 +678,16 @@ void RhiIntegrator::RebuildDescriptorSets()
     trace_shadow_set_->BindBuffer(*shadow_rays_buffer_, 0);
     trace_shadow_set_->BindBuffer(*shadow_ray_counter_buffer_, 1);
     trace_shadow_set_->BindBuffer(*shadow_hits_buffer_, 2);
-    trace_shadow_set_->BindBuffer(*rt_triangles_buffer_, 3);
-    trace_shadow_set_->BindBuffer(*nodes_buffer_, 4);
+    if (use_hardware_rt_)
+    {
+        assert(hardware_rt_acc_structure_);
+        trace_shadow_set_->BindAccelerationStructure(hardware_rt_acc_structure_->GetTopLevelAS(), 3);
+    }
+    else
+    {
+        trace_shadow_set_->BindBuffer(*rt_triangles_buffer_, 3);
+        trace_shadow_set_->BindBuffer(*nodes_buffer_, 4);
+    }
 
     aov_set_ = aov_pipeline_->CreateDescriptorSet();
     aov_set_->BindBuffer(*camera_buffer_, 0);

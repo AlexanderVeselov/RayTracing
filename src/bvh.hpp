@@ -34,10 +34,12 @@ class Bvh : public AccelerationStructure
 public:
     Bvh() = default;
 
+    AccelerationStructureBackend GetBackend() const override { return AccelerationStructureBackend::kCpuBvh; }
+
     void BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices,
-        std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances) override;
-    std::vector<LinearBVHNode> const& GetNodes() const override { return nodes_; }
-    std::vector<RTTriangle> const& GetTriangles() const override { return rt_triangles_; }
+        std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances);
+    std::vector<LinearBVHNode> const& GetNodes() const { return nodes_; }
+    std::vector<RTTriangle> const& GetTriangles() const { return rt_triangles_; }
 
     struct BVHPrimitiveInfo
     {

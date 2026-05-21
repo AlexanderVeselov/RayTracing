@@ -33,6 +33,7 @@
 #include <vector>
 
 class TextureManager;
+class HardwareRtAccelerationStructure;
 
 class RhiIntegrator : public Integrator
 {
@@ -76,10 +77,10 @@ private:
 
     template <class T>
     gpu::BufferPtr CreateGpuBuffer(std::vector<T> const& cpu_buffer, gpu::CommandBufferPtr& upload_command_buffer,
-        std::vector<gpu::BufferPtr>& staging_buffers)
+        std::vector<gpu::BufferPtr>& staging_buffers, gpu::BufferFlags flags = gpu::BufferFlags::kShaderResource)
     {
         size_t allocation_size = std::max<size_t>(cpu_buffer.size() * sizeof(T), sizeof(T));
-        gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), gpu::BufferFlags::kShaderResource);
+        gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), flags);
         if (!cpu_buffer.empty())
         {
             gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(),
@@ -97,6 +98,8 @@ private:
     gpu::Device& device_;
     gpu::Swapchain& swapchain_;
     TextureManager const* texture_manager_ = nullptr;
+    HardwareRtAccelerationStructure const* hardware_rt_acc_structure_ = nullptr;
+    bool use_hardware_rt_ = false;
     gpu::ImagePtr output_image_;
     gpu::CommandBuffer* command_buffer_ = nullptr;
 

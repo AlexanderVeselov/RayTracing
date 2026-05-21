@@ -31,6 +31,7 @@
 #include "gpu_imgui.hpp"
 #include "gpu_queue.hpp"
 #include "gpu_swapchain.hpp"
+#include "hardware_rt_acceleration_structure.hpp"
 #include "rhi_integrator.hpp"
 #include "managers/texture_manager.hpp"
 #include "scene/scene.hpp"
@@ -73,13 +74,16 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
 
     camera_controller_ = std::make_unique<CameraController>(window_);
 
-    // Create acc structure
-    acc_structure_ = std::make_unique<Bvh>();
-    // Build it right here
-    acc_structure_->BuildCPU(scene_->GetVertices(),
-        scene_->GetIndices(),
-        scene_->GetMeshInfos(),
-        scene_->GetInstanceInfos());
+    if (rhi_device_->SupportsRayQuery())
+    {
+        acc_structure_ = std::make_unique<HardwareRtAccelerationStructure>();
+    }
+    else
+    {
+        auto bvh = std::make_unique<Bvh>();
+        bvh->BuildCPU(scene_->GetVertices(), scene_->GetIndices(), scene_->GetMeshInfos(), scene_->GetInstanceInfos());
+        acc_structure_ = std::move(bvh);
+    }
 
     // TODO, NOTE: this is done after building the acc structure because it
     // reorders triangles Need to get rid of reordering
