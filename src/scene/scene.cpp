@@ -37,7 +37,7 @@ Scene::Scene(const char* filename, float scale, bool flip_yz, TextureManager& te
     : texture_manager_(texture_manager)
 {
     ObjLoader::Load(*this, filename, scale, flip_yz, texture_manager_);
-    RebuildFlattenedGeometry();
+    RebuildGeometryBuffers();
 }
 
 namespace
@@ -60,15 +60,15 @@ glm::vec3 UnpackRGBE(unsigned int rgbe)
 }
 }  // namespace
 
-uint32_t Scene::AddInstance(uint32_t model_index, glm::mat4 const& transform)
+uint32_t Scene::AddInstance(uint32_t mesh_index, glm::mat4 const& transform)
 {
-    if (model_index >= models_.size())
+    if (mesh_index >= meshes_.size())
     {
-        throw std::runtime_error("Scene::AddInstance: model index is out of range");
+        throw std::runtime_error("Scene::AddInstance: mesh index is out of range");
     }
 
     SceneInstance instance = {};
-    instance.model_index = model_index;
+    instance.mesh_index = mesh_index;
     instance.transform = transform;
     instance.inverse_transform = glm::inverse(transform);
     instance.normal_transform = glm::inverseTranspose(glm::mat3(transform));
@@ -77,69 +77,66 @@ uint32_t Scene::AddInstance(uint32_t model_index, glm::mat4 const& transform)
     return static_cast<uint32_t>(instances_.size() - 1);
 }
 
-void Scene::RebuildFlattenedGeometry()
+void Scene::RebuildGeometryBuffers()
 {
     vertices_.clear();
     indices_.clear();
-    triangle_material_indices_.clear();
+    mesh_infos_.clear();
+    instance_infos_.clear();
     emissive_indices_.clear();
 
     size_t vertex_count = 0;
     size_t index_count = 0;
-    for (SceneInstance const& instance : instances_)
+    for (Mesh const& mesh : meshes_)
     {
-        Model const& model = models_[instance.model_index];
-        for (uint32_t mesh_index : model.mesh_indices)
-        {
-            Mesh const& mesh = meshes_[mesh_index];
-            vertex_count += mesh.vertices.size();
-            index_count += mesh.indices.size();
-        }
+        vertex_count += mesh.vertices.size();
+        index_count += mesh.indices.size();
     }
 
     vertices_.reserve(vertex_count);
     indices_.reserve(index_count);
-    triangle_material_indices_.reserve(index_count / 3);
+    mesh_infos_.reserve(meshes_.size());
+    instance_infos_.reserve(instances_.size());
+
+    for (Mesh const& mesh : meshes_)
+    {
+        MeshInfo mesh_info = {};
+        mesh_info.vertex_offset = static_cast<uint32_t>(vertices_.size());
+        mesh_info.index_offset = static_cast<uint32_t>(indices_.size());
+        mesh_info.triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
+        mesh_info.material_index = mesh.material_index;
+        mesh_infos_.push_back(mesh_info);
+
+        vertices_.insert(vertices_.end(), mesh.vertices.begin(), mesh.vertices.end());
+        indices_.insert(indices_.end(), mesh.indices.begin(), mesh.indices.end());
+    }
 
     for (SceneInstance const& instance : instances_)
     {
-        Model const& model = models_[instance.model_index];
-        for (uint32_t mesh_index : model.mesh_indices)
-        {
-            Mesh const& mesh = meshes_[mesh_index];
-            uint32_t vertex_offset = static_cast<uint32_t>(vertices_.size());
-
-            for (Vertex vertex : mesh.vertices)
-            {
-                vertex.position = glm::vec3(instance.transform * glm::vec4(vertex.position, 1.0f));
-                vertex.normal = glm::normalize(instance.normal_transform * vertex.normal);
-                vertices_.push_back(vertex);
-            }
-
-            for (uint32_t index : mesh.indices)
-            {
-                indices_.push_back(vertex_offset + index);
-            }
-
-            uint32_t triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
-            for (uint32_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
-            {
-                triangle_material_indices_.push_back(mesh.material_index);
-            }
-        }
+        InstanceInfo instance_info = {};
+        instance_info.mesh_index = instance.mesh_index;
+        instance_info.transform = instance.transform;
+        instance_info.normal_transform = glm::mat4(instance.normal_transform);
+        instance_infos_.push_back(instance_info);
     }
 }
 
 void Scene::CollectEmissiveTriangles()
 {
-    for (auto triangle_idx = 0; triangle_idx < triangle_material_indices_.size(); ++triangle_idx)
+    for (uint32_t instance_index = 0; instance_index < instances_.size(); ++instance_index)
     {
-        uint32_t material_index = triangle_material_indices_[triangle_idx];
-        glm::vec3 emission = UnpackRGBE(materials_[material_index].emission);
-
-        if (emission.x + emission.y + emission.z > 0.0f)
+        SceneInstance const& instance = instances_[instance_index];
+        Mesh const& mesh = meshes_[instance.mesh_index];
+        glm::vec3 emission = UnpackRGBE(materials_[mesh.material_index].emission);
+        if (emission.x + emission.y + emission.z <= 0.0f)
         {
-            emissive_indices_.push_back(triangle_idx);
+            continue;
+        }
+
+        uint32_t triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
+        for (uint32_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
+        {
+            emissive_indices_.push_back((instance_index << 24u) | triangle_index);
         }
     }
 

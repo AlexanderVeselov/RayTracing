@@ -61,6 +61,16 @@ float2 InterpolateAttributes2(float2 a, float2 b, float2 c, float2 uv)
     return a * (1.0f - uv.x - uv.y) + b * uv.x + c * uv.y;
 }
 
+float3 TransformPosition(InstanceInfo instance, float3 position)
+{
+    return mul(instance.transform, float4(position, 1.0f)).xyz;
+}
+
+float3 TransformNormal(InstanceInfo instance, float3 normal)
+{
+    return normalize(mul(instance.normal_transform, float4(normal, 0.0f)).xyz);
+}
+
 uint WangHash(uint x)
 {
     x = (x ^ 61u) ^ (x >> 16u);

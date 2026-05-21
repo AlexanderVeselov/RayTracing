@@ -32,6 +32,7 @@
 #define float2 glm::vec2
 #define float3 glm::vec3
 #define float4 glm::vec4
+#define float4x4 glm::mat4
 #endif
 
 #define LIGHT_TYPE_POINT 0
@@ -50,8 +51,12 @@ struct Hit
 {
     float2 bc;
     unsigned int primitive_id;
+    unsigned int instance_id;
     // TODO: remove t from hit structure
     float t;
+    unsigned int padding1;
+    unsigned int padding2;
+    unsigned int padding3;
 };
 
 struct SceneInfo
@@ -68,7 +73,8 @@ struct PackedMaterial
     unsigned int specular_albedo;      // 24 bit - RGB, 8 bit - texture index
     unsigned int emission;             // 32 bit - RGBE
     unsigned int roughness_metalness;  // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
-    unsigned int ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
+    unsigned int
+        ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
 };
 
 struct Light
@@ -90,12 +96,30 @@ struct Vertex
     unsigned int padding4;
 };
 
+struct MeshInfo
+{
+    unsigned int vertex_offset;
+    unsigned int index_offset;
+    unsigned int triangle_count;
+    unsigned int material_index;
+};
+
+struct InstanceInfo
+{
+    unsigned int mesh_index;
+    unsigned int padding1;
+    unsigned int padding2;
+    unsigned int padding3;
+    float4x4 transform;
+    float4x4 normal_transform;
+};
+
 struct RTTriangle
 {
     float3 position1;
     unsigned int prim_id;
     float3 position2;
-    unsigned int padding1;
+    unsigned int instance_id;
     float3 position3;
     unsigned int padding2;
 };
@@ -103,7 +127,7 @@ struct RTTriangle
 struct LinearBVHNode
 {
     float3 bmin;
-    unsigned int offset;               // primitives (leaf) or second child (interior) offset
+    unsigned int offset;  // primitives (leaf) or second child (interior) offset
     float3 bmax;
     unsigned int num_primitives_axis;  // 0 -> interior node
 };
@@ -124,11 +148,13 @@ struct Camera
 
 #ifdef __cplusplus
 static_assert(sizeof(Ray) == 32, "Ray layout must match HLSL");
-static_assert(sizeof(Hit) == 16, "Hit layout must match HLSL");
+static_assert(sizeof(Hit) == 32, "Hit layout must match HLSL");
 static_assert(sizeof(SceneInfo) == 16, "SceneInfo layout must match HLSL");
 static_assert(sizeof(PackedMaterial) == 20, "PackedMaterial layout must match HLSL");
 static_assert(sizeof(Light) == 32, "Light layout must match HLSL");
 static_assert(sizeof(Vertex) == 48, "Vertex layout must match HLSL");
+static_assert(sizeof(MeshInfo) == 16, "MeshInfo layout must match HLSL");
+static_assert(sizeof(InstanceInfo) == 144, "InstanceInfo layout must match HLSL");
 static_assert(sizeof(RTTriangle) == 48, "RTTriangle layout must match HLSL");
 static_assert(sizeof(LinearBVHNode) == 32, "LinearBVHNode layout must match HLSL");
 static_assert(sizeof(Camera) == 64, "Camera layout must match HLSL");

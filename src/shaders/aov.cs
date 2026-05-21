@@ -45,12 +45,13 @@ RWTexture2D<float4> g_MotionVectors : register(u8);
 // Scene data
 StructuredBuffer<Vertex> g_Vertices : register(t9);
 StructuredBuffer<uint> g_Indices : register(t10);
-StructuredBuffer<uint> g_TriangleMaterialIndices : register(t11);
-StructuredBuffer<PackedMaterial> g_Materials : register(t12);
+StructuredBuffer<MeshInfo> g_Meshes : register(t11);
+StructuredBuffer<InstanceInfo> g_Instances : register(t12);
+StructuredBuffer<PackedMaterial> g_Materials : register(t13);
 
 // Texture data
-Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t13);
-SamplerState g_TextureSampler : register(s14);
+Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t14);
+SamplerState g_TextureSampler : register(s15);
 
 #include "material.hlsli"
 
@@ -84,16 +85,23 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint pixel_idx = g_PixelIndices[ray_idx];
     uint2 pixel_coord = PixelCoord(pixel_idx, g_RenderSize.x);
     Ray ray = g_Rays[ray_idx];
-    uint index_offset = hit.primitive_id * 3;
-    Vertex v1 = g_Vertices[g_Indices[index_offset + 0]];
-    Vertex v2 = g_Vertices[g_Indices[index_offset + 1]];
-    Vertex v3 = g_Vertices[g_Indices[index_offset + 2]];
+    InstanceInfo instance = g_Instances[hit.instance_id];
+    MeshInfo mesh = g_Meshes[instance.mesh_index];
+    uint index_offset = mesh.index_offset + hit.primitive_id * 3;
+    Vertex v1 = g_Vertices[mesh.vertex_offset + g_Indices[index_offset + 0]];
+    Vertex v2 = g_Vertices[mesh.vertex_offset + g_Indices[index_offset + 1]];
+    Vertex v3 = g_Vertices[mesh.vertex_offset + g_Indices[index_offset + 2]];
+    v1.position = TransformPosition(instance, v1.position);
+    v2.position = TransformPosition(instance, v2.position);
+    v3.position = TransformPosition(instance, v3.position);
+    v1.normal = TransformNormal(instance, v1.normal);
+    v2.normal = TransformNormal(instance, v2.normal);
+    v3.normal = TransformNormal(instance, v3.normal);
     float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
     float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
-    uint material_index = g_TriangleMaterialIndices[hit.primitive_id];
-    Material material = ApplyTextures(g_Materials[material_index], texcoord, g_SceneCounts.w);
+    Material material = ApplyTextures(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
 
     g_DiffuseAlbedo[pixel_coord] = float4(material.diffuse_albedo, 1.0f);
     g_Depth[pixel_coord] = length(ray.origin - position);

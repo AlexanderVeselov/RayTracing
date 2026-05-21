@@ -34,13 +34,15 @@ class Bvh : public AccelerationStructure
 public:
     Bvh() = default;
 
-    void BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices) override;
+    void BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices,
+        std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances) override;
     std::vector<LinearBVHNode> const& GetNodes() const override { return nodes_; }
     std::vector<RTTriangle> const& GetTriangles() const override { return rt_triangles_; }
 
     struct BVHPrimitiveInfo
     {
-        unsigned int primitiveNumber;  // = triId (0..triCount-1)
+        unsigned int primitiveNumber;
+        unsigned int instanceIndex;
         Aabb bounds;
         glm::vec3 centroid;
     };
@@ -76,7 +78,8 @@ public:
     };
 
 private:
-    BVHBuildNode* RecursiveBuild(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& src_indices,
+    BVHBuildNode* RecursiveBuild(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& src_indices,
+        std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances,
         std::vector<BVHPrimitiveInfo>& primitiveInfo, unsigned int start, unsigned int end, unsigned int* totalNodes,
         std::vector<RTTriangle>& orderedTris);
 

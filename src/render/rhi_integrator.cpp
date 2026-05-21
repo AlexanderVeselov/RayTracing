@@ -126,14 +126,14 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
     std::vector<gpu::BufferPtr> staging_buffers;
 
     upload_command_buffer->TransitionBarrier({throughputs_image_,
-        radiance_image_,
-        prev_radiance_image_,
-        diffuse_albedo_image_,
-        depth_image_,
-        prev_depth_image_,
-        normal_image_,
-        motion_vectors_image_,
-        direct_light_samples_image_},
+                                                 radiance_image_,
+                                                 prev_radiance_image_,
+                                                 diffuse_albedo_image_,
+                                                 depth_image_,
+                                                 prev_depth_image_,
+                                                 normal_image_,
+                                                 motion_vectors_image_,
+                                                 direct_light_samples_image_},
         gpu::ImageLayout::kUndefined,
         gpu::ImageLayout::kShaderReadWrite);
 
@@ -170,7 +170,8 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
 {
     auto const& vertices = scene.GetVertices();
     auto const& indices = scene.GetIndices();
-    auto const& triangle_material_indices = scene.GetTriangleMaterialIndices();
+    auto const& mesh_infos = scene.GetMeshInfos();
+    auto const& instance_infos = scene.GetInstanceInfos();
     auto const& materials = scene.GetMaterials();
     auto const& lights = scene.GetLights();
     auto const& scene_info = scene.GetSceneInfo();
@@ -192,9 +193,8 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
 
     vertex_buffer_ = CreateGpuBuffer(vertices, upload_command_buffer, staging_buffers);
     index_buffer_ = CreateGpuBuffer(indices, upload_command_buffer, staging_buffers);
-    triangle_material_index_buffer_ = CreateGpuBuffer(triangle_material_indices,
-        upload_command_buffer,
-        staging_buffers);
+    mesh_info_buffer_ = CreateGpuBuffer(mesh_infos, upload_command_buffer, staging_buffers);
+    instance_info_buffer_ = CreateGpuBuffer(instance_infos, upload_command_buffer, staging_buffers);
     material_buffer_ = CreateGpuBuffer(materials, upload_command_buffer, staging_buffers);
     light_buffer_ = CreateGpuBuffer(lights, upload_command_buffer, staging_buffers);
     if (texture_count_ > kMaxTextureCount)
@@ -634,12 +634,13 @@ void RhiIntegrator::RebuildDescriptorSets()
 
         hit_surface_sets_[i]->BindBuffer(*vertex_buffer_, 16);
         hit_surface_sets_[i]->BindBuffer(*index_buffer_, 17);
-        hit_surface_sets_[i]->BindBuffer(*triangle_material_index_buffer_, 18);
-        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 19);
-        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 20);
+        hit_surface_sets_[i]->BindBuffer(*mesh_info_buffer_, 18);
+        hit_surface_sets_[i]->BindBuffer(*instance_info_buffer_, 19);
+        hit_surface_sets_[i]->BindBuffer(*material_buffer_, 20);
+        hit_surface_sets_[i]->BindBuffer(*light_buffer_, 21);
 
-        hit_surface_sets_[i]->BindImageArray(texture_descriptors, 21);
-        hit_surface_sets_[i]->BindSampler(*texture_sampler_, 22);
+        hit_surface_sets_[i]->BindImageArray(texture_descriptors, 22);
+        hit_surface_sets_[i]->BindSampler(*texture_sampler_, 23);
     }
 
     trace_shadow_set_ = trace_shadow_pipeline_->CreateDescriptorSet();
@@ -661,10 +662,11 @@ void RhiIntegrator::RebuildDescriptorSets()
     aov_set_->BindImage(*motion_vectors_image_, 8);
     aov_set_->BindBuffer(*vertex_buffer_, 9);
     aov_set_->BindBuffer(*index_buffer_, 10);
-    aov_set_->BindBuffer(*triangle_material_index_buffer_, 11);
-    aov_set_->BindBuffer(*material_buffer_, 12);
-    aov_set_->BindImageArray(texture_descriptors, 13);
-    aov_set_->BindSampler(*texture_sampler_, 14);
+    aov_set_->BindBuffer(*mesh_info_buffer_, 11);
+    aov_set_->BindBuffer(*instance_info_buffer_, 12);
+    aov_set_->BindBuffer(*material_buffer_, 13);
+    aov_set_->BindImageArray(texture_descriptors, 14);
+    aov_set_->BindSampler(*texture_sampler_, 15);
 
     accumulate_direct_set_ = accumulate_direct_pipeline_->CreateDescriptorSet();
     accumulate_direct_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);
