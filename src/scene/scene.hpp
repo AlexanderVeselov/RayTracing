@@ -62,7 +62,7 @@ public:
     std::vector<uint32_t> const& GetIndices() const { return indices_; }
     std::vector<MeshInfo> const& GetMeshInfos() const { return mesh_infos_; }
     std::vector<InstanceInfo> const& GetInstanceInfos() const { return instance_infos_; }
-    std::vector<uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
+    std::vector<EmissiveTriangle> const& GetEmissiveTriangles() const { return emissive_triangles_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Light> const& GetLights() const { return lights_; }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
@@ -81,7 +81,7 @@ private:
     std::vector<uint32_t> indices_;
     std::vector<MeshInfo> mesh_infos_;
     std::vector<InstanceInfo> instance_infos_;
-    std::vector<uint32_t> emissive_indices_;
+    std::vector<EmissiveTriangle> emissive_triangles_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
     SceneInfo scene_info_ = {};

@@ -60,6 +60,13 @@ void Bvh::BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> co
         triangle_count += meshes[instance.mesh_index].triangle_count;
     }
 
+    if (triangle_count == 0)
+    {
+        root_node_ = nullptr;
+        std::cout << "BVH nodes: 0, tris in buffer: 0 (0 MiB)" << std::endl;
+        return;
+    }
+
     // 1. Collect primitives: AABB and centroids based on VB/IB
     std::vector<BVHPrimitiveInfo> prim_info(triangle_count);
     unsigned primitive_info_index = 0;

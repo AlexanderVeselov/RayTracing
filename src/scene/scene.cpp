@@ -83,7 +83,7 @@ void Scene::RebuildGeometryBuffers()
     indices_.clear();
     mesh_infos_.clear();
     instance_infos_.clear();
-    emissive_indices_.clear();
+    emissive_triangles_.clear();
 
     size_t vertex_count = 0;
     size_t index_count = 0;
@@ -136,11 +136,11 @@ void Scene::CollectEmissiveTriangles()
         uint32_t triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
         for (uint32_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
         {
-            emissive_indices_.push_back((instance_index << 24u) | triangle_index);
+            emissive_triangles_.push_back({instance_index, triangle_index});
         }
     }
 
-    scene_info_.emissive_count = (uint32_t)emissive_indices_.size();
+    scene_info_.emissive_count = (uint32_t)emissive_triangles_.size();
 }
 
 void Scene::AddPointLight(glm::vec3 origin, glm::vec3 radiance)

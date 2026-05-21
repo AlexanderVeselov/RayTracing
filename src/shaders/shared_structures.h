@@ -67,6 +67,12 @@ struct SceneInfo
     unsigned int padding;
 };
 
+struct EmissiveTriangle
+{
+    unsigned int instance_id;
+    unsigned int primitive_id;
+};
+
 struct PackedMaterial
 {
     unsigned int diffuse_albedo;       // 24 bit - RGB, 8 bit - texture index
@@ -150,6 +156,7 @@ struct Camera
 static_assert(sizeof(Ray) == 32, "Ray layout must match HLSL");
 static_assert(sizeof(Hit) == 32, "Hit layout must match HLSL");
 static_assert(sizeof(SceneInfo) == 16, "SceneInfo layout must match HLSL");
+static_assert(sizeof(EmissiveTriangle) == 8, "EmissiveTriangle layout must match HLSL");
 static_assert(sizeof(PackedMaterial) == 20, "PackedMaterial layout must match HLSL");
 static_assert(sizeof(Light) == 32, "Light layout must match HLSL");
 static_assert(sizeof(Vertex) == 48, "Vertex layout must match HLSL");
