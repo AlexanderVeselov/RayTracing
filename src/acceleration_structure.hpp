@@ -31,7 +31,8 @@
 class AccelerationStructure
 {
 public:
-    virtual void BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices) = 0;
+    virtual void BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices,
+        std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances) = 0;
     virtual std::vector<LinearBVHNode> const& GetNodes() const = 0;
     virtual std::vector<RTTriangle> const& GetTriangles() const = 0;
 };

@@ -161,7 +161,8 @@ private:
     gpu::BufferPtr camera_buffer_;
     gpu::BufferPtr vertex_buffer_;
     gpu::BufferPtr index_buffer_;
-    gpu::BufferPtr triangle_material_index_buffer_;
+    gpu::BufferPtr mesh_info_buffer_;
+    gpu::BufferPtr instance_info_buffer_;
     gpu::BufferPtr material_buffer_;
     gpu::BufferPtr light_buffer_;
     gpu::ImagePtr fallback_texture_image_;

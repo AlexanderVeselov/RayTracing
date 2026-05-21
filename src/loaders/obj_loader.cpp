@@ -356,7 +356,7 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
         }
     }
 
-    Model model;
+    uint32_t loaded_mesh_count = 0;
     for (Mesh& mesh : material_meshes)
     {
         if (mesh.indices.empty())
@@ -366,18 +366,15 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
 
         uint32_t mesh_index = static_cast<uint32_t>(scene.meshes_.size());
         scene.meshes_.push_back(std::move(mesh));
-        model.mesh_indices.push_back(mesh_index);
+        scene.AddInstance(mesh_index, glm::mat4(1.0f));
+        ++loaded_mesh_count;
     }
 
-    if (model.mesh_indices.empty())
+    if (loaded_mesh_count == 0)
     {
         throw std::runtime_error("ObjLoader::Load: loaded OBJ has no triangle geometry");
     }
 
-    uint32_t model_index = static_cast<uint32_t>(scene.models_.size());
-    scene.models_.push_back(std::move(model));
-    scene.AddInstance(model_index, glm::mat4(1.0f));
-
-    std::cout << "Load successful (" << approx_triangles << " triangles, " << scene.models_.back().mesh_indices.size()
-              << " material meshes)" << std::endl;
+    std::cout << "Load successful (" << approx_triangles << " triangles, " << loaded_mesh_count << " material meshes)"
+              << std::endl;
 }

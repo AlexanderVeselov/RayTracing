@@ -92,7 +92,11 @@ Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max, 
     Hit hit;
     hit.bc = 0.0f.xx;
     hit.primitive_id = INVALID_ID;
+    hit.instance_id = INVALID_ID;
     hit.t = t_max;
+    hit.padding1 = 0u;
+    hit.padding2 = 0u;
+    hit.padding3 = 0u;
 
     if (node_count == 0)
     {
@@ -122,6 +126,7 @@ Hit TraceBVH(float3 ray_origin, float3 ray_direction, float t_min, float t_max, 
                     {
                         hit.bc = bc;
                         hit.primitive_id = g_Triangles[node.offset + i].prim_id;
+                        hit.instance_id = g_Triangles[node.offset + i].instance_id;
                         hit.t = t;
                         if (any_hit)
                         {

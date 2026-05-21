@@ -33,42 +33,82 @@ namespace
 constexpr auto kMaxPrimitivesInNode = 4u;
 }
 
-void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+namespace
+{
+glm::vec3 TransformPosition(InstanceInfo const& instance, glm::vec3 const& position)
+{
+    return glm::vec3(instance.transform * glm::vec4(position, 1.0f));
+}
+}  // namespace
+
+void Bvh::BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices,
+    std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances)
 {
     std::cout << "Building BVH (VB/IB -> compact tri buffer) ..." << std::endl;
 
-    if (indices.size() % 3 != 0)
-        throw std::runtime_error("Indices count must be divisible by 3");
+    nodes_.clear();
+    rt_triangles_.clear();
 
-    const unsigned triangle_count = static_cast<unsigned>(indices.size() / 3);
+    unsigned triangle_count = 0;
+    for (InstanceInfo const& instance : instances)
+    {
+        if (instance.mesh_index >= meshes.size())
+        {
+            throw std::runtime_error("Bvh::BuildCPU: instance mesh index is out of range");
+        }
+
+        triangle_count += meshes[instance.mesh_index].triangle_count;
+    }
+
+    if (triangle_count == 0)
+    {
+        root_node_ = nullptr;
+        std::cout << "BVH nodes: 0, tris in buffer: 0 (0 MiB)" << std::endl;
+        return;
+    }
 
     // 1. Collect primitives: AABB and centroids based on VB/IB
     std::vector<BVHPrimitiveInfo> prim_info(triangle_count);
-    prim_info.reserve(triangle_count);
+    unsigned primitive_info_index = 0;
 
-    for (unsigned t = 0; t < triangle_count; ++t)
+    for (unsigned instance_index = 0; instance_index < instances.size(); ++instance_index)
     {
-        const uint32_t i0 = indices[3 * t + 0];
-        const uint32_t i1 = indices[3 * t + 1];
-        const uint32_t i2 = indices[3 * t + 2];
+        InstanceInfo const& instance = instances[instance_index];
+        MeshInfo const& mesh = meshes[instance.mesh_index];
 
-        const glm::vec3 p0 = glm::vec3(vertices[i0].position);
-        const glm::vec3 p1 = glm::vec3(vertices[i1].position);
-        const glm::vec3 p2 = glm::vec3(vertices[i2].position);
+        for (uint32_t primitive_index = 0; primitive_index < mesh.triangle_count; ++primitive_index)
+        {
+            uint32_t index_offset = mesh.index_offset + primitive_index * 3;
+            const uint32_t i0 = mesh.vertex_offset + indices[index_offset + 0];
+            const uint32_t i1 = mesh.vertex_offset + indices[index_offset + 1];
+            const uint32_t i2 = mesh.vertex_offset + indices[index_offset + 2];
 
-        Aabb tri_aabb;
-        tri_aabb = Union(tri_aabb, p0);
-        tri_aabb = Union(tri_aabb, p1);
-        tri_aabb = Union(tri_aabb, p2);
-        const glm::vec3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
+            const glm::vec3 p0 = TransformPosition(instance, glm::vec3(vertices[i0].position));
+            const glm::vec3 p1 = TransformPosition(instance, glm::vec3(vertices[i1].position));
+            const glm::vec3 p2 = TransformPosition(instance, glm::vec3(vertices[i2].position));
 
-        prim_info[t] = {t, tri_aabb, c};
+            Aabb tri_aabb;
+            tri_aabb = Union(tri_aabb, p0);
+            tri_aabb = Union(tri_aabb, p1);
+            tri_aabb = Union(tri_aabb, p2);
+            const glm::vec3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
+
+            prim_info[primitive_info_index++] = {primitive_index, instance_index, tri_aabb, c};
+        }
     }
 
     // 2. Recursively build
     unsigned total_nodes = 0;
     rt_triangles_.reserve(triangle_count);
-    root_node_ = RecursiveBuild(vertices, indices, prim_info, 0, triangle_count, &total_nodes, rt_triangles_);
+    root_node_ = RecursiveBuild(vertices,
+        indices,
+        meshes,
+        instances,
+        prim_info,
+        0,
+        triangle_count,
+        &total_nodes,
+        rt_triangles_);
 
     // 3. Flatten
     nodes_.resize(total_nodes);
@@ -80,9 +120,10 @@ void Bvh::BuildCPU(const std::vector<Vertex>& vertices, const std::vector<uint32
               << (rt_triangles_.size() * sizeof(RTTriangle) / (1024.0 * 1024.0)) << " MiB)" << std::endl;
 }
 
-Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
-    const std::vector<uint32_t>& src_indices, std::vector<BVHPrimitiveInfo>& primitive_info, unsigned start,
-    unsigned end, unsigned* total_nodes, std::vector<RTTriangle>& ordered_tris)
+Bvh::BVHBuildNode* Bvh::RecursiveBuild(std::vector<Vertex> const& vertices, std::vector<uint32_t> const& src_indices,
+    std::vector<MeshInfo> const& meshes, std::vector<InstanceInfo> const& instances,
+    std::vector<BVHPrimitiveInfo>& primitive_info, unsigned start, unsigned end, unsigned* total_nodes,
+    std::vector<RTTriangle>& ordered_tris)
 {
     BVHBuildNode* node = new BVHBuildNode;
     (*total_nodes)++;
@@ -94,17 +135,22 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
 
     const unsigned n = end - start;
 
-    auto push_triangle = [&](unsigned primId)
+    auto push_triangle = [&](BVHPrimitiveInfo const& primitive)
     {
-        const uint32_t i0 = src_indices[3 * primId + 0];
-        const uint32_t i1 = src_indices[3 * primId + 1];
-        const uint32_t i2 = src_indices[3 * primId + 2];
+        InstanceInfo const& instance = instances[primitive.instanceIndex];
+        MeshInfo const& mesh = meshes[instance.mesh_index];
+        uint32_t index_offset = mesh.index_offset + primitive.primitiveNumber * 3;
+
+        const uint32_t i0 = mesh.vertex_offset + src_indices[index_offset + 0];
+        const uint32_t i1 = mesh.vertex_offset + src_indices[index_offset + 1];
+        const uint32_t i2 = mesh.vertex_offset + src_indices[index_offset + 2];
 
         RTTriangle tri = {};
-        tri.position1 = vertices[i0].position;
-        tri.position2 = vertices[i1].position;
-        tri.position3 = vertices[i2].position;
-        tri.prim_id = primId;
+        tri.position1 = TransformPosition(instance, vertices[i0].position);
+        tri.position2 = TransformPosition(instance, vertices[i1].position);
+        tri.position3 = TransformPosition(instance, vertices[i2].position);
+        tri.prim_id = primitive.primitiveNumber;
+        tri.instance_id = primitive.instanceIndex;
 
         ordered_tris.push_back(tri);
     };
@@ -112,7 +158,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
     if (n == 1)
     {
         const unsigned first = static_cast<unsigned>(ordered_tris.size());
-        push_triangle(primitive_info[start].primitiveNumber);
+        push_triangle(primitive_info[start]);
         node->InitLeaf(first, 1, bounds);
         return node;
     }
@@ -126,7 +172,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
     {
         const unsigned first = static_cast<unsigned>(ordered_tris.size());
         for (unsigned i = start; i < end; ++i)
-            push_triangle(primitive_info[i].primitiveNumber);
+            push_triangle(primitive_info[i]);
         node->InitLeaf(first, n, bounds);
         return node;
     }
@@ -198,15 +244,15 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(const std::vector<Vertex>& vertices,
         {
             const unsigned first = static_cast<unsigned>(ordered_tris.size());
             for (unsigned i = start; i < end; ++i)
-                push_triangle(primitive_info[i].primitiveNumber);
+                push_triangle(primitive_info[i]);
             node->InitLeaf(first, n, bounds);
             return node;
         }
     }
 
     node->InitInterior(dim,
-        RecursiveBuild(vertices, src_indices, primitive_info, start, mid, total_nodes, ordered_tris),
-        RecursiveBuild(vertices, src_indices, primitive_info, mid, end, total_nodes, ordered_tris));
+        RecursiveBuild(vertices, src_indices, meshes, instances, primitive_info, start, mid, total_nodes, ordered_tris),
+        RecursiveBuild(vertices, src_indices, meshes, instances, primitive_info, mid, end, total_nodes, ordered_tris));
     return node;
 }
 

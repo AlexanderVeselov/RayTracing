@@ -40,14 +40,9 @@ struct Mesh
     uint32_t material_index = 0;
 };
 
-struct Model
-{
-    std::vector<uint32_t> mesh_indices;
-};
-
 struct SceneInstance
 {
-    uint32_t model_index = 0;
+    uint32_t mesh_index = 0;
     glm::mat4 transform = glm::mat4(1.0f);
     glm::mat4 inverse_transform = glm::mat4(1.0f);
     glm::mat3 normal_transform = glm::mat3(1.0f);
@@ -58,16 +53,16 @@ class Scene
 public:
     Scene(const char* filename, float scale, bool flip_yz, TextureManager& texture_manager);
 
-    uint32_t AddInstance(uint32_t model_index, glm::mat4 const& transform);
-    void RebuildFlattenedGeometry();
+    uint32_t AddInstance(uint32_t mesh_index, glm::mat4 const& transform);
+    void RebuildGeometryBuffers();
 
     std::vector<Mesh> const& GetMeshes() const { return meshes_; }
-    std::vector<Model> const& GetModels() const { return models_; }
     std::vector<SceneInstance> const& GetInstances() const { return instances_; }
     std::vector<Vertex> const& GetVertices() const { return vertices_; }
     std::vector<uint32_t> const& GetIndices() const { return indices_; }
-    std::vector<uint32_t> const& GetTriangleMaterialIndices() const { return triangle_material_indices_; }
-    std::vector<uint32_t> const& GetEmissiveIndices() const { return emissive_indices_; }
+    std::vector<MeshInfo> const& GetMeshInfos() const { return mesh_infos_; }
+    std::vector<InstanceInfo> const& GetInstanceInfos() const { return instance_infos_; }
+    std::vector<EmissiveTriangle> const& GetEmissiveTriangles() const { return emissive_triangles_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Light> const& GetLights() const { return lights_; }
     SceneInfo const& GetSceneInfo() const { return scene_info_; }
@@ -81,12 +76,12 @@ private:
     void CollectEmissiveTriangles();
 
     std::vector<Mesh> meshes_;
-    std::vector<Model> models_;
     std::vector<SceneInstance> instances_;
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;
-    std::vector<uint32_t> triangle_material_indices_;
-    std::vector<uint32_t> emissive_indices_;
+    std::vector<MeshInfo> mesh_infos_;
+    std::vector<InstanceInfo> instance_infos_;
+    std::vector<EmissiveTriangle> emissive_triangles_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
     SceneInfo scene_info_ = {};
