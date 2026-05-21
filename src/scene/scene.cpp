@@ -27,14 +27,17 @@
 #include "loaders/obj_loader.hpp"
 
 #include <glm/geometric.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <cmath>
+#include <stdexcept>
 #include <utility>
 
 Scene::Scene(const char* filename, float scale, bool flip_yz, TextureManager& texture_manager)
     : texture_manager_(texture_manager)
 {
     ObjLoader::Load(*this, filename, scale, flip_yz, texture_manager_);
+    RebuildFlattenedGeometry();
 }
 
 namespace
@@ -56,6 +59,76 @@ glm::vec3 UnpackRGBE(unsigned int rgbe)
     return glm::vec3(0.0f);
 }
 }  // namespace
+
+uint32_t Scene::AddInstance(uint32_t model_index, glm::mat4 const& transform)
+{
+    if (model_index >= models_.size())
+    {
+        throw std::runtime_error("Scene::AddInstance: model index is out of range");
+    }
+
+    SceneInstance instance = {};
+    instance.model_index = model_index;
+    instance.transform = transform;
+    instance.inverse_transform = glm::inverse(transform);
+    instance.normal_transform = glm::inverseTranspose(glm::mat3(transform));
+
+    instances_.push_back(instance);
+    return static_cast<uint32_t>(instances_.size() - 1);
+}
+
+void Scene::RebuildFlattenedGeometry()
+{
+    vertices_.clear();
+    indices_.clear();
+    triangle_material_indices_.clear();
+    emissive_indices_.clear();
+
+    size_t vertex_count = 0;
+    size_t index_count = 0;
+    for (SceneInstance const& instance : instances_)
+    {
+        Model const& model = models_[instance.model_index];
+        for (uint32_t mesh_index : model.mesh_indices)
+        {
+            Mesh const& mesh = meshes_[mesh_index];
+            vertex_count += mesh.vertices.size();
+            index_count += mesh.indices.size();
+        }
+    }
+
+    vertices_.reserve(vertex_count);
+    indices_.reserve(index_count);
+    triangle_material_indices_.reserve(index_count / 3);
+
+    for (SceneInstance const& instance : instances_)
+    {
+        Model const& model = models_[instance.model_index];
+        for (uint32_t mesh_index : model.mesh_indices)
+        {
+            Mesh const& mesh = meshes_[mesh_index];
+            uint32_t vertex_offset = static_cast<uint32_t>(vertices_.size());
+
+            for (Vertex vertex : mesh.vertices)
+            {
+                vertex.position = glm::vec3(instance.transform * glm::vec4(vertex.position, 1.0f));
+                vertex.normal = glm::normalize(instance.normal_transform * vertex.normal);
+                vertices_.push_back(vertex);
+            }
+
+            for (uint32_t index : mesh.indices)
+            {
+                indices_.push_back(vertex_offset + index);
+            }
+
+            uint32_t triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
+            for (uint32_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
+            {
+                triangle_material_indices_.push_back(mesh.material_index);
+            }
+        }
+    }
+}
 
 void Scene::CollectEmissiveTriangles()
 {

@@ -24,7 +24,7 @@
 
 #include "camera_controller.hpp"
 
-#include "render.hpp"
+#include "render/render.hpp"
 #include "utils/window.hpp"
 
 #include <algorithm>

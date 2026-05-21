@@ -59,6 +59,13 @@ struct VertexHasher
         size_t h = 2166136261u;  // FNV offset basis
         auto hash_float = [&](float f)
         {
+            // VertexEqual uses float operator==, where -0.0f equals 0.0f. Hash the canonical zero so equal vertices
+            // always produce equal hashes for unordered_map.
+            if (f == 0.0f)
+            {
+                f = 0.0f;
+            }
+
             uint32_t bits;
             static_assert(sizeof(bits) == sizeof(f), "Unexpected float size");
             std::memcpy(&bits, &f, sizeof(f));
@@ -136,6 +143,7 @@ unsigned int PackIorEmissionIdxTransparency(float ior, uint32_t emission_idx, fl
     return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16)
         | (transparency_idx << 24);
 }
+
 }  // namespace
 
 void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_yz, TextureManager& texture_manager)
@@ -156,14 +164,28 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
         throw std::runtime_error("Failed to load the scene!");
     }
 
-    scene.materials_.resize(materials.size());
-
     const float kGamma = 2.2f;
     const uint32_t kInvalidTextureIndex = 0xFF;
+    uint32_t material_offset = static_cast<uint32_t>(scene.materials_.size());
+    uint32_t material_count = static_cast<uint32_t>(std::max<size_t>(materials.size(), 1));
+    scene.materials_.resize(material_offset + material_count);
+
+    if (materials.empty())
+    {
+        PackedMaterial& material = scene.materials_[material_offset];
+        material.diffuse_albedo = PackAlbedo(0.8f, 0.8f, 0.8f, kInvalidTextureIndex);
+        material.specular_albedo = PackAlbedo(0.0f, 0.0f, 0.0f, kInvalidTextureIndex);
+        material.emission = PackRGBE(0.0f, 0.0f, 0.0f);
+        material.roughness_metalness = PackRoughnessMetalness(0.5f, kInvalidTextureIndex, 0.0f, kInvalidTextureIndex);
+        material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(1.5f,
+            kInvalidTextureIndex,
+            1.0f,
+            kInvalidTextureIndex);
+    }
 
     for (uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
     {
-        auto& out_material = scene.materials_[material_idx];
+        auto& out_material = scene.materials_[material_offset + material_idx];
         auto const& in_material = materials[material_idx];
 
         out_material.diffuse_albedo = PackAlbedo(pow(in_material.diffuse[0], kGamma),
@@ -215,10 +237,30 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
     {
         approx_triangles += shape.mesh.indices.size() / 3;
     }
-    scene.vertices_.reserve(scene.vertices_.size() + approx_triangles * 3);
-    scene.indices_.reserve(scene.indices_.size() + approx_triangles * 3);
+    std::vector<Mesh> material_meshes(material_count);
+    std::vector<std::unordered_map<Vertex, uint32_t, VertexHasher, VertexEqual>> vertex_caches(material_count);
+    for (uint32_t material_idx = 0; material_idx < material_count; ++material_idx)
+    {
+        material_meshes[material_idx].material_index = material_offset + material_idx;
+        material_meshes[material_idx].vertices.reserve(approx_triangles * 3 / material_count + 3);
+        material_meshes[material_idx].indices.reserve(approx_triangles * 3 / material_count + 3);
+    }
 
-    std::unordered_map<Vertex, uint32_t, VertexHasher, VertexEqual> vertex_cache;
+    auto find_or_add_vertex = [](Mesh& mesh,
+                                  std::unordered_map<Vertex, uint32_t, VertexHasher, VertexEqual>& vertex_cache,
+                                  Vertex const& v) -> uint32_t
+    {
+        auto it = vertex_cache.find(v);
+        if (it != vertex_cache.end())
+        {
+            return it->second;
+        }
+
+        uint32_t idx = static_cast<uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back(v);
+        vertex_cache.emplace(v, idx);
+        return idx;
+    };
 
     for (auto const& shape : shapes)
     {
@@ -294,35 +336,48 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
             flip_vector(v3.position, flip_yz);
             flip_vector(v3.normal, flip_yz);
 
-            auto find_or_add = [&](Vertex const& v) -> uint32_t
+            int obj_material_idx = face < shape.mesh.material_ids.size() ? shape.mesh.material_ids[face] : -1;
+            uint32_t material_idx = 0;
+            if (obj_material_idx >= 0 && obj_material_idx < static_cast<int>(material_count))
             {
-                auto it = vertex_cache.find(v);
-                if (it != vertex_cache.end())
-                    return it->second;
-                uint32_t idx = static_cast<uint32_t>(scene.vertices_.size());
-                scene.vertices_.push_back(v);
-                vertex_cache.emplace(v, idx);
-                return idx;
-            };
-
-            uint32_t i1 = find_or_add(v1);
-            uint32_t i2 = find_or_add(v2);
-            uint32_t i3 = find_or_add(v3);
-
-            scene.indices_.push_back(i1);
-            scene.indices_.push_back(i2);
-            scene.indices_.push_back(i3);
-
-            if (shape.mesh.material_ids[face] >= 0 && shape.mesh.material_ids[face] < scene.materials_.size())
-            {
-                scene.triangle_material_indices_.push_back(shape.mesh.material_ids[face]);
+                material_idx = static_cast<uint32_t>(obj_material_idx);
             }
-            else
-            {
-                scene.triangle_material_indices_.push_back(0);
-            }
+
+            Mesh& mesh = material_meshes[material_idx];
+            auto& vertex_cache = vertex_caches[material_idx];
+
+            uint32_t i1 = find_or_add_vertex(mesh, vertex_cache, v1);
+            uint32_t i2 = find_or_add_vertex(mesh, vertex_cache, v2);
+            uint32_t i3 = find_or_add_vertex(mesh, vertex_cache, v3);
+
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i2);
+            mesh.indices.push_back(i3);
         }
     }
 
-    std::cout << "Load successful (" << scene.indices_.size() / 3 << " triangles)" << std::endl;
+    Model model;
+    for (Mesh& mesh : material_meshes)
+    {
+        if (mesh.indices.empty())
+        {
+            continue;
+        }
+
+        uint32_t mesh_index = static_cast<uint32_t>(scene.meshes_.size());
+        scene.meshes_.push_back(std::move(mesh));
+        model.mesh_indices.push_back(mesh_index);
+    }
+
+    if (model.mesh_indices.empty())
+    {
+        throw std::runtime_error("ObjLoader::Load: loaded OBJ has no triangle geometry");
+    }
+
+    uint32_t model_index = static_cast<uint32_t>(scene.models_.size());
+    scene.models_.push_back(std::move(model));
+    scene.AddInstance(model_index, glm::mat4(1.0f));
+
+    std::cout << "Load successful (" << approx_triangles << " triangles, " << scene.models_.back().mesh_indices.size()
+              << " material meshes)" << std::endl;
 }
