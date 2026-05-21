@@ -71,9 +71,7 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
 {
     use_hardware_rt_ = device_.SupportsRayQuery();
 
-    output_image_ = device_.CreateImage(width_,
-        height_,
-        swapchain_.GetFormat(),
+    output_image_ = device_.CreateImage(width_, height_, swapchain_.GetFormat(),
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     uint32_t num_pixels = width_ * height_;
@@ -89,72 +87,46 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
     shadow_ray_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
     hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(Hit), sizeof(Hit));
     shadow_hits_buffer_ = CreateStorageBuffer(num_pixels * sizeof(uint32_t), sizeof(uint32_t));
-    throughputs_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    throughputs_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     sample_counter_buffer_ = CreateStorageBuffer(sizeof(uint32_t), sizeof(uint32_t));
-    radiance_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_radiance_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    prev_radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    diffuse_albedo_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA8_UNorm,
+    diffuse_albedo_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA8_UNorm,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    depth_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kR32_Float,
+    depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_depth_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kR32_Float,
+    prev_depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    normal_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    normal_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    motion_vectors_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    motion_vectors_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    direct_light_samples_image_ = device_.CreateImage(width_,
-        height_,
-        gpu::ImageFormat::kRGBA16_Float,
+    direct_light_samples_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
     std::vector<gpu::BufferPtr> staging_buffers;
 
-    upload_command_buffer->TransitionBarrier({throughputs_image_,
-                                                 radiance_image_,
-                                                 prev_radiance_image_,
-                                                 diffuse_albedo_image_,
-                                                 depth_image_,
-                                                 prev_depth_image_,
-                                                 normal_image_,
-                                                 motion_vectors_image_,
-                                                 direct_light_samples_image_},
-        gpu::ImageLayout::kUndefined,
-        gpu::ImageLayout::kShaderReadWrite);
+    upload_command_buffer->TransitionBarrier({ throughputs_image_, radiance_image_, prev_radiance_image_,
+                                                 diffuse_albedo_image_, depth_image_, prev_depth_image_, normal_image_,
+                                                 motion_vectors_image_, direct_light_samples_image_ },
+        gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
 
     for (uint32_t bounce = 0; bounce < bounce_buffers_.size(); ++bounce)
     {
         // Holds a single value. TODO: change to root constants when supported by the RHI.
-        std::vector<uint32_t> initial_bounce_data = {bounce};
+        std::vector<uint32_t> initial_bounce_data = { bounce };
         bounce_buffers_[bounce] = CreateGpuBuffer(initial_bounce_data, upload_command_buffer, staging_buffers);
     }
     queue.Submit(std::move(upload_command_buffer));
     queue.WaitIdle();
 
     camera_cpu_buffer_ = CreateStagingBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData));
-    camera_buffer_ = device_.CreateBuffer(sizeof(RhiCameraData),
-        sizeof(RhiCameraData),
+    camera_buffer_ = device_.CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
     swapchain_image_layouts_.resize(swapchain_.GetImageCount(), gpu::ImageLayout::kUndefined);
 
@@ -535,8 +507,7 @@ void RhiIntegrator::ResolveRadiance()
     command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
     command_buffer_->TransitionBarrier(output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
     output_layout_ = gpu::ImageLayout::kCopySrc;
-    command_buffer_->TransitionBarrier(swapchain_image,
-        swapchain_image_layouts_[swapchain_image_index],
+    command_buffer_->TransitionBarrier(swapchain_image, swapchain_image_layouts_[swapchain_image_index],
         gpu::ImageLayout::kCopyDst);
     command_buffer_->CopyImage(swapchain_image, output_image_);
     command_buffer_->TransitionBarrier(swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kRenderTarget);
@@ -559,8 +530,7 @@ gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size,
 gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
-    return device_.CreateBuffer(allocation_size,
-        stride,
+    return device_.CreateBuffer(allocation_size, stride,
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kStorage);
 }
 
@@ -583,11 +553,11 @@ void RhiIntegrator::RebuildDescriptorSets()
     texture_descriptors.reserve(kMaxTextureCount);
     for (gpu::ImagePtr const& texture_image : texture_manager_->GetImages())
     {
-        texture_descriptors.push_back({texture_image.get(), {}});
+        texture_descriptors.push_back({ texture_image.get(), {} });
     }
     while (texture_descriptors.size() < kMaxTextureCount)
     {
-        texture_descriptors.push_back({fallback_texture_image_.get(), {}});
+        texture_descriptors.push_back({ fallback_texture_image_.get(), {} });
     }
 
     reset_set_ = reset_pipeline_->CreateDescriptorSet();

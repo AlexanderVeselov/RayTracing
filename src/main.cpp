@@ -35,8 +35,8 @@ namespace
 std::map<std::string, Render::RenderBackend> CreateBackendMap()
 {
     std::map<std::string, Render::RenderBackend> backends = {
-        {"vulkan", Render::RenderBackend::kVulkan},
-        {"d3d12", Render::RenderBackend::kD3D12},
+        { "vulkan", Render::RenderBackend::kVulkan },
+        { "d3d12", Render::RenderBackend::kD3D12 },
     };
     return backends;
 }

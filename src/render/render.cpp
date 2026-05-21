@@ -70,7 +70,7 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
     rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     texture_manager_ = std::make_unique<TextureManager>(*rhi_device_);
     scene_ = std::make_unique<Scene>(scene_path_.c_str(), scene_scale_, flip_yz_, *texture_manager_);
-    scene_->AddDirectionalLight({-0.6f, -1.5f, 3.5f}, {15.0f, 10.0f, 5.0f});
+    scene_->AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
 
     camera_controller_ = std::make_unique<CameraController>(window_);
 
@@ -134,8 +134,7 @@ void Render::DrawGUI()
     {
         ImGui::SetWindowPos(ImVec2(10, 10));
         ImGui::SetWindowSize(ImVec2(350, 50));
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-            1000.0f / ImGui::GetIO().Framerate,
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
             ImGui::GetIO().Framerate);
         ImGui::Text("Press \"R\" to reload pipelines");
     }
@@ -175,7 +174,7 @@ void Render::DrawGUI()
         }
 
         static int aov_index = 0;
-        const char* aov_names[] = {"Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors"};
+        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
             integrator_->SetAOV((Integrator::AOV)aov_index);
@@ -231,8 +230,7 @@ void Render::RenderFrame()
     rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
     integrator_->Integrate();
     rhi_imgui_renderer_->Render(*rhi_command_buffer_);
-    rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(),
-        gpu::ImageLayout::kRenderTarget,
+    rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(), gpu::ImageLayout::kRenderTarget,
         gpu::ImageLayout::kPresent);
     rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
     queue.Submit(std::move(rhi_command_buffer_));

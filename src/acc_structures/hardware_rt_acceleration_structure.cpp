@@ -76,8 +76,8 @@ void HardwareRtAccelerationStructure::Build(gpu::Device& device, gpu::CommandBuf
         geometry.index_count = mesh.triangle_count * 3u;
         geometry.opaque = true;
 
-        gpu::AccelerationStructurePtr bottom_level = device.CreateBottomLevelAccelerationStructure({geometry});
-        command_buffer.BuildBottomLevelAccelerationStructure(*bottom_level, {geometry});
+        gpu::AccelerationStructurePtr bottom_level = device.CreateBottomLevelAccelerationStructure({ geometry });
+        command_buffer.BuildBottomLevelAccelerationStructure(*bottom_level, { geometry });
         bottom_level_as_.push_back(std::move(bottom_level));
     }
 

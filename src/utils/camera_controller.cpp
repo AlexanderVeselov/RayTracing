@@ -75,8 +75,7 @@ void CameraController::Update(float dt)
     float speed = speed_ * (window_.GetKey(KeyCode::kLeftShift) ? 5.0f : 1.0f);
 
     // Compute new camera vectors
-    glm::vec3 front = glm::vec3(std::cosf(yaw_) * std::sinf(pitch_),
-        std::sinf(yaw_) * std::sinf(pitch_),
+    glm::vec3 front = glm::vec3(std::cosf(yaw_) * std::sinf(pitch_), std::sinf(yaw_) * std::sinf(pitch_),
         std::cosf(pitch_));
     camera_data_.front = front;
     glm::vec3 right = glm::normalize(glm::cross(front, up_));

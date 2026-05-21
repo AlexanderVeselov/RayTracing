@@ -66,7 +66,6 @@ public:
     std::vector<gpu::ImagePtr> const& GetImages() const { return gpu_images_; }
 
 private:
-
     gpu::ImagePtr CreateGpuImage(Texture const& texture, gpu::CommandBuffer& command_buffer);
 
     gpu::Device& device_;

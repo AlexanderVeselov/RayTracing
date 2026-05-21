@@ -45,9 +45,7 @@ std::string NormalizeTexturePath(std::filesystem::path const& path)
 std::string LowercaseExtension(std::filesystem::path const& path)
 {
     std::string extension = path.extension().string();
-    std::transform(extension.begin(),
-        extension.end(),
-        extension.begin(),
+    std::transform(extension.begin(), extension.end(), extension.begin(),
         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return extension;
 }
@@ -153,9 +151,7 @@ Texture const& TextureManager::GetTexture(uint32_t texture_index) const
 
 gpu::ImagePtr TextureManager::CreateGpuImage(Texture const& texture, gpu::CommandBuffer& command_buffer)
 {
-    gpu::ImagePtr image = device_.CreateImage(texture.width,
-        texture.height,
-        texture.format,
+    gpu::ImagePtr image = device_.CreateImage(texture.width, texture.height, texture.format,
         gpu::ImageFlags::kShaderResource);
 
     if (!texture.cpu_data.empty())

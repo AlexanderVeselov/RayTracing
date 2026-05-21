@@ -136,7 +136,7 @@ void Scene::CollectEmissiveTriangles()
         uint32_t triangle_count = static_cast<uint32_t>(mesh.indices.size() / 3);
         for (uint32_t triangle_index = 0; triangle_index < triangle_count; ++triangle_index)
         {
-            emissive_triangles_.push_back({instance_index, triangle_index});
+            emissive_triangles_.push_back({ instance_index, triangle_index });
         }
     }
 

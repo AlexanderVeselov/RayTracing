@@ -22,7 +22,7 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 
 # Function arguments formatting
-BinPackArguments: false
+BinPackArguments: true
 BinPackParameters: true
 
 # Alignment
@@ -54,7 +54,7 @@ NamespaceIndentation: None
 MaxEmptyLinesToKeep: 1
 
 # Braced lists
-Cpp11BracedListStyle: true
+Cpp11BracedListStyle: false
 
 IndentAccessModifiers: false
 SortIncludes: false

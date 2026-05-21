@@ -93,21 +93,14 @@ void Bvh::BuildCPU(std::vector<Vertex> const& vertices, std::vector<uint32_t> co
             tri_aabb = Union(tri_aabb, p2);
             const glm::vec3 c = (p0 + p1 + p2) * (1.0f / 3.0f);
 
-            prim_info[primitive_info_index++] = {primitive_index, instance_index, tri_aabb, c};
+            prim_info[primitive_info_index++] = { primitive_index, instance_index, tri_aabb, c };
         }
     }
 
     // 2. Recursively build
     unsigned total_nodes = 0;
     rt_triangles_.reserve(triangle_count);
-    root_node_ = RecursiveBuild(vertices,
-        indices,
-        meshes,
-        instances,
-        prim_info,
-        0,
-        triangle_count,
-        &total_nodes,
+    root_node_ = RecursiveBuild(vertices, indices, meshes, instances, prim_info, 0, triangle_count, &total_nodes,
         rt_triangles_);
 
     // 3. Flatten
@@ -180,9 +173,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(std::vector<Vertex> const& vertices, std:
     unsigned mid = (start + end) / 2;
     if (n <= 2)
     {
-        std::nth_element(&primitive_info[start],
-            &primitive_info[mid],
-            &primitive_info[end - 1] + 1,
+        std::nth_element(&primitive_info[start], &primitive_info[mid], &primitive_info[end - 1] + 1,
             [dim](const BVHPrimitiveInfo& a, const BVHPrimitiveInfo& b) { return a.centroid[dim] < b.centroid[dim]; });
     }
     else
@@ -229,8 +220,7 @@ Bvh::BVHBuildNode* Bvh::RecursiveBuild(std::vector<Vertex> const& vertices, std:
         const float leafCost = float(n);
         if (n > kMaxPrimitivesInNode || minCost < leafCost)
         {
-            BVHPrimitiveInfo* pmid = std::partition(&primitive_info[start],
-                &primitive_info[end - 1] + 1,
+            BVHPrimitiveInfo* pmid = std::partition(&primitive_info[start], &primitive_info[end - 1] + 1,
                 [&](const BVHPrimitiveInfo& pi)
                 {
                     int b = int(nBuckets * cBounds.Offset(pi.centroid)[dim]);

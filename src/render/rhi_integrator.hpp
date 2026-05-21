@@ -83,8 +83,7 @@ private:
         gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, sizeof(T), flags);
         if (!cpu_buffer.empty())
         {
-            gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(),
-                cpu_buffer.size() * sizeof(T),
+            gpu::BufferPtr staging_buffer = CreateStagingBuffer(cpu_buffer.data(), cpu_buffer.size() * sizeof(T),
                 sizeof(T));
             upload_command_buffer->CopyBuffer(staging_buffer, 0, buffer, 0, cpu_buffer.size() * sizeof(T));
             staging_buffers.push_back(std::move(staging_buffer));

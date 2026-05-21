@@ -177,9 +177,7 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
         material.specular_albedo = PackAlbedo(0.0f, 0.0f, 0.0f, kInvalidTextureIndex);
         material.emission = PackRGBE(0.0f, 0.0f, 0.0f);
         material.roughness_metalness = PackRoughnessMetalness(0.5f, kInvalidTextureIndex, 0.0f, kInvalidTextureIndex);
-        material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(1.5f,
-            kInvalidTextureIndex,
-            1.0f,
+        material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(1.5f, kInvalidTextureIndex, 1.0f,
             kInvalidTextureIndex);
     }
 
@@ -189,15 +187,13 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
         auto const& in_material = materials[material_idx];
 
         out_material.diffuse_albedo = PackAlbedo(pow(in_material.diffuse[0], kGamma),
-            pow(in_material.diffuse[1], kGamma),
-            pow(in_material.diffuse[2], kGamma),
+            pow(in_material.diffuse[1], kGamma), pow(in_material.diffuse[2], kGamma),
             in_material.diffuse_texname.empty()
                 ? kInvalidTextureIndex
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.diffuse_texname));
 
         out_material.specular_albedo = PackAlbedo(pow(in_material.specular[0], kGamma),
-            pow(in_material.specular[1], kGamma),
-            pow(in_material.specular[2], kGamma),
+            pow(in_material.specular[1], kGamma), pow(in_material.specular[2], kGamma),
             in_material.specular_texname.empty()
                 ? kInvalidTextureIndex
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.specular_texname));
