@@ -1,12 +1,10 @@
 # Realtime GPU Path Tracing Engine
 
-Realtime path tracing playground built around a small render application and the
-[GpuApi](https://github.com/AlexanderVeselov/GpuApi) abstraction layer.
+Join my telegram channel, where I post everything related to graphics!
+https://t.me/cg_lib
 
-[Watch demo on YouTube](https://youtu.be/UIjra1T7ilI)
-
+[**Watch demo on YouTube**](https://youtu.be/UIjra1T7ilI)
 [![Bistro scene](screenshots/Bistro.png)](https://youtu.be/UIjra1T7ilI)
-
 ![](screenshots/SanMiguel.png)
 
 ## Features
@@ -21,45 +19,7 @@ Realtime path tracing playground built around a small render application and the
 - Depth, normals, albedo and motion vector AOV generation
 - Runtime compute pipeline hot reload
 
-## Repository Layout
-
-```text
-src/
-  main.cpp                              Command-line parsing and app entry point
-  acceleration_structure.hpp             Common acceleration-structure interface
-  bvh.*                                  CPU BVH builder used by the fallback path
-  hardware_rt_acceleration_structure.*   BLAS/TLAS wrapper used by Ray Query path
-
-  loaders/
-    obj_loader.*                         OBJ scene import
-    image_loader.*                       LDR/HDR image loading front end
-    hdr_loader.cpp                       HDR loader implementation
-
-  managers/
-    texture_manager.*                    Texture cache, image creation and GPU upload
-
-  render/
-    render.*                             Window/render orchestration and GUI
-    integrator.*                         Integrator interface
-    rhi_integrator.*                     GpuApi-backed path tracing implementation
-
-  scene/
-    scene.*                              Meshes, instances, materials and lights
-
-  shaders/
-    *.cs, *.hlsli                        Compute shaders and shared shader headers
-
-  utils/
-    camera_controller.*                  Camera movement
-    window.*                             GLFW window wrapper
-
-3rdparty/GpuApi/
-  inc/                                   Public graphics API abstraction
-  src/d3d12/                             D3D12 backend
-  src/vulkan/                            Vulkan backend
-```
-
-## Rendering Paths
+## Ray Tracing Paths
 
 The application selects the acceleration-structure path automatically:
 
