@@ -50,6 +50,14 @@ set(SCENE_SOURCES
     scene/scene.hpp
 )
 
+set(ACC_STRUCTURES_SOURCES
+    acc_structures/acceleration_structure.hpp
+    acc_structures/bvh.cpp
+    acc_structures/bvh.hpp
+    acc_structures/hardware_rt_acceleration_structure.cpp
+    acc_structures/hardware_rt_acceleration_structure.hpp
+)
+
 set(UTILS_SOURCES
     utils/aabb.hpp
     utils/camera_controller.cpp
@@ -58,23 +66,15 @@ set(UTILS_SOURCES
     utils/window.hpp
 )
 
-set(MAIN_SOURCES
-    acceleration_structure.hpp
-    bvh.cpp
-    bvh.hpp
-    hardware_rt_acceleration_structure.cpp
-    hardware_rt_acceleration_structure.hpp
-    main.cpp
-)
-
 set(SOURCES
     ${RENDER_SOURCES}
     ${SHADER_SOURCES}
     ${LOADERS_SOURCES}
     ${MANAGERS_SOURCES}
     ${SCENE_SOURCES}
+    ${ACC_STRUCTURES_SOURCES}
     ${UTILS_SOURCES}
-    ${MAIN_SOURCES}
+    main.cpp
 )
 
 source_group("render" FILES ${RENDER_SOURCES})

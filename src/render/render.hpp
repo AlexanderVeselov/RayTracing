@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "acceleration_structure.hpp"
+#include "acc_structures/acceleration_structure.hpp"
 #include "gpu_api.hpp"
 #include "integrator.hpp"
 #include "utils/camera_controller.hpp"

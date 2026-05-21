@@ -24,8 +24,6 @@
 
 #include "rhi_integrator.hpp"
 
-#include "acceleration_structure.hpp"
-#include "bvh.hpp"
 #include "gpu_command_buffer.hpp"
 #include "gpu_descriptor_set.hpp"
 #include "gpu_device.hpp"
@@ -34,7 +32,11 @@
 #include "gpu_queue.hpp"
 #include "gpu_sampler.hpp"
 #include "gpu_swapchain.hpp"
-#include "hardware_rt_acceleration_structure.hpp"
+
+#include "acc_structures/acceleration_structure.hpp"
+#include "acc_structures/bvh.hpp"
+#include "acc_structures/hardware_rt_acceleration_structure.hpp"
+
 #include "managers/texture_manager.hpp"
 #include "scene/scene.hpp"
 
