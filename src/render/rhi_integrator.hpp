@@ -52,8 +52,6 @@ public:
     void EnableDenoiser(bool enable) override;
 
 protected:
-    void BeginFrame() override;
-    void EndFrame() override;
     void CreatePipelines() override;
     void Reset() override;
     void AdvanceSampleCount() override;
@@ -68,7 +66,7 @@ protected:
     void ClearShadowRayCounter() override;
     void Denoise() override;
     void CopyHistoryBuffers() override;
-    void ResolveRadiance() override;
+    void AccumulateRadiance() override;
     void Tonemap() override;
 
 private:
@@ -92,7 +90,8 @@ private:
         return buffer;
     }
 
-    void UpdateFrameData();
+    void UpdateCameraData();
+    void UploadSceneInfo(gpu::CommandBuffer& upload_command_buffer, std::vector<gpu::BufferPtr>& staging_buffers);
     void RebuildDescriptorSets();
 
     gpu::Device& device_;
@@ -104,7 +103,6 @@ private:
     gpu::CommandBuffer* command_buffer_ = nullptr;
 
     // Path tracing pipelines
-    gpu::ComputePipelinePtr reset_pipeline_;
     gpu::ComputePipelinePtr raygen_pipeline_;
     gpu::ComputePipelinePtr aov_pipeline_;
     gpu::ComputePipelinePtr miss_pipeline_;
@@ -113,7 +111,7 @@ private:
     gpu::ComputePipelinePtr clear_counter_pipeline_;
     gpu::ComputePipelinePtr denoiser_pipeline_;
     gpu::ComputePipelinePtr copy_history_pipeline_;
-    gpu::ComputePipelinePtr resolve_pipeline_;
+    gpu::ComputePipelinePtr accumulate_radiance_pipeline_;
     gpu::ComputePipelinePtr tonemap_pipeline_;
 
     // BVH traversal pipelines
@@ -121,7 +119,6 @@ private:
     gpu::ComputePipelinePtr trace_shadow_pipeline_;
 
     // Descriptor sets
-    gpu::DescriptorSetPtr reset_set_;
     gpu::DescriptorSetPtr raygen_set_;
     std::array<gpu::DescriptorSetPtr, 2> trace_sets_;
     gpu::DescriptorSetPtr trace_shadow_set_;
@@ -133,8 +130,9 @@ private:
     gpu::DescriptorSetPtr clear_shadow_counter_set_;
     gpu::DescriptorSetPtr denoiser_set_;
     gpu::DescriptorSetPtr copy_history_set_;
-    gpu::DescriptorSetPtr resolve_set_;
+    gpu::DescriptorSetPtr accumulate_radiance_set_;
     gpu::DescriptorSetPtr tonemap_set_;
+    gpu::DescriptorSetPtr denoised_tonemap_set_;
 
     // Internal buffers and images
     std::array<gpu::BufferPtr, 2> rays_buffers_;
@@ -159,6 +157,7 @@ private:
     // Scene buffers
     gpu::BufferPtr camera_cpu_buffer_;
     gpu::BufferPtr camera_buffer_;
+    gpu::BufferPtr scene_info_buffer_;
     gpu::BufferPtr vertex_buffer_;
     gpu::BufferPtr index_buffer_;
     gpu::BufferPtr mesh_info_buffer_;

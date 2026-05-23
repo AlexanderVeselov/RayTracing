@@ -29,6 +29,8 @@ struct RootConstants
 {
     uint sample_count;
     uint bounce;
+    uint width;
+    uint white_furnace;
 };
 
 ROOT_CONSTANTS
@@ -92,8 +94,9 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     uint pixel_idx = g_IncomingPixelIndices[ray_idx];
     uint sample_idx = g_RootConstants.sample_count;
-    uint pixel_x = pixel_idx % g_RenderSize.x;
-    uint pixel_y = pixel_idx / g_RenderSize.x;
+    uint width = g_RootConstants.width;
+    uint pixel_x = pixel_idx % width;
+    uint pixel_y = pixel_idx / width;
     uint2 pixel_coord = uint2(pixel_x, pixel_y);
     uint bounce = g_RootConstants.bounce;
 
@@ -128,7 +131,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     Material material = ApplyTextures(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
-    if ((g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) == 0u &&
+    if (g_RootConstants.white_furnace == 0u &&
         dot(material.emission, 1.0f.xxx) > 0.0f)
     {
         float4 radiance = g_Radiance[pixel_coord];
@@ -166,7 +169,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
             g_ShadowRays[shadow_ray_idx] = shadow_ray;
             g_ShadowPixelIndices[shadow_ray_idx] = pixel_idx;
-            g_DirectLightSamples[PixelCoord(shadow_ray_idx, g_RenderSize.x)] =
+            g_DirectLightSamples[PixelCoord(shadow_ray_idx, width)] =
                 float4(light_sample, 0.0f);
         }
     }
@@ -182,7 +185,8 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         float3 indirect_throughput = 0.0f.xxx;
         float3 outgoing;
         float offset;
-        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming,
+            g_RootConstants.white_furnace != 0u, outgoing, pdf, offset);
 
         if (pdf > 0.0f)
         {

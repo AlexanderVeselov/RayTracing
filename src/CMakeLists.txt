@@ -21,8 +21,7 @@ set(SHADER_SOURCES
     shaders/material.hlsli
     shaders/miss.cs
     shaders/raygeneration.cs
-    shaders/reset.cs
-    shaders/resolve.cs
+    shaders/accumulate_radiance.cs
     shaders/tonemap.cs
     shaders/trace_bvh.cs
     shaders/trace_common.hlsli

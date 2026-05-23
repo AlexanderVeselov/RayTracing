@@ -133,9 +133,10 @@ float3 SampleTransparency(float3 incoming, out float3 outgoing, out float pdf)
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 incoming,
+    bool white_furnace,
     out float3 outgoing, out float pdf, out float offset)
 {
-    if ((g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) != 0u)
+    if (white_furnace)
     {
         material.diffuse_albedo = 1.0f.xxx;
         material.specular_albedo = 1.0f.xxx;
