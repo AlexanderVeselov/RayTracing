@@ -110,8 +110,6 @@ private:
     gpu::ComputePipelinePtr hit_surface_pipeline_;
     gpu::ComputePipelinePtr accumulate_direct_pipeline_;
     gpu::ComputePipelinePtr clear_counter_pipeline_;
-    gpu::ComputePipelinePtr clear_sample_counter_pipeline_;
-    gpu::ComputePipelinePtr increment_counter_pipeline_;
     gpu::ComputePipelinePtr denoiser_pipeline_;
     gpu::ComputePipelinePtr copy_history_pipeline_;
     gpu::ComputePipelinePtr resolve_pipeline_;
@@ -131,8 +129,6 @@ private:
     gpu::DescriptorSetPtr accumulate_direct_set_;
     std::array<gpu::DescriptorSetPtr, 2> clear_counter_sets_;
     gpu::DescriptorSetPtr clear_shadow_counter_set_;
-    gpu::DescriptorSetPtr clear_sample_counter_set_;
-    gpu::DescriptorSetPtr increment_counter_set_;
     gpu::DescriptorSetPtr denoiser_set_;
     gpu::DescriptorSetPtr copy_history_set_;
     gpu::DescriptorSetPtr resolve_set_;
@@ -147,7 +143,6 @@ private:
     gpu::BufferPtr hits_buffer_;
     gpu::BufferPtr shadow_hits_buffer_;
     gpu::ImagePtr throughputs_image_;
-    gpu::BufferPtr sample_counter_buffer_;
     gpu::ImagePtr radiance_image_;
     gpu::ImagePtr prev_radiance_image_;
     gpu::ImagePtr diffuse_albedo_image_;
@@ -156,7 +151,6 @@ private:
     gpu::ImagePtr normal_image_;
     gpu::ImagePtr motion_vectors_image_;
     gpu::ImagePtr direct_light_samples_image_;
-    std::array<gpu::BufferPtr, 2> bounce_buffers_;
 
     // Scene buffers
     gpu::BufferPtr camera_cpu_buffer_;
@@ -173,6 +167,9 @@ private:
     // Acceleration structure buffers
     gpu::BufferPtr rt_triangles_buffer_;
     gpu::BufferPtr nodes_buffer_;
+
+    // Sample counter
+    uint32_t sample_count_ = 0;
 
     gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
     std::vector<gpu::ImageLayout> swapchain_image_layouts_;
