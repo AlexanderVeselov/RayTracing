@@ -27,13 +27,15 @@
 
 #include "shared_structures.h"
 
-cbuffer FrameData : register(b0)
+cbuffer CameraData : register(b0)
 {
     Camera g_Camera;
     Camera g_PrevCamera;
-    uint4 g_RenderSize;
+};
+
+cbuffer SceneInfoData : register(b24)
+{
     uint4 g_SceneCounts;
-    uint4 g_RenderParams;
 };
 
 static const uint SHADED_COLOR_INDEX = 0u;
@@ -43,6 +45,4 @@ static const uint NORMAL_INDEX = 3u;
 static const uint MOTION_VECTORS_INDEX = 4u;
 
 static const uint RENDER_FLAG_WHITE_FURNACE = 1u;
-static const uint RENDER_FLAG_DENOISER = 2u;
-
 #endif

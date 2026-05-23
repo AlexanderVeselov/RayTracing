@@ -65,8 +65,6 @@ public:
     virtual void EnableDenoiser(bool enable) = 0;
 
 protected:
-    virtual void BeginFrame() {}
-    virtual void EndFrame() {}
     virtual void CreatePipelines() = 0;
     virtual void Reset() = 0;
     virtual void AdvanceSampleCount() = 0;
@@ -81,7 +79,7 @@ protected:
     virtual void ClearShadowRayCounter() = 0;
     virtual void Denoise() = 0;
     virtual void CopyHistoryBuffers() = 0;
-    virtual void ResolveRadiance() = 0;
+    virtual void AccumulateRadiance() = 0;
     virtual void Tonemap() = 0;
 
     // Render size

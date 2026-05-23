@@ -25,6 +25,15 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint width;
+    uint height;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Radiance history data
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u1);
@@ -41,8 +50,8 @@ RWTexture2D<float4> g_MotionVectors : register(u5);
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
     uint pixel_idx = dispatch_thread_id.x;
-    uint width = g_RenderSize.x;
-    uint height = g_RenderSize.y;
+    uint width = g_RootConstants.width;
+    uint height = g_RootConstants.height;
     uint num_pixels = width * height;
     if (pixel_idx >= num_pixels)
     {

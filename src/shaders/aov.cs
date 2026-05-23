@@ -25,6 +25,14 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint width;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Ray data
 RWStructuredBuffer<Ray> g_Rays : register(u1);
 RWStructuredBuffer<uint> g_RayCounter : register(u2);
@@ -83,7 +91,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
 
     uint pixel_idx = g_PixelIndices[ray_idx];
-    uint2 pixel_coord = PixelCoord(pixel_idx, g_RenderSize.x);
+    uint2 pixel_coord = PixelCoord(pixel_idx, g_RootConstants.width);
     Ray ray = g_Rays[ray_idx];
     InstanceInfo instance = g_Instances[hit.instance_id];
     MeshInfo mesh = g_Meshes[instance.mesh_index];

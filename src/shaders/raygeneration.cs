@@ -28,6 +28,8 @@
 struct RootConstants
 {
     uint sample_count;
+    uint width;
+    uint height;
 };
 
 ROOT_CONSTANTS
@@ -41,6 +43,8 @@ RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 // Radiance and throughput data
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u4);
+IMAGE_FORMAT("rgba16f")
+RWTexture2D<float4> g_Radiance : register(u5);
 
 // AOV data
 IMAGE_FORMAT("rgba8")
@@ -66,8 +70,8 @@ float2 PointInHexagon(inout uint seed)
 void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
     uint pixel_idx = dispatch_thread_id.x;
-    uint width = g_RenderSize.x;
-    uint height = g_RenderSize.y;
+    uint width = g_RootConstants.width;
+    uint height = g_RootConstants.height;
     uint num_pixels = width * height;
 
     if (pixel_idx >= num_pixels)
@@ -113,6 +117,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     g_Rays[pixel_idx] = ray;
     g_PixelIndices[pixel_idx] = pixel_idx;
     g_Throughputs[pixel_coord] = float4(1.0f, 1.0f, 1.0f, 0.0f);
+    g_Radiance[pixel_coord] = 0.0f.xxxx;
     g_DiffuseAlbedo[pixel_coord] = 0.0f.xxxx;
     g_Depth[pixel_coord] = MAX_RENDER_DIST;
     g_Normal[pixel_coord] = 0.0f.xxxx;

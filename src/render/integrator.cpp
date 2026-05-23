@@ -26,8 +26,6 @@
 
 void Integrator::Integrate()
 {
-    BeginFrame();
-
     if (request_reset_ || enable_denoiser_)
     {
         Reset();
@@ -52,15 +50,18 @@ void Integrator::Integrate()
     }
 
     AdvanceSampleCount();
+
     if (enable_denoiser_)
     {
         Denoise();
         CopyHistoryBuffers();
     }
-    ResolveRadiance();
-    Tonemap();
+    else
+    {
+        AccumulateRadiance();
+    }
 
-    EndFrame();
+    Tonemap();
 }
 
 void Integrator::SetMaxBounces(uint32_t max_bounces)

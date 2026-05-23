@@ -25,6 +25,16 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint width;
+    uint env_map_index;
+    uint white_furnace;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Ray data
 RWStructuredBuffer<Ray> g_Rays : register(u6);
 
@@ -52,7 +62,7 @@ float3 SampleSky(float3 dir)
     coords.x *= INV_TWO_PI;
     coords.y *= INV_PI;
 
-    uint texture_index = g_RenderSize.z;
+    uint texture_index = g_RootConstants.env_map_index;
     if (texture_index == INVALID_TEXTURE_IDX || texture_index >= g_SceneCounts.w)
     {
         return float3(0.02f, 0.02f, 0.025f);
@@ -78,9 +88,9 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     Ray ray = g_Rays[ray_idx];
     uint pixel_idx = g_PixelIndices[ray_idx];
-    uint2 pixel_coord = PixelCoord(pixel_idx, g_RenderSize.x);
+    uint2 pixel_coord = PixelCoord(pixel_idx, g_RootConstants.width);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
-    float3 sky_radiance = (g_RenderParams.y & RENDER_FLAG_WHITE_FURNACE) != 0u
+    float3 sky_radiance = g_RootConstants.white_furnace != 0u
                               ? 0.5f.xxx
                               : SampleSky(normalize(ray.direction));
     float4 radiance = g_Radiance[pixel_coord];
