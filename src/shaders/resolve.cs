@@ -33,9 +33,9 @@ struct RootConstants
 ROOT_CONSTANTS
 ConstantBuffer<RootConstants> g_RootConstants;
 
-// Output image
-IMAGE_FORMAT("rgba8")
-RWTexture2D<float4> g_Output : register(u1);
+// Linear resolved color. Tonemapping is applied by a separate pass.
+IMAGE_FORMAT("rgba16f")
+RWTexture2D<float4> g_ResolvedColor : register(u1);
 
 // Radiance data
 IMAGE_FORMAT("rgba16f")
@@ -55,7 +55,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 {
     uint width;
     uint height;
-    g_Output.GetDimensions(width, height);
+    g_ResolvedColor.GetDimensions(width, height);
     if (dispatch_thread_id.x >= width || dispatch_thread_id.y >= height)
     {
         return;
@@ -65,21 +65,21 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint aov_index = g_RenderParams.x;
     if (aov_index == DIFFUSE_INDEX)
     {
-        g_Output[pixel_coord] = float4(saturate(g_DiffuseAlbedo[pixel_coord].xyz), 1.0f);
+        g_ResolvedColor[pixel_coord] = float4(saturate(g_DiffuseAlbedo[pixel_coord].xyz), 1.0f);
     }
     else if (aov_index == DEPTH_INDEX)
     {
         float depth_value = g_Depth[pixel_coord] * 0.1f;
-        g_Output[pixel_coord] = float4(depth_value.xxx, 1.0f);
+        g_ResolvedColor[pixel_coord] = float4(depth_value.xxx, 1.0f);
     }
     else if (aov_index == NORMAL_INDEX)
     {
         float3 normal_value = g_Normal[pixel_coord].xyz * 0.5f + 0.5f;
-        g_Output[pixel_coord] = float4(normal_value, 1.0f);
+        g_ResolvedColor[pixel_coord] = float4(normal_value, 1.0f);
     }
     else if (aov_index == MOTION_VECTORS_INDEX)
     {
-        g_Output[pixel_coord] = float4(g_MotionVectors[pixel_coord].xy, 0.0f, 1.0f);
+        g_ResolvedColor[pixel_coord] = float4(g_MotionVectors[pixel_coord].xy, 0.0f, 1.0f);
     }
     else
     {
@@ -87,6 +87,6 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         float3 color = (g_RenderParams.y & RENDER_FLAG_DENOISER) != 0u
                            ? g_Radiance[pixel_coord].xyz
                            : g_Radiance[pixel_coord].xyz / sample_count;
-        g_Output[pixel_coord] = float4(Tonemap(color), 1.0f);
+        g_ResolvedColor[pixel_coord] = float4(color, 1.0f);
     }
 }

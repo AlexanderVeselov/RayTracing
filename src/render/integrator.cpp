@@ -58,6 +58,7 @@ void Integrator::Integrate()
         CopyHistoryBuffers();
     }
     ResolveRadiance();
+    Tonemap();
 
     EndFrame();
 }

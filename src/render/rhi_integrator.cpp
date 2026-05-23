@@ -107,13 +107,16 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     direct_light_samples_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
+    resolved_color_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
+        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     // Transition all images to kShaderReadWrite layout
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr transition_cmd_buffer = queue.CreateCommandBuffer();
     transition_cmd_buffer->TransitionBarrier({ throughputs_image_, radiance_image_, prev_radiance_image_,
-        diffuse_albedo_image_, depth_image_, prev_depth_image_, normal_image_,
-        motion_vectors_image_, direct_light_samples_image_ },
+                                                 diffuse_albedo_image_, depth_image_, prev_depth_image_, normal_image_,
+                                                 motion_vectors_image_, direct_light_samples_image_,
+                                                 resolved_color_image_ },
         gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
     queue.Submit(std::move(transition_cmd_buffer));
     queue.WaitIdle();
@@ -301,6 +304,7 @@ void RhiIntegrator::CreatePipelines()
     denoiser_pipeline_ = device_.CreateComputePipeline("denoiser.cs");
     copy_history_pipeline_ = device_.CreateComputePipeline("copy_history.cs");
     resolve_pipeline_ = device_.CreateComputePipeline("resolve.cs");
+    tonemap_pipeline_ = device_.CreateComputePipeline("tonemap.cs");
 }
 
 void RhiIntegrator::BeginFrame()
@@ -488,13 +492,24 @@ void RhiIntegrator::ResolveRadiance()
     assert(resolve_pipeline_ && resolve_set_);
     assert(command_buffer_ && "RhiIntegrator::ResolveRadiance(): command buffer is not initialized");
 
+    command_buffer_->BindPipeline(resolve_pipeline_);
+    command_buffer_->BindDescriptorSet(resolve_set_);
+    command_buffer_->SetRootConstants(&sample_count_, sizeof(sample_count_));
+    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
+    command_buffer_->StorageBarrier(resolved_color_image_);
+}
+
+void RhiIntegrator::Tonemap()
+{
+    assert(tonemap_pipeline_ && tonemap_set_);
+    assert(command_buffer_ && "RhiIntegrator::Tonemap(): command buffer is not initialized");
+
     gpu::ImagePtr swapchain_image = swapchain_.GetCurrentImage();
     uint32_t const swapchain_image_index = swapchain_.GetCurrentImageIndex();
 
     command_buffer_->TransitionBarrier(output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
-    command_buffer_->BindPipeline(resolve_pipeline_);
-    command_buffer_->BindDescriptorSet(resolve_set_);
-    command_buffer_->SetRootConstants(&sample_count_, sizeof(sample_count_));
+    command_buffer_->BindPipeline(tonemap_pipeline_);
+    command_buffer_->BindDescriptorSet(tonemap_set_);
     command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
     command_buffer_->TransitionBarrier(output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
     output_layout_ = gpu::ImageLayout::kCopySrc;
@@ -692,10 +707,14 @@ void RhiIntegrator::RebuildDescriptorSets()
 
     resolve_set_ = resolve_pipeline_->CreateDescriptorSet();
     resolve_set_->BindBuffer(*camera_buffer_, 0);
-    resolve_set_->BindImage(*output_image_, 1);
+    resolve_set_->BindImage(*resolved_color_image_, 1);
     resolve_set_->BindImage(*radiance_image_, 2);
     resolve_set_->BindImage(*diffuse_albedo_image_, 4);
     resolve_set_->BindImage(*depth_image_, 5);
     resolve_set_->BindImage(*normal_image_, 6);
     resolve_set_->BindImage(*motion_vectors_image_, 7);
+
+    tonemap_set_ = tonemap_pipeline_->CreateDescriptorSet();
+    tonemap_set_->BindImage(*output_image_, 0);
+    tonemap_set_->BindImage(*resolved_color_image_, 1);
 }

@@ -70,7 +70,7 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
     rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     texture_manager_ = std::make_unique<TextureManager>(*rhi_device_);
     scene_ = std::make_unique<Scene>(scene_path_.c_str(), scene_scale_, flip_yz_, *texture_manager_);
-    scene_->AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 15.0f, 10.0f, 5.0f });
+    scene_->AddDirectionalLight({ -0.6f, -1.5f, 3.5f }, { 30.0f, 20.0f, 10.0f });
 
     camera_controller_ = std::make_unique<CameraController>(window_);
 

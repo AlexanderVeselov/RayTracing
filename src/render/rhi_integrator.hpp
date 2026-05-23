@@ -69,6 +69,7 @@ protected:
     void Denoise() override;
     void CopyHistoryBuffers() override;
     void ResolveRadiance() override;
+    void Tonemap() override;
 
 private:
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
@@ -113,6 +114,7 @@ private:
     gpu::ComputePipelinePtr denoiser_pipeline_;
     gpu::ComputePipelinePtr copy_history_pipeline_;
     gpu::ComputePipelinePtr resolve_pipeline_;
+    gpu::ComputePipelinePtr tonemap_pipeline_;
 
     // BVH traversal pipelines
     gpu::ComputePipelinePtr trace_pipeline_;
@@ -132,6 +134,7 @@ private:
     gpu::DescriptorSetPtr denoiser_set_;
     gpu::DescriptorSetPtr copy_history_set_;
     gpu::DescriptorSetPtr resolve_set_;
+    gpu::DescriptorSetPtr tonemap_set_;
 
     // Internal buffers and images
     std::array<gpu::BufferPtr, 2> rays_buffers_;
@@ -151,6 +154,7 @@ private:
     gpu::ImagePtr normal_image_;
     gpu::ImagePtr motion_vectors_image_;
     gpu::ImagePtr direct_light_samples_image_;
+    gpu::ImagePtr resolved_color_image_;
 
     // Scene buffers
     gpu::BufferPtr camera_cpu_buffer_;

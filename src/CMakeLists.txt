@@ -23,6 +23,7 @@ set(SHADER_SOURCES
     shaders/raygeneration.cs
     shaders/reset.cs
     shaders/resolve.cs
+    shaders/tonemap.cs
     shaders/trace_bvh.cs
     shaders/trace_common.hlsli
     shaders/trace_rayquery.cs

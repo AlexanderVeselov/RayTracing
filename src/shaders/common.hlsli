@@ -209,9 +209,3 @@ float SampleRandom(uint pixel_i, uint pixel_j, uint sample_index, uint bounce, u
     seed = WangHash(seed + WangHash(sample_dimension));
     return float(seed) * 2.3283064365386963e-10f;
 }
-
-float3 Tonemap(float3 color)
-{
-    color = color / (1.0f.xxx + color);
-    return pow(saturate(color), 1.0f / 2.2f);
-}
