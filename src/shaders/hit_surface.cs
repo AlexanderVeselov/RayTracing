@@ -27,7 +27,7 @@
 
 struct RootConstants
 {
-    uint sample_count;
+    uint sample_index;
     uint bounce;
     uint width;
     uint white_furnace;
@@ -93,7 +93,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
 
     uint pixel_idx = g_IncomingPixelIndices[ray_idx];
-    uint sample_idx = g_RootConstants.sample_count;
+    uint sample_idx = g_RootConstants.sample_index;
     uint width = g_RootConstants.width;
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;

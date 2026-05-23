@@ -25,9 +25,11 @@
 #pragma once
 
 #include "acc_structures/acceleration_structure.hpp"
+#include "denoiser.hpp"
 #include "gpu_api.hpp"
 #include "path_tracer.hpp"
 #include "post_process.hpp"
+#include "simple_accumulator.hpp"
 #include "utils/camera_controller.hpp"
 
 #include <ctime>
@@ -60,6 +62,7 @@ private:
     void FrameEnd();
     void DrawGUI();
     void HandlePipelineHotReload();
+    void ResetAccumulators();
 
 private:
     // Window
@@ -90,6 +93,8 @@ private:
 
     // Path tracer
     std::unique_ptr<PathTracer> path_tracer_;
+    std::unique_ptr<SimpleAccumulator> accumulator_;
+    std::unique_ptr<Denoiser> denoiser_;
     std::unique_ptr<PostProcess> post_process_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;

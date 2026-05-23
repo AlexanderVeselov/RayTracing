@@ -92,11 +92,16 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
 
     // Create path tracer
     path_tracer_ = std::make_unique<PathTracer>(width_, height_, *rhi_device_, *rhi_swapchain_);
+    accumulator_ = std::make_unique<SimpleAccumulator>(width_, height_, *rhi_device_);
+    denoiser_ = std::make_unique<Denoiser>(width_, height_, *rhi_device_);
     post_process_ = std::make_unique<PostProcess>(width_, height_, *rhi_device_, rhi_swapchain_->GetFormat());
 
     // Upload scene data to the GPU
     path_tracer_->UploadGPUData(*scene_, *acc_structure_, *texture_manager_);
-    post_process_->SetInput(path_tracer_->GetAccumulatedColorImage());
+    accumulator_->SetInput(path_tracer_->GetRadianceImage());
+    denoiser_->SetInputs(path_tracer_->GetRadianceImage(), path_tracer_->GetDepthImage(),
+        path_tracer_->GetMotionVectorsImage());
+    post_process_->SetInput(accumulator_->GetOutputImage());
 }
 
 Render::~Render()
@@ -155,32 +160,36 @@ void Render::DrawGUI()
         if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
         {
             path_tracer_->SetMaxBounces((uint32_t)gui_params_.max_bounces);
+            ResetAccumulators();
         }
 
         if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))
         {
-            path_tracer_->EnableDenoiser(gui_params_.enable_denoiser);
-            post_process_->SetInput(gui_params_.enable_denoiser ? path_tracer_->GetDenoisedColorImage()
-                                                                : path_tracer_->GetAccumulatedColorImage());
+            post_process_->SetInput(gui_params_.enable_denoiser ? denoiser_->GetOutputImage()
+                                                                : accumulator_->GetOutputImage());
+            ResetAccumulators();
         }
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
             path_tracer_->SetSamplerType(gui_params_.enable_blue_noise ? PathTracer::SamplerType::kBlueNoise
                                                                        : PathTracer::SamplerType::kRandom);
+            ResetAccumulators();
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
         {
             path_tracer_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
+            ResetAccumulators();
         }
 
-        static int aov_index = 0;
-        const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
-        if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
-        {
-            path_tracer_->SetAOV((PathTracer::AOV)aov_index);
-        }
+        // TODO: re-enable AOV visualization
+        // static int aov_index = 0;
+        // const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
+        // if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
+        // {
+        //     //path_tracer_->SetAOV((PathTracer::AOV)aov_index);
+        // }
     }
     ImGui::End();
 }
@@ -200,11 +209,17 @@ void Render::HandlePipelineHotReload()
     if (result.success)
     {
         std::cout << "Reloaded " << result.reloaded_count << " pipelines" << std::endl;
-        path_tracer_->RequestReset();
+        ResetAccumulators();
         return;
     }
 
     std::cerr << "Pipeline reload failed: " << result.error << std::endl;
+}
+
+void Render::ResetAccumulators()
+{
+    accumulator_->Reset();
+    denoiser_->Reset();
 }
 
 void Render::RenderFrame()
@@ -214,23 +229,28 @@ void Render::RenderFrame()
     rhi_imgui_renderer_->NewFrame();
     DrawGUI();
 
-    bool need_to_reset = false;
-
     camera_controller_->Update((float)GetDeltaTime());
     path_tracer_->SetCameraData(camera_controller_->GetData());
     HandlePipelineHotReload();
 
-    need_to_reset = need_to_reset || camera_controller_->IsChanged();
-
-    if (need_to_reset)
+    if (camera_controller_->IsChanged())
     {
-        path_tracer_->RequestReset();
+        // Reset only accumulator, not the denoiser
+        accumulator_->Reset();
     }
 
     gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
     rhi_command_buffer_ = queue.CreateCommandBuffer();
     path_tracer_->SetCommandBuffer(*rhi_command_buffer_);
-    path_tracer_->Integrate();
+    path_tracer_->Trace();
+    if (gui_params_.enable_denoiser)
+    {
+        denoiser_->Denoise(*rhi_command_buffer_);
+    }
+    else
+    {
+        accumulator_->Accumulate(*rhi_command_buffer_);
+    }
     post_process_->Tonemap(*rhi_command_buffer_);
     gpu::ImagePtr swapchain_image = rhi_swapchain_->GetCurrentImage();
     uint32_t const swapchain_image_index = rhi_swapchain_->GetCurrentImageIndex();

@@ -58,25 +58,22 @@ public:
     PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
     ~PathTracer();
 
-    void Integrate();
+    void Trace();
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
-    gpu::Image& GetAccumulatedColorImage() const;
-    gpu::Image& GetDenoisedColorImage() const;
+    gpu::ImagePtr const& GetRadianceImage() const;
+    gpu::ImagePtr const& GetDepthImage() const;
+    gpu::ImagePtr const& GetMotionVectorsImage() const;
 
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
         TextureManager const& texture_manager);
     void SetCameraData(Camera const& camera);
-    void RequestReset() { request_reset_ = true; }
     void EnableWhiteFurnace(bool enable);
-    void SetMaxBounces(uint32_t max_bounces);
-    void SetSamplerType(SamplerType sampler_type);
-    void SetAOV(AOV aov);
-    void EnableDenoiser(bool enable);
+    void SetMaxBounces(uint32_t max_bounces) { max_bounces_ = max_bounces; }
+    void SetSamplerType(SamplerType sampler_type) { sampler_type_ = sampler_type;}
 
 private:
     void CreatePipelines();
     void Reset();
-    void AdvanceSampleCount();
     void GenerateRays();
     void IntersectRays(uint32_t bounce);
     void ComputeAOVs();
@@ -86,9 +83,6 @@ private:
     void AccumulateDirectSamples();
     void ClearOutgoingRayCounter(uint32_t bounce);
     void ClearShadowRayCounter();
-    void Denoise();
-    void CopyHistoryBuffers();
-    void AccumulateRadiance();
 
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
@@ -128,9 +122,6 @@ private:
     gpu::ComputePipelinePtr hit_surface_pipeline_;
     gpu::ComputePipelinePtr accumulate_direct_pipeline_;
     gpu::ComputePipelinePtr clear_counter_pipeline_;
-    gpu::ComputePipelinePtr denoiser_pipeline_;
-    gpu::ComputePipelinePtr copy_history_pipeline_;
-    gpu::ComputePipelinePtr accumulate_radiance_pipeline_;
 
     // BVH traversal pipelines
     gpu::ComputePipelinePtr trace_pipeline_;
@@ -146,9 +137,6 @@ private:
     gpu::DescriptorSetPtr accumulate_direct_set_;
     std::array<gpu::DescriptorSetPtr, 2> clear_counter_sets_;
     gpu::DescriptorSetPtr clear_shadow_counter_set_;
-    gpu::DescriptorSetPtr denoiser_set_;
-    gpu::DescriptorSetPtr copy_history_set_;
-    gpu::DescriptorSetPtr accumulate_radiance_set_;
 
     // Internal buffers and images
     std::array<gpu::BufferPtr, 2> rays_buffers_;
@@ -161,14 +149,11 @@ private:
     gpu::BufferPtr shadow_hits_buffer_;
     gpu::ImagePtr throughputs_image_;
     gpu::ImagePtr radiance_image_;
-    gpu::ImagePtr prev_radiance_image_;
     gpu::ImagePtr diffuse_albedo_image_;
     gpu::ImagePtr depth_image_;
-    gpu::ImagePtr prev_depth_image_;
     gpu::ImagePtr normal_image_;
     gpu::ImagePtr motion_vectors_image_;
     gpu::ImagePtr direct_light_samples_image_;
-    gpu::ImagePtr resolved_color_image_;
 
     // Scene buffers
     gpu::BufferPtr camera_cpu_buffer_;
@@ -187,8 +172,8 @@ private:
     gpu::BufferPtr rt_triangles_buffer_;
     gpu::BufferPtr nodes_buffer_;
 
-    // Sample counter
-    uint32_t sample_count_ = 0;
+    // Sample index
+    uint32_t sample_index_ = 0;
 
     uint32_t width_ = 0u;
     uint32_t height_ = 0u;
@@ -196,10 +181,7 @@ private:
     Camera prev_camera_ = {};
     uint32_t max_bounces_ = 3u;
     SamplerType sampler_type_ = SamplerType::kRandom;
-    AOV aov_ = AOV::kShadedColor;
-    bool request_reset_ = false;
     bool enable_white_furnace_ = false;
-    bool enable_denoiser_ = false;
 
     uint32_t triangle_count_ = 0u;
     uint32_t node_count_ = 0u;
