@@ -33,7 +33,6 @@
 #include "acc_structures/bvh.hpp"
 #include "acc_structures/hardware_rt_acceleration_structure.hpp"
 #include "managers/texture_manager.hpp"
-#include "path_tracer.hpp"
 #include "scene/scene.hpp"
 
 #include <imgui.h>
@@ -67,6 +66,7 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
     rhi_api_->SetShaderPath("src/shaders");
     rhi_device_ = rhi_api_->CreateDevice();
     rhi_swapchain_ = rhi_device_->CreateSwapchain(window_.GetNativeHandle(), width_, height_, 3);
+    swapchain_image_layouts_.resize(rhi_swapchain_->GetImageCount(), gpu::ImageLayout::kUndefined);
     rhi_imgui_renderer_ = rhi_device_->CreateImGuiRenderer(window_.GetGlfwWindow(), *rhi_swapchain_);
     texture_manager_ = std::make_unique<TextureManager>(*rhi_device_);
     scene_ = std::make_unique<Scene>(scene_path_.c_str(), scene_scale_, flip_yz_, *texture_manager_);
@@ -92,9 +92,11 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
 
     // Create path tracer
     path_tracer_ = std::make_unique<PathTracer>(width_, height_, *rhi_device_, *rhi_swapchain_);
+    post_process_ = std::make_unique<PostProcess>(width_, height_, *rhi_device_, rhi_swapchain_->GetFormat());
 
     // Upload scene data to the GPU
     path_tracer_->UploadGPUData(*scene_, *acc_structure_, *texture_manager_);
+    post_process_->SetInput(path_tracer_->GetAccumulatedColorImage());
 }
 
 Render::~Render()
@@ -158,6 +160,8 @@ void Render::DrawGUI()
         if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))
         {
             path_tracer_->EnableDenoiser(gui_params_.enable_denoiser);
+            post_process_->SetInput(gui_params_.enable_denoiser ? path_tracer_->GetDenoisedColorImage()
+                                                                : path_tracer_->GetAccumulatedColorImage());
         }
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
@@ -227,10 +231,19 @@ void Render::RenderFrame()
     rhi_command_buffer_ = queue.CreateCommandBuffer();
     path_tracer_->SetCommandBuffer(*rhi_command_buffer_);
     path_tracer_->Integrate();
+    post_process_->Tonemap(*rhi_command_buffer_);
+    gpu::ImagePtr swapchain_image = rhi_swapchain_->GetCurrentImage();
+    uint32_t const swapchain_image_index = rhi_swapchain_->GetCurrentImageIndex();
+    rhi_command_buffer_->TransitionBarrier(swapchain_image, swapchain_image_layouts_[swapchain_image_index],
+        gpu::ImageLayout::kCopyDst);
+    rhi_command_buffer_->CopyImage(swapchain_image, post_process_->GetOutputImage());
+    rhi_command_buffer_->TransitionBarrier(swapchain_image, gpu::ImageLayout::kCopyDst,
+        gpu::ImageLayout::kRenderTarget);
+    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kRenderTarget;
     rhi_imgui_renderer_->Render(*rhi_command_buffer_);
     rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(), gpu::ImageLayout::kRenderTarget,
         gpu::ImageLayout::kPresent);
-    path_tracer_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
+    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kPresent;
     queue.Submit(std::move(rhi_command_buffer_));
     rhi_swapchain_->Present();
 

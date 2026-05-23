@@ -27,11 +27,13 @@
 #include "acc_structures/acceleration_structure.hpp"
 #include "gpu_api.hpp"
 #include "path_tracer.hpp"
+#include "post_process.hpp"
 #include "utils/camera_controller.hpp"
 
 #include <ctime>
 #include <memory>
 #include <string>
+#include <vector>
 
 class Window;
 class Scene;
@@ -83,10 +85,12 @@ private:
     gpu::SwapchainPtr rhi_swapchain_;
     gpu::ImGuiRendererPtr rhi_imgui_renderer_;
     gpu::CommandBufferPtr rhi_command_buffer_;
+    std::vector<gpu::ImageLayout> swapchain_image_layouts_;
     std::unique_ptr<TextureManager> texture_manager_;
 
     // Path tracer
     std::unique_ptr<PathTracer> path_tracer_;
+    std::unique_ptr<PostProcess> post_process_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
 

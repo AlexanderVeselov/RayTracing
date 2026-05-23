@@ -60,7 +60,8 @@ public:
 
     void Integrate();
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
-    void SetCurrentSwapchainImageLayout(gpu::ImageLayout layout);
+    gpu::Image& GetAccumulatedColorImage() const;
+    gpu::Image& GetDenoisedColorImage() const;
 
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
         TextureManager const& texture_manager);
@@ -88,7 +89,6 @@ private:
     void Denoise();
     void CopyHistoryBuffers();
     void AccumulateRadiance();
-    void Tonemap();
 
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
@@ -119,7 +119,6 @@ private:
     TextureManager const* texture_manager_ = nullptr;
     HardwareRtAccelerationStructure const* hardware_rt_acc_structure_ = nullptr;
     bool use_hardware_rt_ = false;
-    gpu::ImagePtr output_image_;
     gpu::CommandBuffer* command_buffer_ = nullptr;
 
     // Path tracing pipelines
@@ -132,7 +131,6 @@ private:
     gpu::ComputePipelinePtr denoiser_pipeline_;
     gpu::ComputePipelinePtr copy_history_pipeline_;
     gpu::ComputePipelinePtr accumulate_radiance_pipeline_;
-    gpu::ComputePipelinePtr tonemap_pipeline_;
 
     // BVH traversal pipelines
     gpu::ComputePipelinePtr trace_pipeline_;
@@ -151,8 +149,6 @@ private:
     gpu::DescriptorSetPtr denoiser_set_;
     gpu::DescriptorSetPtr copy_history_set_;
     gpu::DescriptorSetPtr accumulate_radiance_set_;
-    gpu::DescriptorSetPtr tonemap_set_;
-    gpu::DescriptorSetPtr denoised_tonemap_set_;
 
     // Internal buffers and images
     std::array<gpu::BufferPtr, 2> rays_buffers_;
@@ -205,8 +201,6 @@ private:
     bool enable_white_furnace_ = false;
     bool enable_denoiser_ = false;
 
-    gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
-    std::vector<gpu::ImageLayout> swapchain_image_layouts_;
     uint32_t triangle_count_ = 0u;
     uint32_t node_count_ = 0u;
     uint32_t light_count_ = 0u;

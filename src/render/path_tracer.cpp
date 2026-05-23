@@ -72,9 +72,6 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
 {
     use_hardware_rt_ = device_.SupportsRayQuery();
 
-    output_image_ = device_.CreateImage(width_, height_, swapchain_.GetFormat(),
-        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-
     uint32_t num_pixels = width_ * height_;
     for (uint32_t i = 0; i < 2; ++i)
     {
@@ -127,8 +124,6 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
     scene_info_buffer_ = device_.CreateBuffer(sizeof(RhiSceneInfoData), sizeof(RhiSceneInfoData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
-    swapchain_image_layouts_.resize(swapchain_.GetImageCount(), gpu::ImageLayout::kUndefined);
-
     CreatePipelines();
 }
 
@@ -170,8 +165,6 @@ void PathTracer::Integrate()
     {
         AccumulateRadiance();
     }
-
-    Tonemap();
 }
 
 void PathTracer::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
@@ -179,9 +172,14 @@ void PathTracer::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
     command_buffer_ = &command_buffer;
 }
 
-void PathTracer::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
+gpu::Image& PathTracer::GetAccumulatedColorImage() const
 {
-    swapchain_image_layouts_[swapchain_.GetCurrentImageIndex()] = layout;
+    return *resolved_color_image_;
+}
+
+gpu::Image& PathTracer::GetDenoisedColorImage() const
+{
+    return *radiance_image_;
 }
 
 void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
@@ -363,7 +361,6 @@ void PathTracer::CreatePipelines()
     denoiser_pipeline_ = device_.CreateComputePipeline("denoiser.cs");
     copy_history_pipeline_ = device_.CreateComputePipeline("copy_history.cs");
     accumulate_radiance_pipeline_ = device_.CreateComputePipeline("accumulate_radiance.cs");
-    tonemap_pipeline_ = device_.CreateComputePipeline("tonemap.cs");
 }
 
 void PathTracer::Reset()
@@ -571,28 +568,6 @@ void PathTracer::AccumulateRadiance()
     command_buffer_->StorageBarrier(resolved_color_image_);
 }
 
-void PathTracer::Tonemap()
-{
-    gpu::DescriptorSetPtr const& descriptor_set = enable_denoiser_ ? denoised_tonemap_set_ : tonemap_set_;
-    assert(tonemap_pipeline_ && descriptor_set);
-    assert(command_buffer_ && "PathTracer::Tonemap(): command buffer is not initialized");
-
-    gpu::ImagePtr swapchain_image = swapchain_.GetCurrentImage();
-    uint32_t const swapchain_image_index = swapchain_.GetCurrentImageIndex();
-
-    command_buffer_->TransitionBarrier(output_image_, output_layout_, gpu::ImageLayout::kShaderReadWrite);
-    command_buffer_->BindPipeline(tonemap_pipeline_);
-    command_buffer_->BindDescriptorSet(descriptor_set);
-    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
-    command_buffer_->TransitionBarrier(output_image_, gpu::ImageLayout::kShaderReadWrite, gpu::ImageLayout::kCopySrc);
-    output_layout_ = gpu::ImageLayout::kCopySrc;
-    command_buffer_->TransitionBarrier(swapchain_image, swapchain_image_layouts_[swapchain_image_index],
-        gpu::ImageLayout::kCopyDst);
-    command_buffer_->CopyImage(swapchain_image, output_image_);
-    command_buffer_->TransitionBarrier(swapchain_image, gpu::ImageLayout::kCopyDst, gpu::ImageLayout::kRenderTarget);
-    swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kRenderTarget;
-}
-
 gpu::BufferPtr PathTracer::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
@@ -779,12 +754,4 @@ void PathTracer::RebuildDescriptorSets()
     accumulate_radiance_set_ = accumulate_radiance_pipeline_->CreateDescriptorSet();
     accumulate_radiance_set_->BindImage(*resolved_color_image_, 0);
     accumulate_radiance_set_->BindImage(*radiance_image_, 1);
-
-    tonemap_set_ = tonemap_pipeline_->CreateDescriptorSet();
-    tonemap_set_->BindImage(*output_image_, 0);
-    tonemap_set_->BindImage(*resolved_color_image_, 1);
-
-    denoised_tonemap_set_ = tonemap_pipeline_->CreateDescriptorSet();
-    denoised_tonemap_set_->BindImage(*output_image_, 0);
-    denoised_tonemap_set_->BindImage(*radiance_image_, 1);
 }

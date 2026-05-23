@@ -1,6 +1,8 @@
 set(RENDER_SOURCES
     render/path_tracer.cpp
     render/path_tracer.hpp
+    render/post_process.cpp
+    render/post_process.hpp
     render/render.cpp
     render/render.hpp
 )
