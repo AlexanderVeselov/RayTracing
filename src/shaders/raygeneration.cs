@@ -27,7 +27,7 @@
 
 struct RootConstants
 {
-    uint sample_count;
+    uint sample_index;
     uint width;
     uint height;
 };
@@ -84,7 +84,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         g_RayCounter[0] = num_pixels;
     }
 
-    uint sample_idx = g_RootConstants.sample_count;
+    uint sample_idx = g_RootConstants.sample_index;
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
     uint2 pixel_coord = uint2(pixel_x, pixel_y);

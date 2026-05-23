@@ -91,13 +91,9 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_radiance_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
-        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     diffuse_albedo_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA8_UNorm,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
-        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    prev_depth_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kR32_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     normal_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
@@ -105,16 +101,12 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
     direct_light_samples_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
         gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
-    resolved_color_image_ = device_.CreateImage(width_, height_, gpu::ImageFormat::kRGBA16_Float,
-        gpu::ImageFlags::kStorage | gpu::ImageFlags::kShaderResource);
 
     // Transition all images to kShaderReadWrite layout
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr transition_cmd_buffer = queue.CreateCommandBuffer();
-    transition_cmd_buffer->TransitionBarrier({ throughputs_image_, radiance_image_, prev_radiance_image_,
-                                                 diffuse_albedo_image_, depth_image_, prev_depth_image_, normal_image_,
-                                                 motion_vectors_image_, direct_light_samples_image_,
-                                                 resolved_color_image_ },
+    transition_cmd_buffer->TransitionBarrier({ throughputs_image_, radiance_image_, diffuse_albedo_image_, depth_image_,
+                                                 normal_image_, motion_vectors_image_, direct_light_samples_image_ },
         gpu::ImageLayout::kUndefined, gpu::ImageLayout::kShaderReadWrite);
     queue.Submit(std::move(transition_cmd_buffer));
     queue.WaitIdle();
@@ -129,14 +121,8 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
 
 PathTracer::~PathTracer() = default;
 
-void PathTracer::Integrate()
+void PathTracer::Trace()
 {
-    if (request_reset_)
-    {
-        Reset();
-        request_reset_ = false;
-    }
-
     GenerateRays();
 
     for (uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
@@ -154,17 +140,7 @@ void PathTracer::Integrate()
         AccumulateDirectSamples();
     }
 
-    AdvanceSampleCount();
-
-    if (enable_denoiser_)
-    {
-        Denoise();
-        CopyHistoryBuffers();
-    }
-    else
-    {
-        AccumulateRadiance();
-    }
+    ++sample_index_;
 }
 
 void PathTracer::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
@@ -172,14 +148,19 @@ void PathTracer::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
     command_buffer_ = &command_buffer;
 }
 
-gpu::Image& PathTracer::GetAccumulatedColorImage() const
+gpu::ImagePtr const& PathTracer::GetRadianceImage() const
 {
-    return *resolved_color_image_;
+    return radiance_image_;
 }
 
-gpu::Image& PathTracer::GetDenoisedColorImage() const
+gpu::ImagePtr const& PathTracer::GetDepthImage() const
 {
-    return *radiance_image_;
+    return depth_image_;
+}
+
+gpu::ImagePtr const& PathTracer::GetMotionVectorsImage() const
+{
+    return motion_vectors_image_;
 }
 
 void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
@@ -255,7 +236,6 @@ void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& 
 
     SetCameraData(camera_);
     RebuildDescriptorSets();
-    RequestReset();
 }
 
 void PathTracer::SetCameraData(Camera const& camera)
@@ -271,23 +251,6 @@ void PathTracer::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void PathTracer::SetSamplerType(SamplerType sampler_type)
-{
-    if (sampler_type == sampler_type_)
-    {
-        return;
-    }
-
-    sampler_type_ = sampler_type;
-    RequestReset();
-}
-
-void PathTracer::SetMaxBounces(uint32_t max_bounces)
-{
-    max_bounces_ = max_bounces;
-    RequestReset();
-}
-
 void PathTracer::EnableWhiteFurnace(bool enable)
 {
     if (enable == enable_white_furnace_)
@@ -297,29 +260,6 @@ void PathTracer::EnableWhiteFurnace(bool enable)
 
     enable_white_furnace_ = enable;
     CreatePipelines();
-    RequestReset();
-}
-
-void PathTracer::SetAOV(AOV aov)
-{
-    if (aov == aov_)
-    {
-        return;
-    }
-
-    aov_ = aov;
-    RequestReset();
-}
-
-void PathTracer::EnableDenoiser(bool enable)
-{
-    if (enable == enable_denoiser_)
-    {
-        return;
-    }
-
-    enable_denoiser_ = enable;
-    RequestReset();
 }
 
 void PathTracer::UpdateCameraData()
@@ -358,22 +298,6 @@ void PathTracer::CreatePipelines()
     hit_surface_pipeline_ = device_.CreateComputePipeline("hit_surface.cs");
     accumulate_direct_pipeline_ = device_.CreateComputePipeline("accumulate_direct_samples.cs");
     clear_counter_pipeline_ = device_.CreateComputePipeline("clear_counter.cs");
-    denoiser_pipeline_ = device_.CreateComputePipeline("denoiser.cs");
-    copy_history_pipeline_ = device_.CreateComputePipeline("copy_history.cs");
-    accumulate_radiance_pipeline_ = device_.CreateComputePipeline("accumulate_radiance.cs");
-}
-
-void PathTracer::Reset()
-{
-    if (!enable_denoiser_)
-    {
-        sample_count_ = 0;
-    }
-}
-
-void PathTracer::AdvanceSampleCount()
-{
-    sample_count_++;
 }
 
 void PathTracer::GenerateRays()
@@ -383,10 +307,10 @@ void PathTracer::GenerateRays()
 
     struct RaygenRootConstants
     {
-        uint32_t sample_count;
+        uint32_t sample_index;
         uint32_t width;
         uint32_t height;
-    } root_constants = { sample_count_, width_, height_ };
+    } root_constants = { sample_index_, width_, height_ };
 
     command_buffer_->CopyBuffer(camera_cpu_buffer_, 0, camera_buffer_, 0, sizeof(RhiCameraData));
     command_buffer_->BindPipeline(raygen_pipeline_);
@@ -461,11 +385,11 @@ void PathTracer::ShadeSurfaceHits(uint32_t bounce)
 
     struct ShadeRootConstants
     {
-        uint32_t sample_count;
+        uint32_t sample_index;
         uint32_t bounce;
         uint32_t width;
         uint32_t white_furnace;
-    } root_constants = { sample_count_, bounce, width_, enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u };
+    } root_constants = { sample_index_, bounce, width_, enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u };
 
     command_buffer_->BindPipeline(hit_surface_pipeline_);
     command_buffer_->BindDescriptorSet(hit_surface_sets_[bounce & 1]);
@@ -524,48 +448,6 @@ void PathTracer::ClearShadowRayCounter()
     command_buffer_->BindDescriptorSet(clear_shadow_counter_set_);
     command_buffer_->Dispatch(1, 1, 1);
     command_buffer_->StorageBarrier(shadow_ray_counter_buffer_);
-}
-
-void PathTracer::Denoise()
-{
-    assert(denoiser_pipeline_ && denoiser_set_);
-    assert(command_buffer_ && "PathTracer::Denoise(): command buffer is not initialized");
-
-    struct DenoiserRootConstants
-    {
-        uint32_t width;
-        uint32_t height;
-    } root_constants = { width_, height_ };
-
-    command_buffer_->BindPipeline(denoiser_pipeline_);
-    command_buffer_->BindDescriptorSet(denoiser_set_);
-    command_buffer_->SetRootConstants(&root_constants, sizeof(root_constants));
-    command_buffer_->Dispatch(DivideAndRoundUp(width_ * height_, 256), 1, 1);
-    command_buffer_->StorageBarrier(radiance_image_);
-}
-
-void PathTracer::CopyHistoryBuffers()
-{
-    assert(copy_history_pipeline_ && copy_history_set_);
-    assert(command_buffer_ && "PathTracer::CopyHistoryBuffers(): command buffer is not initialized");
-
-    command_buffer_->BindPipeline(copy_history_pipeline_);
-    command_buffer_->BindDescriptorSet(copy_history_set_);
-    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
-    command_buffer_->StorageBarrier(prev_radiance_image_);
-    command_buffer_->StorageBarrier(prev_depth_image_);
-}
-
-void PathTracer::AccumulateRadiance()
-{
-    assert(accumulate_radiance_pipeline_ && accumulate_radiance_set_);
-    assert(command_buffer_ && "PathTracer::AccumulateRadiance(): command buffer is not initialized");
-
-    command_buffer_->BindPipeline(accumulate_radiance_pipeline_);
-    command_buffer_->BindDescriptorSet(accumulate_radiance_set_);
-    command_buffer_->SetRootConstants(&sample_count_, sizeof(sample_count_));
-    command_buffer_->Dispatch(DivideAndRoundUp(width_, 8), DivideAndRoundUp(height_, 8), 1);
-    command_buffer_->StorageBarrier(resolved_color_image_);
 }
 
 gpu::BufferPtr PathTracer::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
@@ -737,21 +619,4 @@ void PathTracer::RebuildDescriptorSets()
 
     clear_shadow_counter_set_ = clear_counter_pipeline_->CreateDescriptorSet();
     clear_shadow_counter_set_->BindBuffer(*shadow_ray_counter_buffer_, 0);
-
-    denoiser_set_ = denoiser_pipeline_->CreateDescriptorSet();
-    denoiser_set_->BindImage(*radiance_image_, 1);
-    denoiser_set_->BindImage(*prev_radiance_image_, 2);
-    denoiser_set_->BindImage(*depth_image_, 3);
-    denoiser_set_->BindImage(*prev_depth_image_, 4);
-    denoiser_set_->BindImage(*motion_vectors_image_, 5);
-
-    copy_history_set_ = copy_history_pipeline_->CreateDescriptorSet();
-    copy_history_set_->BindImage(*radiance_image_, 0);
-    copy_history_set_->BindImage(*prev_radiance_image_, 1);
-    copy_history_set_->BindImage(*depth_image_, 2);
-    copy_history_set_->BindImage(*prev_depth_image_, 3);
-
-    accumulate_radiance_set_ = accumulate_radiance_pipeline_->CreateDescriptorSet();
-    accumulate_radiance_set_->BindImage(*resolved_color_image_, 0);
-    accumulate_radiance_set_->BindImage(*radiance_image_, 1);
 }

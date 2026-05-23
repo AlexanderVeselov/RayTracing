@@ -22,39 +22,38 @@
  SOFTWARE.
  *****************************************************************************/
 
-struct RootConstants
+#pragma once
+
+#include "gpu_types.hpp"
+
+#include <cstdint>
+
+namespace gpu
 {
-    uint sample_count;
+class CommandBuffer;
+class Device;
+class Image;
+}  // namespace gpu
+
+class SimpleAccumulator
+{
+public:
+    SimpleAccumulator(uint32_t width, uint32_t height, gpu::Device& device);
+    ~SimpleAccumulator();
+
+    void SetInput(gpu::ImagePtr const& radiance_image);
+    void Accumulate(gpu::CommandBuffer& command_buffer);
+    void Reset() { num_samples_ = 0; }
+    gpu::Image& GetOutputImage() const;
+
+private:
+    gpu::Device& device_;
+    uint32_t width_ = 0u;
+    uint32_t height_ = 0u;
+
+    gpu::ImagePtr accumulated_color_image_;
+    gpu::ComputePipelinePtr accumulate_radiance_pipeline_;
+    gpu::DescriptorSetPtr accumulate_radiance_set_;
+
+    uint32_t num_samples_ = 0u;
 };
-
-ROOT_CONSTANTS
-ConstantBuffer<RootConstants> g_RootConstants;
-
-IMAGE_FORMAT("rgba16f")
-RWTexture2D<float4> g_AccumulatedColor : register(u0);
-
-IMAGE_FORMAT("rgba16f")
-RWTexture2D<float4> g_Radiance : register(u1);
-
-[numthreads(8, 8, 1)]
-void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
-{
-    uint width;
-    uint height;
-    g_AccumulatedColor.GetDimensions(width, height);
-    if (dispatch_thread_id.x >= width || dispatch_thread_id.y >= height)
-    {
-        return;
-    }
-
-    uint2 pixel_coord = dispatch_thread_id.xy;
-    float sample_count = max(float(g_RootConstants.sample_count), 1.0f);
-    float3 current_radiance = g_Radiance[pixel_coord].xyz;
-    float3 previous_radiance = g_AccumulatedColor[pixel_coord].xyz;
-
-    // On the first frame previous radiance is undefined, so we explicitly
-    // set accumulated radiance to current radiance in that case.
-    float3 accumulated_color = (sample_count == 1) ? current_radiance :
-        lerp(previous_radiance, current_radiance, 1.0f / sample_count);
-    g_AccumulatedColor[pixel_coord] = float4(accumulated_color, 1.0f);
-}

@@ -22,39 +22,43 @@
  SOFTWARE.
  *****************************************************************************/
 
-struct RootConstants
+#pragma once
+
+#include "gpu_types.hpp"
+
+#include <cstdint>
+
+namespace gpu
 {
-    uint sample_count;
+class CommandBuffer;
+class Device;
+class Image;
+}  // namespace gpu
+
+class Denoiser
+{
+public:
+    Denoiser(uint32_t width, uint32_t height, gpu::Device& device);
+    ~Denoiser();
+
+    void SetInputs(gpu::ImagePtr const& radiance_image, gpu::ImagePtr const& depth_image,
+        gpu::ImagePtr const& motion_vectors_image);
+    void Denoise(gpu::CommandBuffer& command_buffer);
+    gpu::Image& GetOutputImage() const;
+    void Reset() { do_reset_ = true; }
+
+private:
+    gpu::Device& device_;
+    uint32_t width_ = 0u;
+    uint32_t height_ = 0u;
+
+    gpu::ImagePtr radiance_image_;
+    gpu::ImagePtr prev_radiance_image_;
+    gpu::ImagePtr prev_depth_image_;
+    gpu::ComputePipelinePtr denoiser_pipeline_;
+    gpu::ComputePipelinePtr copy_history_pipeline_;
+    gpu::DescriptorSetPtr denoiser_set_;
+    gpu::DescriptorSetPtr copy_history_set_;
+
+    bool do_reset_ = true;
 };
-
-ROOT_CONSTANTS
-ConstantBuffer<RootConstants> g_RootConstants;
-
-IMAGE_FORMAT("rgba16f")
-RWTexture2D<float4> g_AccumulatedColor : register(u0);
-
-IMAGE_FORMAT("rgba16f")
-RWTexture2D<float4> g_Radiance : register(u1);
-
-[numthreads(8, 8, 1)]
-void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
-{
-    uint width;
-    uint height;
-    g_AccumulatedColor.GetDimensions(width, height);
-    if (dispatch_thread_id.x >= width || dispatch_thread_id.y >= height)
-    {
-        return;
-    }
-
-    uint2 pixel_coord = dispatch_thread_id.xy;
-    float sample_count = max(float(g_RootConstants.sample_count), 1.0f);
-    float3 current_radiance = g_Radiance[pixel_coord].xyz;
-    float3 previous_radiance = g_AccumulatedColor[pixel_coord].xyz;
-
-    // On the first frame previous radiance is undefined, so we explicitly
-    // set accumulated radiance to current radiance in that case.
-    float3 accumulated_color = (sample_count == 1) ? current_radiance :
-        lerp(previous_radiance, current_radiance, 1.0f / sample_count);
-    g_AccumulatedColor[pixel_coord] = float4(accumulated_color, 1.0f);
-}

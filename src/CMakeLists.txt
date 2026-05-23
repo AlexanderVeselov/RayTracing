@@ -1,10 +1,14 @@
 set(RENDER_SOURCES
+    render/denoiser.cpp
+    render/denoiser.hpp
     render/path_tracer.cpp
     render/path_tracer.hpp
     render/post_process.cpp
     render/post_process.hpp
     render/render.cpp
     render/render.hpp
+    render/simple_accumulator.cpp
+    render/simple_accumulator.hpp
 )
 
 set(SHADER_SOURCES
