@@ -51,6 +51,10 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     float sample_count = max(float(g_RootConstants.sample_count), 1.0f);
     float3 current_radiance = g_Radiance[pixel_coord].xyz;
     float3 previous_radiance = g_AccumulatedColor[pixel_coord].xyz;
-    float3 color = lerp(previous_radiance, current_radiance, 1.0f / sample_count);
-    g_AccumulatedColor[pixel_coord] = float4(color, 1.0f);
+
+    // On the first frame previous radiance is undefined, so we explicitly
+    // set accumulated radiance to current radiance in that case.
+    float3 accumulated_color = (sample_count == 1) ? current_radiance :
+        lerp(previous_radiance, current_radiance, 1.0f / sample_count);
+    g_AccumulatedColor[pixel_coord] = float4(accumulated_color, 1.0f);
 }

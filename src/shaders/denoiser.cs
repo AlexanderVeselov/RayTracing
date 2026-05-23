@@ -85,5 +85,9 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
     float3 current_radiance = g_Radiance[pixel_coord].xyz;
     float3 prev_radiance = g_PrevRadiance[prev_coord].xyz;
-    g_Radiance[pixel_coord] = float4(lerp(current_radiance, prev_radiance, g_RootConstants.reset ? 0.0f : 0.9f), 0.0f);
+
+    // When resetting, some garbage from prev_radiance may still crawl through lerp, so we explicitly
+    // set accumulated radiance to current radiance in that case.
+    float3 accumulated_radiance = g_RootConstants.reset ? current_radiance : lerp(current_radiance, prev_radiance, 0.9f);
+    g_Radiance[pixel_coord] = float4(accumulated_radiance, 0.0f);
 }

@@ -73,7 +73,6 @@ public:
 
 private:
     void CreatePipelines();
-    void Reset();
     void GenerateRays();
     void IntersectRays(uint32_t bounce);
     void ComputeAOVs();

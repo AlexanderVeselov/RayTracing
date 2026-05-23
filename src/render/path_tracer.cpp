@@ -307,7 +307,7 @@ void PathTracer::GenerateRays()
 
     struct RaygenRootConstants
     {
-        uint32_t sample_count;
+        uint32_t sample_index;
         uint32_t width;
         uint32_t height;
     } root_constants = { sample_index_, width_, height_ };
@@ -385,7 +385,7 @@ void PathTracer::ShadeSurfaceHits(uint32_t bounce)
 
     struct ShadeRootConstants
     {
-        uint32_t sample_count;
+        uint32_t sample_index;
         uint32_t bounce;
         uint32_t width;
         uint32_t white_furnace;
