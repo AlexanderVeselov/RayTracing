@@ -22,7 +22,7 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "rhi_integrator.hpp"
+#include "path_tracer.hpp"
 
 #include "gpu_command_buffer.hpp"
 #include "gpu_descriptor_set.hpp"
@@ -67,8 +67,8 @@ inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
 
 }  // namespace
 
-RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain)
-    : Integrator(width, height), device_(device), swapchain_(swapchain)
+PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain)
+    : width_(width), height_(height), device_(device), swapchain_(swapchain)
 {
     use_hardware_rt_ = device_.SupportsRayQuery();
 
@@ -132,17 +132,59 @@ RhiIntegrator::RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& devic
     CreatePipelines();
 }
 
-void RhiIntegrator::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
+PathTracer::~PathTracer() = default;
+
+void PathTracer::Integrate()
+{
+    if (request_reset_)
+    {
+        Reset();
+        request_reset_ = false;
+    }
+
+    GenerateRays();
+
+    for (uint32_t bounce = 0; bounce <= max_bounces_; ++bounce)
+    {
+        IntersectRays(bounce);
+        if (bounce == 0)
+        {
+            ComputeAOVs();
+        }
+        ShadeMissedRays(bounce);
+        ClearOutgoingRayCounter(bounce);
+        ClearShadowRayCounter();
+        ShadeSurfaceHits(bounce);
+        IntersectShadowRays();
+        AccumulateDirectSamples();
+    }
+
+    AdvanceSampleCount();
+
+    if (enable_denoiser_)
+    {
+        Denoise();
+        CopyHistoryBuffers();
+    }
+    else
+    {
+        AccumulateRadiance();
+    }
+
+    Tonemap();
+}
+
+void PathTracer::SetCommandBuffer(gpu::CommandBuffer& command_buffer)
 {
     command_buffer_ = &command_buffer;
 }
 
-void RhiIntegrator::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
+void PathTracer::SetCurrentSwapchainImageLayout(gpu::ImageLayout layout)
 {
     swapchain_image_layouts_[swapchain_.GetCurrentImageIndex()] = layout;
 }
 
-void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
+void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
     TextureManager const& texture_manager)
 {
     auto const& vertices = scene.GetVertices();
@@ -161,7 +203,6 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = texture_manager.TextureCount();
     env_map_index_ = scene_info.environment_map_index;
-    Texture const& env_map = texture_manager.GetTexture(env_map_index_);
 
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
@@ -179,7 +220,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     light_buffer_ = CreateGpuBuffer(lights, upload_command_buffer, staging_buffers);
     if (texture_count_ > kMaxTextureCount)
     {
-        throw std::runtime_error("RhiIntegrator::UploadGPUData: too many textures for shader descriptor array");
+        throw std::runtime_error("PathTracer::UploadGPUData: too many textures for shader descriptor array");
     }
 
     fallback_texture_image_ = CreateFallbackTexture(upload_command_buffer);
@@ -219,7 +260,7 @@ void RhiIntegrator::UploadGPUData(Scene const& scene, AccelerationStructure cons
     RequestReset();
 }
 
-void RhiIntegrator::SetCameraData(Camera const& camera)
+void PathTracer::SetCameraData(Camera const& camera)
 {
     if (prev_camera_.fov == 0.0f)
     {
@@ -232,7 +273,7 @@ void RhiIntegrator::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void RhiIntegrator::SetSamplerType(SamplerType sampler_type)
+void PathTracer::SetSamplerType(SamplerType sampler_type)
 {
     if (sampler_type == sampler_type_)
     {
@@ -243,7 +284,25 @@ void RhiIntegrator::SetSamplerType(SamplerType sampler_type)
     RequestReset();
 }
 
-void RhiIntegrator::SetAOV(AOV aov)
+void PathTracer::SetMaxBounces(uint32_t max_bounces)
+{
+    max_bounces_ = max_bounces;
+    RequestReset();
+}
+
+void PathTracer::EnableWhiteFurnace(bool enable)
+{
+    if (enable == enable_white_furnace_)
+    {
+        return;
+    }
+
+    enable_white_furnace_ = enable;
+    CreatePipelines();
+    RequestReset();
+}
+
+void PathTracer::SetAOV(AOV aov)
 {
     if (aov == aov_)
     {
@@ -254,7 +313,7 @@ void RhiIntegrator::SetAOV(AOV aov)
     RequestReset();
 }
 
-void RhiIntegrator::EnableDenoiser(bool enable)
+void PathTracer::EnableDenoiser(bool enable)
 {
     if (enable == enable_denoiser_)
     {
@@ -265,7 +324,7 @@ void RhiIntegrator::EnableDenoiser(bool enable)
     RequestReset();
 }
 
-void RhiIntegrator::UpdateCameraData()
+void PathTracer::UpdateCameraData()
 {
     RhiCameraData data = {};
     data.camera = camera_;
@@ -276,7 +335,7 @@ void RhiIntegrator::UpdateCameraData()
     camera_cpu_buffer_->Unmap();
 }
 
-void RhiIntegrator::UploadSceneInfo(gpu::CommandBuffer& upload_command_buffer,
+void PathTracer::UploadSceneInfo(gpu::CommandBuffer& upload_command_buffer,
     std::vector<gpu::BufferPtr>& staging_buffers)
 {
     RhiSceneInfoData scene_info = {};
@@ -290,7 +349,7 @@ void RhiIntegrator::UploadSceneInfo(gpu::CommandBuffer& upload_command_buffer,
     staging_buffers.push_back(std::move(staging_buffer));
 }
 
-void RhiIntegrator::CreatePipelines()
+void PathTracer::CreatePipelines()
 {
     raygen_pipeline_ = device_.CreateComputePipeline("raygeneration.cs");
     trace_pipeline_ = device_.CreateComputePipeline(use_hardware_rt_ ? "trace_rayquery.cs" : "trace_bvh.cs");
@@ -307,7 +366,7 @@ void RhiIntegrator::CreatePipelines()
     tonemap_pipeline_ = device_.CreateComputePipeline("tonemap.cs");
 }
 
-void RhiIntegrator::Reset()
+void PathTracer::Reset()
 {
     if (!enable_denoiser_)
     {
@@ -315,15 +374,15 @@ void RhiIntegrator::Reset()
     }
 }
 
-void RhiIntegrator::AdvanceSampleCount()
+void PathTracer::AdvanceSampleCount()
 {
     sample_count_++;
 }
 
-void RhiIntegrator::GenerateRays()
+void PathTracer::GenerateRays()
 {
     assert(raygen_pipeline_ && raygen_set_);
-    assert(command_buffer_ && "RhiIntegrator::GenerateRays(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::GenerateRays(): command buffer is not initialized");
 
     struct RaygenRootConstants
     {
@@ -348,10 +407,10 @@ void RhiIntegrator::GenerateRays()
     command_buffer_->StorageBarrier(motion_vectors_image_);
 }
 
-void RhiIntegrator::IntersectRays(uint32_t bounce)
+void PathTracer::IntersectRays(uint32_t bounce)
 {
     assert(trace_pipeline_ && trace_sets_[bounce & 1]);
-    assert(command_buffer_ && "RhiIntegrator::IntersectRays(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::IntersectRays(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(trace_pipeline_);
     command_buffer_->BindDescriptorSet(trace_sets_[bounce & 1]);
@@ -359,10 +418,10 @@ void RhiIntegrator::IntersectRays(uint32_t bounce)
     command_buffer_->StorageBarrier(hits_buffer_);
 }
 
-void RhiIntegrator::ComputeAOVs()
+void PathTracer::ComputeAOVs()
 {
     assert(aov_pipeline_ && aov_set_);
-    assert(command_buffer_ && "RhiIntegrator::ComputeAOVs(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::ComputeAOVs(): command buffer is not initialized");
 
     struct AovRootConstants
     {
@@ -379,10 +438,10 @@ void RhiIntegrator::ComputeAOVs()
     command_buffer_->StorageBarrier(motion_vectors_image_);
 }
 
-void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
+void PathTracer::ShadeMissedRays(uint32_t bounce)
 {
     assert(miss_pipeline_ && miss_sets_[bounce & 1]);
-    assert(command_buffer_ && "RhiIntegrator::ShadeMissedRays(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::ShadeMissedRays(): command buffer is not initialized");
 
     struct MissRootConstants
     {
@@ -398,10 +457,10 @@ void RhiIntegrator::ShadeMissedRays(uint32_t bounce)
     command_buffer_->StorageBarrier(radiance_image_);
 }
 
-void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
+void PathTracer::ShadeSurfaceHits(uint32_t bounce)
 {
     assert(hit_surface_pipeline_ && hit_surface_sets_[bounce & 1]);
-    assert(command_buffer_ && "RhiIntegrator::ShadeSurfaceHits(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::ShadeSurfaceHits(): command buffer is not initialized");
 
     struct ShadeRootConstants
     {
@@ -426,10 +485,10 @@ void RhiIntegrator::ShadeSurfaceHits(uint32_t bounce)
     command_buffer_->StorageBarrier(radiance_image_);
 }
 
-void RhiIntegrator::IntersectShadowRays()
+void PathTracer::IntersectShadowRays()
 {
     assert(trace_shadow_pipeline_ && trace_shadow_set_);
-    assert(command_buffer_ && "RhiIntegrator::IntersectShadowRays(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::IntersectShadowRays(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(trace_shadow_pipeline_);
     command_buffer_->BindDescriptorSet(trace_shadow_set_);
@@ -437,10 +496,10 @@ void RhiIntegrator::IntersectShadowRays()
     command_buffer_->StorageBarrier(shadow_hits_buffer_);
 }
 
-void RhiIntegrator::AccumulateDirectSamples()
+void PathTracer::AccumulateDirectSamples()
 {
     assert(accumulate_direct_pipeline_ && accumulate_direct_set_);
-    assert(command_buffer_ && "RhiIntegrator::AccumulateDirectSamples(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::AccumulateDirectSamples(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(accumulate_direct_pipeline_);
     command_buffer_->BindDescriptorSet(accumulate_direct_set_);
@@ -448,10 +507,10 @@ void RhiIntegrator::AccumulateDirectSamples()
     command_buffer_->StorageBarrier(radiance_image_);
 }
 
-void RhiIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
+void PathTracer::ClearOutgoingRayCounter(uint32_t bounce)
 {
     assert(clear_counter_pipeline_ && clear_counter_sets_[(bounce + 1) & 1]);
-    assert(command_buffer_ && "RhiIntegrator::ClearOutgoingRayCounter(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::ClearOutgoingRayCounter(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(clear_counter_pipeline_);
     command_buffer_->BindDescriptorSet(clear_counter_sets_[(bounce + 1) & 1]);
@@ -459,10 +518,10 @@ void RhiIntegrator::ClearOutgoingRayCounter(uint32_t bounce)
     command_buffer_->StorageBarrier(ray_counter_buffers_[(bounce + 1) & 1]);
 }
 
-void RhiIntegrator::ClearShadowRayCounter()
+void PathTracer::ClearShadowRayCounter()
 {
     assert(clear_counter_pipeline_ && clear_shadow_counter_set_);
-    assert(command_buffer_ && "RhiIntegrator::ClearShadowRayCounter(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::ClearShadowRayCounter(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(clear_counter_pipeline_);
     command_buffer_->BindDescriptorSet(clear_shadow_counter_set_);
@@ -470,10 +529,10 @@ void RhiIntegrator::ClearShadowRayCounter()
     command_buffer_->StorageBarrier(shadow_ray_counter_buffer_);
 }
 
-void RhiIntegrator::Denoise()
+void PathTracer::Denoise()
 {
     assert(denoiser_pipeline_ && denoiser_set_);
-    assert(command_buffer_ && "RhiIntegrator::Denoise(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::Denoise(): command buffer is not initialized");
 
     struct DenoiserRootConstants
     {
@@ -488,10 +547,10 @@ void RhiIntegrator::Denoise()
     command_buffer_->StorageBarrier(radiance_image_);
 }
 
-void RhiIntegrator::CopyHistoryBuffers()
+void PathTracer::CopyHistoryBuffers()
 {
     assert(copy_history_pipeline_ && copy_history_set_);
-    assert(command_buffer_ && "RhiIntegrator::CopyHistoryBuffers(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::CopyHistoryBuffers(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(copy_history_pipeline_);
     command_buffer_->BindDescriptorSet(copy_history_set_);
@@ -500,10 +559,10 @@ void RhiIntegrator::CopyHistoryBuffers()
     command_buffer_->StorageBarrier(prev_depth_image_);
 }
 
-void RhiIntegrator::AccumulateRadiance()
+void PathTracer::AccumulateRadiance()
 {
     assert(accumulate_radiance_pipeline_ && accumulate_radiance_set_);
-    assert(command_buffer_ && "RhiIntegrator::AccumulateRadiance(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::AccumulateRadiance(): command buffer is not initialized");
 
     command_buffer_->BindPipeline(accumulate_radiance_pipeline_);
     command_buffer_->BindDescriptorSet(accumulate_radiance_set_);
@@ -512,11 +571,11 @@ void RhiIntegrator::AccumulateRadiance()
     command_buffer_->StorageBarrier(resolved_color_image_);
 }
 
-void RhiIntegrator::Tonemap()
+void PathTracer::Tonemap()
 {
     gpu::DescriptorSetPtr const& descriptor_set = enable_denoiser_ ? denoised_tonemap_set_ : tonemap_set_;
     assert(tonemap_pipeline_ && descriptor_set);
-    assert(command_buffer_ && "RhiIntegrator::Tonemap(): command buffer is not initialized");
+    assert(command_buffer_ && "PathTracer::Tonemap(): command buffer is not initialized");
 
     gpu::ImagePtr swapchain_image = swapchain_.GetCurrentImage();
     uint32_t const swapchain_image_index = swapchain_.GetCurrentImageIndex();
@@ -534,7 +593,7 @@ void RhiIntegrator::Tonemap()
     swapchain_image_layouts_[swapchain_image_index] = gpu::ImageLayout::kRenderTarget;
 }
 
-gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
+gpu::BufferPtr PathTracer::CreateStagingBuffer(void const* data, size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
     gpu::BufferPtr buffer = device_.CreateBuffer(allocation_size, stride, gpu::BufferFlags::kCpuAccess);
@@ -547,14 +606,14 @@ gpu::BufferPtr RhiIntegrator::CreateStagingBuffer(void const* data, size_t size,
     return buffer;
 }
 
-gpu::BufferPtr RhiIntegrator::CreateStorageBuffer(size_t size, uint32_t stride)
+gpu::BufferPtr PathTracer::CreateStorageBuffer(size_t size, uint32_t stride)
 {
     size_t allocation_size = std::max<size_t>(size, stride);
     return device_.CreateBuffer(allocation_size, stride,
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kStorage);
 }
 
-gpu::ImagePtr RhiIntegrator::CreateFallbackTexture(gpu::CommandBufferPtr& upload_command_buffer)
+gpu::ImagePtr PathTracer::CreateFallbackTexture(gpu::CommandBufferPtr& upload_command_buffer)
 {
     uint32_t const fallback_data = 0xFFFFFFFFu;
     gpu::ImagePtr image = device_.CreateImage(1, 1, gpu::ImageFormat::kRGBA8_UNorm, gpu::ImageFlags::kShaderResource);
@@ -565,9 +624,9 @@ gpu::ImagePtr RhiIntegrator::CreateFallbackTexture(gpu::CommandBufferPtr& upload
     return image;
 }
 
-void RhiIntegrator::RebuildDescriptorSets()
+void PathTracer::RebuildDescriptorSets()
 {
-    assert(texture_manager_ && "RhiIntegrator::RebuildDescriptorSets: texture manager is not set");
+    assert(texture_manager_ && "PathTracer::RebuildDescriptorSets: texture manager is not set");
 
     std::vector<gpu::ImageDescriptor> texture_descriptors;
     texture_descriptors.reserve(kMaxTextureCount);

@@ -26,7 +26,7 @@
 
 #include "acc_structures/acceleration_structure.hpp"
 #include "gpu_api.hpp"
-#include "integrator.hpp"
+#include "path_tracer.hpp"
 #include "utils/camera_controller.hpp"
 
 #include <ctime>
@@ -34,7 +34,6 @@
 #include <string>
 
 class Window;
-class RhiIntegrator;
 class Scene;
 class TextureManager;
 class Render
@@ -84,11 +83,10 @@ private:
     gpu::SwapchainPtr rhi_swapchain_;
     gpu::ImGuiRendererPtr rhi_imgui_renderer_;
     gpu::CommandBufferPtr rhi_command_buffer_;
-    RhiIntegrator* rhi_integrator_ = nullptr;
     std::unique_ptr<TextureManager> texture_manager_;
 
-    // Integrator
-    std::unique_ptr<Integrator> integrator_;
+    // Path tracer
+    std::unique_ptr<PathTracer> path_tracer_;
     // Acceleration structure
     std::unique_ptr<AccelerationStructure> acc_structure_;
 

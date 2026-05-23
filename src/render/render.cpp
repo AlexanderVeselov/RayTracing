@@ -32,8 +32,8 @@
 #include "gpu_swapchain.hpp"
 #include "acc_structures/bvh.hpp"
 #include "acc_structures/hardware_rt_acceleration_structure.hpp"
-#include "rhi_integrator.hpp"
 #include "managers/texture_manager.hpp"
+#include "path_tracer.hpp"
 #include "scene/scene.hpp"
 
 #include <imgui.h>
@@ -90,13 +90,11 @@ Render::Render(Window& window, RenderBackend backend, std::string const& scene_p
     scene_->Finalize();
     texture_manager_->UploadPendingTextures();
 
-    // Create integrator
-    auto rhi_integrator = std::make_unique<RhiIntegrator>(width_, height_, *rhi_device_, *rhi_swapchain_);
-    rhi_integrator_ = rhi_integrator.get();
-    integrator_ = std::move(rhi_integrator);
+    // Create path tracer
+    path_tracer_ = std::make_unique<PathTracer>(width_, height_, *rhi_device_, *rhi_swapchain_);
 
     // Upload scene data to the GPU
-    integrator_->UploadGPUData(*scene_, *acc_structure_, *texture_manager_);
+    path_tracer_->UploadGPUData(*scene_, *acc_structure_, *texture_manager_);
 }
 
 Render::~Render()
@@ -154,30 +152,30 @@ void Render::DrawGUI()
 
         if (ImGui::SliderInt("Max bounces", &gui_params_.max_bounces, 0, 5))
         {
-            integrator_->SetMaxBounces((uint32_t)gui_params_.max_bounces);
+            path_tracer_->SetMaxBounces((uint32_t)gui_params_.max_bounces);
         }
 
         if (ImGui::Checkbox("Enable denoiser", &gui_params_.enable_denoiser))
         {
-            integrator_->EnableDenoiser(gui_params_.enable_denoiser);
+            path_tracer_->EnableDenoiser(gui_params_.enable_denoiser);
         }
 
         if (ImGui::Checkbox("Blue noise sampler", &gui_params_.enable_blue_noise))
         {
-            integrator_->SetSamplerType(gui_params_.enable_blue_noise ? Integrator::SamplerType::kBlueNoise
-                                                                      : Integrator::SamplerType::kRandom);
+            path_tracer_->SetSamplerType(gui_params_.enable_blue_noise ? PathTracer::SamplerType::kBlueNoise
+                                                                       : PathTracer::SamplerType::kRandom);
         }
 
         if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
         {
-            integrator_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
+            path_tracer_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
         }
 
         static int aov_index = 0;
         const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };
         if (ImGui::Combo("AOV", &aov_index, aov_names, 5))
         {
-            integrator_->SetAOV((Integrator::AOV)aov_index);
+            path_tracer_->SetAOV((PathTracer::AOV)aov_index);
         }
     }
     ImGui::End();
@@ -198,7 +196,7 @@ void Render::HandlePipelineHotReload()
     if (result.success)
     {
         std::cout << "Reloaded " << result.reloaded_count << " pipelines" << std::endl;
-        integrator_->RequestReset();
+        path_tracer_->RequestReset();
         return;
     }
 
@@ -215,24 +213,24 @@ void Render::RenderFrame()
     bool need_to_reset = false;
 
     camera_controller_->Update((float)GetDeltaTime());
-    integrator_->SetCameraData(camera_controller_->GetData());
+    path_tracer_->SetCameraData(camera_controller_->GetData());
     HandlePipelineHotReload();
 
     need_to_reset = need_to_reset || camera_controller_->IsChanged();
 
     if (need_to_reset)
     {
-        integrator_->RequestReset();
+        path_tracer_->RequestReset();
     }
 
     gpu::Queue& queue = rhi_device_->GetQueue(gpu::QueueType::kGraphics);
     rhi_command_buffer_ = queue.CreateCommandBuffer();
-    rhi_integrator_->SetCommandBuffer(*rhi_command_buffer_);
-    integrator_->Integrate();
+    path_tracer_->SetCommandBuffer(*rhi_command_buffer_);
+    path_tracer_->Integrate();
     rhi_imgui_renderer_->Render(*rhi_command_buffer_);
     rhi_command_buffer_->TransitionBarrier(rhi_swapchain_->GetCurrentImage(), gpu::ImageLayout::kRenderTarget,
         gpu::ImageLayout::kPresent);
-    rhi_integrator_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
+    path_tracer_->SetCurrentSwapchainImageLayout(gpu::ImageLayout::kPresent);
     queue.Submit(std::move(rhi_command_buffer_));
     rhi_swapchain_->Present();
 

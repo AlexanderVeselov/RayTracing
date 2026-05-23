@@ -26,50 +26,70 @@
 
 #include "gpu_buffer.hpp"
 #include "gpu_types.hpp"
-#include "integrator.hpp"
+#include "shaders/shared_structures.h"
 
 #include <array>
 #include <memory>
 #include <vector>
 
+class Scene;
 class TextureManager;
+class AccelerationStructure;
 class HardwareRtAccelerationStructure;
 
-class RhiIntegrator : public Integrator
+class PathTracer
 {
 public:
-    RhiIntegrator(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
-    ~RhiIntegrator() = default;
+    enum class SamplerType
+    {
+        kRandom,
+        kBlueNoise
+    };
 
+    enum AOV
+    {
+        kShadedColor,
+        kDiffuseAlbedo,
+        kDepth,
+        kNormal,
+        kMotionVectors
+    };
+
+    PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu::Swapchain& swapchain);
+    ~PathTracer();
+
+    void Integrate();
     void SetCommandBuffer(gpu::CommandBuffer& command_buffer);
     void SetCurrentSwapchainImageLayout(gpu::ImageLayout layout);
 
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
-        TextureManager const& texture_manager) override;
-    void SetCameraData(Camera const& camera) override;
-    void SetSamplerType(SamplerType sampler_type) override;
-    void SetAOV(AOV aov) override;
-    void EnableDenoiser(bool enable) override;
-
-protected:
-    void CreatePipelines() override;
-    void Reset() override;
-    void AdvanceSampleCount() override;
-    void GenerateRays() override;
-    void IntersectRays(uint32_t bounce) override;
-    void ComputeAOVs() override;
-    void ShadeMissedRays(uint32_t bounce) override;
-    void ShadeSurfaceHits(uint32_t bounce) override;
-    void IntersectShadowRays() override;
-    void AccumulateDirectSamples() override;
-    void ClearOutgoingRayCounter(uint32_t bounce) override;
-    void ClearShadowRayCounter() override;
-    void Denoise() override;
-    void CopyHistoryBuffers() override;
-    void AccumulateRadiance() override;
-    void Tonemap() override;
+        TextureManager const& texture_manager);
+    void SetCameraData(Camera const& camera);
+    void RequestReset() { request_reset_ = true; }
+    void EnableWhiteFurnace(bool enable);
+    void SetMaxBounces(uint32_t max_bounces);
+    void SetSamplerType(SamplerType sampler_type);
+    void SetAOV(AOV aov);
+    void EnableDenoiser(bool enable);
 
 private:
+    void CreatePipelines();
+    void Reset();
+    void AdvanceSampleCount();
+    void GenerateRays();
+    void IntersectRays(uint32_t bounce);
+    void ComputeAOVs();
+    void ShadeMissedRays(uint32_t bounce);
+    void ShadeSurfaceHits(uint32_t bounce);
+    void IntersectShadowRays();
+    void AccumulateDirectSamples();
+    void ClearOutgoingRayCounter(uint32_t bounce);
+    void ClearShadowRayCounter();
+    void Denoise();
+    void CopyHistoryBuffers();
+    void AccumulateRadiance();
+    void Tonemap();
+
     gpu::BufferPtr CreateStagingBuffer(void const* data, size_t size, uint32_t stride);
     gpu::BufferPtr CreateStorageBuffer(size_t size, uint32_t stride);
     gpu::ImagePtr CreateFallbackTexture(gpu::CommandBufferPtr& upload_command_buffer);
@@ -173,6 +193,17 @@ private:
 
     // Sample counter
     uint32_t sample_count_ = 0;
+
+    uint32_t width_ = 0u;
+    uint32_t height_ = 0u;
+    Camera camera_ = {};
+    Camera prev_camera_ = {};
+    uint32_t max_bounces_ = 3u;
+    SamplerType sampler_type_ = SamplerType::kRandom;
+    AOV aov_ = AOV::kShadedColor;
+    bool request_reset_ = false;
+    bool enable_white_furnace_ = false;
+    bool enable_denoiser_ = false;
 
     gpu::ImageLayout output_layout_ = gpu::ImageLayout::kUndefined;
     std::vector<gpu::ImageLayout> swapchain_image_layouts_;

@@ -1,10 +1,8 @@
 set(RENDER_SOURCES
-    render/integrator.cpp
-    render/integrator.hpp
+    render/path_tracer.cpp
+    render/path_tracer.hpp
     render/render.cpp
     render/render.hpp
-    render/rhi_integrator.cpp
-    render/rhi_integrator.hpp
 )
 
 set(SHADER_SOURCES
