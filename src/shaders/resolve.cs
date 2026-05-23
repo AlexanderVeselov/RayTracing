@@ -25,6 +25,14 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint sample_count;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Output image
 IMAGE_FORMAT("rgba8")
 RWTexture2D<float4> g_Output : register(u1);
@@ -32,9 +40,6 @@ RWTexture2D<float4> g_Output : register(u1);
 // Radiance data
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u2);
-
-// Sample counter data
-RWStructuredBuffer<uint> g_SampleCounter : register(u3);
 
 // AOV data
 IMAGE_FORMAT("rgba8")
@@ -78,7 +83,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
     else
     {
-        float sample_count = max(float(g_SampleCounter[0]), 1.0f);
+        float sample_count = max(float(g_RootConstants.sample_count), 1.0f);
         float3 color = (g_RenderParams.y & RENDER_FLAG_DENOISER) != 0u
                            ? g_Radiance[pixel_coord].xyz
                            : g_Radiance[pixel_coord].xyz / sample_count;

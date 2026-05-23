@@ -25,6 +25,15 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint sample_count;
+    uint bounce;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Incoming ray data
 RWStructuredBuffer<Ray> g_IncomingRays : register(u1);
 RWStructuredBuffer<uint> g_IncomingPixelIndices : register(u2);
@@ -50,10 +59,6 @@ IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u12);
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Radiance : register(u13);
-
-// Bounce and sample counters
-StructuredBuffer<uint> g_Bounce : register(t14);
-RWStructuredBuffer<uint> g_SampleCounter : register(u15);
 
 // Scene data
 StructuredBuffer<Vertex> g_Vertices : register(t16);
@@ -86,11 +91,11 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     }
 
     uint pixel_idx = g_IncomingPixelIndices[ray_idx];
-    uint sample_idx = g_SampleCounter[0];
+    uint sample_idx = g_RootConstants.sample_count;
     uint pixel_x = pixel_idx % g_RenderSize.x;
     uint pixel_y = pixel_idx / g_RenderSize.x;
     uint2 pixel_coord = uint2(pixel_x, pixel_y);
-    uint bounce = g_Bounce[0];
+    uint bounce = g_RootConstants.bounce;
 
     Ray incoming_ray = g_IncomingRays[ray_idx];
     float3 incoming = -incoming_ray.direction;

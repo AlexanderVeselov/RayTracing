@@ -25,6 +25,14 @@
 #include "common.hlsli"
 #include "frame_data.hlsli"
 
+struct RootConstants
+{
+    uint sample_count;
+};
+
+ROOT_CONSTANTS
+ConstantBuffer<RootConstants> g_RootConstants;
+
 // Ray data
 RWStructuredBuffer<Ray> g_Rays : register(u1);
 RWStructuredBuffer<uint> g_RayCounter : register(u2);
@@ -33,9 +41,6 @@ RWStructuredBuffer<uint> g_PixelIndices : register(u3);
 // Radiance and throughput data
 IMAGE_FORMAT("rgba16f")
 RWTexture2D<float4> g_Throughputs : register(u4);
-
-// Sample counter data
-RWStructuredBuffer<uint> g_SampleCounter : register(u5);
 
 // AOV data
 IMAGE_FORMAT("rgba8")
@@ -75,10 +80,11 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         g_RayCounter[0] = num_pixels;
     }
 
+    uint sample_idx = g_RootConstants.sample_count;
     uint pixel_x = pixel_idx % width;
     uint pixel_y = pixel_idx / width;
     uint2 pixel_coord = uint2(pixel_x, pixel_y);
-    uint seed = pixel_idx + WangHash(g_SampleCounter[0]);
+    uint seed = pixel_idx + WangHash(sample_idx);
 
     float x = (float(pixel_x) + RandomFloat(seed)) / float(width);
     float y = (float(pixel_y) + RandomFloat(seed)) / float(height);

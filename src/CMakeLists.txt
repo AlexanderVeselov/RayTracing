@@ -12,13 +12,11 @@ set(SHADER_SOURCES
     shaders/accumulate_direct_samples.cs
     shaders/aov.cs
     shaders/clear_counter.cs
-    shaders/clear_sample_counter.cs
     shaders/common.hlsli
     shaders/copy_history.cs
     shaders/denoiser.cs
     shaders/frame_data.hlsli
     shaders/hit_surface.cs
-    shaders/increment_counter.cs
     shaders/light.hlsli
     shaders/material.hlsli
     shaders/miss.cs
