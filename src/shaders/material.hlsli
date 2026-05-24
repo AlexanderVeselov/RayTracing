@@ -22,7 +22,35 @@
  SOFTWARE.
  *****************************************************************************/
 
-#include "frame_data.hlsli"
+#include "bxdf.hlsli"
+
+struct Material
+{
+    float3 diffuse_albedo;
+    float roughness;
+    float3 specular_albedo;
+    float metalness;
+    float3 emission;
+    float ior;
+    float transparency;
+};
+
+float3 UnpackRGB(uint data, out uint texture_idx)
+{
+    texture_idx = (data >> 24) & 0xFFu;
+    return float3((data >> 0) & 0xFFu, (data >> 8) & 0xFFu, (data >> 16) & 0xFFu) / 255.0f;
+}
+
+float3 UnpackRGBE(uint rgbe)
+{
+    int e = int(rgbe >> 24);
+    if (e == 0)
+    {
+        return 0.0f.xxx;
+    }
+
+    return float3((rgbe >> 0) & 0xFFu, (rgbe >> 8) & 0xFFu, (rgbe >> 16) & 0xFFu) * exp2(float(e - (128 + 8)));
+}
 
 float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
 {
@@ -34,42 +62,42 @@ float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
     uv = frac(uv);
     uv.y = 1.0f - uv.y;
 
-    return saturate(g_TextureImages[NonUniformResourceIndex(texture_index)].SampleLevel(g_TextureSampler, uv, 0.0f).xyz);
+    return saturate(g_TextureImages[NonUniformResourceIndex(texture_index)].SampleLevel(g_TextureSampler, uv, 0.0f).rgb);
 }
 
-Material ApplyTextures(PackedMaterial packed_material, float2 uv, uint texture_count)
+Material UnpackMaterial(PackedMaterial packed_material, float2 uv, uint texture_count)
 {
     Material material;
 
     uint diffuse_albedo_idx;
-    material.diffuse_albedo = UnpackRGBTex(packed_material.diffuse_albedo, diffuse_albedo_idx);
+    material.diffuse_albedo = UnpackRGB(packed_material.diffuse_albedo, diffuse_albedo_idx);
     if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material.diffuse_albedo =
-            pow(SampleTexture(diffuse_albedo_idx, uv, texture_count), 2.2f.xxx);
+        material.diffuse_albedo = SampleTexture(diffuse_albedo_idx, uv, texture_count);
     }
 
     uint specular_albedo_idx;
-    material.specular_albedo = UnpackRGBTex(packed_material.specular_albedo, specular_albedo_idx);
+    material.specular_albedo = UnpackRGB(packed_material.specular_albedo, specular_albedo_idx);
     if (specular_albedo_idx != INVALID_TEXTURE_IDX)
     {
-        material.specular_albedo =
-            pow(SampleTexture(specular_albedo_idx, uv, texture_count), 2.2f.xxx);
+        material.specular_albedo = SampleTexture(specular_albedo_idx, uv, texture_count);
     }
 
     material.emission = UnpackRGBE(packed_material.emission);
 
+    // Roughness
     uint roughness_idx;
-    uint metalness_idx;
     material.roughness = float((packed_material.roughness_metalness >> 0) & 0xFFu) / 255.0f;
     roughness_idx = (packed_material.roughness_metalness >> 8) & 0xFFu;
-    material.metalness = float((packed_material.roughness_metalness >> 16) & 0xFFu) / 255.0f;
-    metalness_idx = (packed_material.roughness_metalness >> 24) & 0xFFu;
-
     if (roughness_idx != INVALID_TEXTURE_IDX)
     {
         material.roughness = SampleTexture(roughness_idx, uv, texture_count).x;
     }
+
+    // Metalness
+    uint metalness_idx;
+    material.metalness = float((packed_material.roughness_metalness >> 16) & 0xFFu) / 255.0f;
+    metalness_idx = (packed_material.roughness_metalness >> 24) & 0xFFu;
     if (metalness_idx != INVALID_TEXTURE_IDX)
     {
         material.metalness = SampleTexture(metalness_idx, uv, texture_count).x;
@@ -83,7 +111,7 @@ Material ApplyTextures(PackedMaterial packed_material, float2 uv, uint texture_c
 
     if (emission_idx != INVALID_TEXTURE_IDX)
     {
-        material.emission *= pow(SampleTexture(emission_idx, uv, texture_count), 2.2f.xxx);
+        material.emission *= SampleTexture(emission_idx, uv, texture_count);
     }
     if (transparency_idx != INVALID_TEXTURE_IDX)
     {
@@ -133,8 +161,7 @@ float3 SampleTransparency(float3 incoming, out float3 outgoing, out float pdf)
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 incoming,
-    bool white_furnace,
-    out float3 outgoing, out float pdf, out float offset)
+    bool white_furnace, out float3 outgoing, out float pdf, out float offset)
 {
     if (white_furnace)
     {
@@ -177,4 +204,24 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 i
     }
 
     return bxdf;
+}
+
+float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
+{
+    if (material.transparency < 0.5f)
+    {
+        return 0.0f.xxx;
+    }
+
+    float3 half_vec = normalize(incoming + outgoing);
+    float n_dot_i = max(dot(normal, incoming), EPS);
+    float n_dot_o = max(dot(normal, outgoing), EPS);
+    float n_dot_h = max(dot(normal, half_vec), EPS);
+    float h_dot_o = max(dot(half_vec, outgoing), EPS);
+    float alpha = material.roughness * material.roughness;
+    float3 f0 = lerp(IorToF0(1.0f, material.ior).xxx, material.specular_albedo, material.metalness.xxx);
+    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo;
+    float3 fresnel = FresnelSchlick(f0, h_dot_o);
+    return fresnel * GGX_D(alpha, n_dot_h) * V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha)
+        + (1.0f - fresnel) * diffuse_color * INV_PI;
 }

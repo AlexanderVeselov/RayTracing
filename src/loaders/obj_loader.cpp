@@ -190,13 +190,13 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
             pow(in_material.diffuse[1], kGamma), pow(in_material.diffuse[2], kGamma),
             in_material.diffuse_texname.empty()
                 ? kInvalidTextureIndex
-                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.diffuse_texname));
+                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.diffuse_texname, true));
 
         out_material.specular_albedo = PackAlbedo(pow(in_material.specular[0], kGamma),
             pow(in_material.specular[1], kGamma), pow(in_material.specular[2], kGamma),
             in_material.specular_texname.empty()
                 ? kInvalidTextureIndex
-                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.specular_texname));
+                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.specular_texname, true));
 
         out_material.emission = PackRGBE(in_material.emission[0], in_material.emission[1], in_material.emission[2]);
 
@@ -210,12 +210,10 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.metallic_texname));
 
         out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(in_material.ior,
-            in_material.emissive_texname.empty()
-                ? kInvalidTextureIndex
-                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.emissive_texname),
+            in_material.emissive_texname.empty() ? kInvalidTextureIndex
+                : texture_manager.LoadTexture(path_to_folder + "/" + in_material.emissive_texname, true),
             in_material.transmittance[0],
-            in_material.alpha_texname.empty()
-                ? kInvalidTextureIndex
+            in_material.alpha_texname.empty() ? kInvalidTextureIndex
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.alpha_texname));
     }
 

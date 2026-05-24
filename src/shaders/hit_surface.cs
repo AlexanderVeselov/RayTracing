@@ -129,7 +129,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         geometry_normal = -geometry_normal;
     }
 
-    Material material = ApplyTextures(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
+    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
     if (g_RootConstants.white_furnace == 0u &&
         dot(material.emission, 1.0f.xxx) > 0.0f)

@@ -32,13 +32,10 @@ RaytracingAccelerationStructure g_TLAS : register(t3);
 Hit TraceRayQuery(Ray ray)
 {
     Hit hit;
-    hit.bc = 0.0f.xx;
+    hit.bc = 0u;
     hit.primitive_id = INVALID_ID;
     hit.instance_id = INVALID_ID;
     hit.t = ray.t_max;
-    hit.padding1 = 0u;
-    hit.padding2 = 0u;
-    hit.padding3 = 0u;
 
     RayDesc ray_desc;
     ray_desc.Origin = ray.origin;
@@ -54,7 +51,7 @@ Hit TraceRayQuery(Ray ray)
 
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
-        hit.bc = query.CommittedTriangleBarycentrics();
+        hit.bc = PackBarycentrics(query.CommittedTriangleBarycentrics());
         hit.primitive_id = query.CommittedPrimitiveIndex();
         hit.instance_id = query.CommittedInstanceID();
         hit.t = query.CommittedRayT();

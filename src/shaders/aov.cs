@@ -109,7 +109,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
     float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
-    Material material = ApplyTextures(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
+    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
 
     g_DiffuseAlbedo[pixel_coord] = float4(material.diffuse_albedo, 1.0f);
     g_Depth[pixel_coord] = length(ray.origin - position);

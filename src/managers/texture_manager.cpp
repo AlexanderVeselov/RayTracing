@@ -56,7 +56,7 @@ TextureManager::TextureManager(gpu::Device& device)
 {
 }
 
-uint32_t TextureManager::LoadTexture(std::filesystem::path const& path)
+uint32_t TextureManager::LoadTexture(std::filesystem::path const& path, bool srgb)
 {
     std::string normalized_path = NormalizeTexturePath(path);
     auto loaded_texture = loaded_textures_.find(normalized_path);
@@ -88,7 +88,7 @@ uint32_t TextureManager::LoadTexture(std::filesystem::path const& path)
         {
             throw std::runtime_error("TextureManager::LoadTexture: failed to load texture " + normalized_path);
         }
-        format = gpu::ImageFormat::kRGBA8_UNorm;
+        format = srgb ? gpu::ImageFormat::kRGBA8_SRGB : gpu::ImageFormat::kRGBA8_UNorm;
     }
     else
     {

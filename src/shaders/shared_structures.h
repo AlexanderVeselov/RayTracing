@@ -49,14 +49,11 @@ struct Ray
 
 struct Hit
 {
-    float2 bc;
+    // Two 16-bit UNORM barycentric coordinates packed as (u | v << 16).
+    unsigned int bc;
     unsigned int primitive_id;
     unsigned int instance_id;
-    // TODO: remove t from hit structure
     float t;
-    unsigned int padding1;
-    unsigned int padding2;
-    unsigned int padding3;
 };
 
 struct SceneInfo
@@ -154,7 +151,7 @@ struct Camera
 
 #ifdef __cplusplus
 static_assert(sizeof(Ray) == 32, "Ray layout must match HLSL");
-static_assert(sizeof(Hit) == 32, "Hit layout must match HLSL");
+static_assert(sizeof(Hit) == 16, "Hit layout must match HLSL");
 static_assert(sizeof(SceneInfo) == 16, "SceneInfo layout must match HLSL");
 static_assert(sizeof(EmissiveTriangle) == 8, "EmissiveTriangle layout must match HLSL");
 static_assert(sizeof(PackedMaterial) == 20, "PackedMaterial layout must match HLSL");

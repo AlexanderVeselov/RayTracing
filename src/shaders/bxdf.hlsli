@@ -22,21 +22,27 @@
  SOFTWARE.
  *****************************************************************************/
 
-#ifndef FRAME_DATA_HLSLI
-#define FRAME_DATA_HLSLI
+#ifndef BXDF_HLSLI
+#define BXDF_HLSLI
 
-#include "shared_structures.h"
-
-cbuffer CameraData : register(b0)
+float3 FresnelSchlick(float3 f0, float h_dot_o)
 {
-    Camera g_Camera;
-    Camera g_PrevCamera;
-};
+    return f0 + (1.0f - f0) * pow(1.0f - h_dot_o, 5.0f);
+}
 
-cbuffer SceneInfoData : register(b24)
+float GGX_D(float alpha, float n_dot_h)
 {
-    uint4 g_SceneCounts;
-};
+    float alpha2 = alpha * alpha;
+    float denom = n_dot_h * n_dot_h * (alpha2 - 1.0f) + 1.0f;
+    return alpha2 * INV_PI / (denom * denom);
+}
 
-static const uint RENDER_FLAG_WHITE_FURNACE = 1u;
-#endif
+float V_SmithGGXCorrelated(float n_dot_i, float n_dot_o, float alpha)
+{
+    float alpha2 = alpha * alpha;
+    float lambda_v = n_dot_o * sqrt((-n_dot_i * alpha2 + n_dot_i) * n_dot_i + alpha2);
+    float lambda_l = n_dot_i * sqrt((-n_dot_o * alpha2 + n_dot_o) * n_dot_o + alpha2);
+    return 0.5f / max(lambda_v + lambda_l, EPS);
+}
+
+#endif // BXDF_HLSLI

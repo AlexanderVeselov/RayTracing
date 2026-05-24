@@ -58,7 +58,7 @@ public:
 
     explicit TextureManager(gpu::Device& device);
 
-    uint32_t LoadTexture(std::filesystem::path const& path);
+    uint32_t LoadTexture(std::filesystem::path const& path, bool srgb = false);
     void UploadPendingTextures();
 
     uint32_t TextureCount() const { return static_cast<uint32_t>(gpu_images_.size()); }
