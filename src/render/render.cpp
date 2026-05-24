@@ -177,12 +177,6 @@ void Render::DrawGUI()
             ResetAccumulators();
         }
 
-        if (ImGui::Checkbox("Enable white furnace", &gui_params_.enable_white_furnace))
-        {
-            path_tracer_->EnableWhiteFurnace(gui_params_.enable_white_furnace);
-            ResetAccumulators();
-        }
-
         // TODO: re-enable AOV visualization
         // static int aov_index = 0;
         // const char* aov_names[] = { "Shaded Color", "Diffuse Albedo", "Depth", "Normal", "Motion Vectors" };

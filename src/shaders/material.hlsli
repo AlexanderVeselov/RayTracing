@@ -35,6 +35,9 @@ struct Material
     float transparency;
 };
 
+#define MIN_ROUGHNESS 0.02f
+#define DIELECTRIC_F0 0.04f
+
 float3 UnpackRGB(uint data, out uint texture_idx)
 {
     texture_idx = (data >> 24) & 0xFFu;
@@ -52,75 +55,79 @@ float3 UnpackRGBE(uint rgbe)
     return float3((rgbe >> 0) & 0xFFu, (rgbe >> 8) & 0xFFu, (rgbe >> 16) & 0xFFu) * exp2(float(e - (128 + 8)));
 }
 
-float3 SampleTexture(uint texture_index, float2 uv, uint texture_count)
+float3 SampleTexture(uint texture_index, float2 uv)
 {
-    if (texture_index == INVALID_TEXTURE_IDX || texture_index >= texture_count)
-    {
-        return 1.0f.xxx;
-    }
-
     uv = frac(uv);
     uv.y = 1.0f - uv.y;
 
     return saturate(g_TextureImages[NonUniformResourceIndex(texture_index)].SampleLevel(g_TextureSampler, uv, 0.0f).rgb);
 }
 
-Material UnpackMaterial(PackedMaterial packed_material, float2 uv, uint texture_count)
+bool IsValidTexture(uint idx)
+{
+    return idx != INVALID_TEXTURE_IDX && idx < g_SceneInfo.texture_count;
+}
+
+Material UnpackMaterial(PackedMaterial packed_material, float2 uv)
 {
     Material material;
 
+    // Diffuse Albedo
     uint diffuse_albedo_idx;
     material.diffuse_albedo = UnpackRGB(packed_material.diffuse_albedo, diffuse_albedo_idx);
-    if (diffuse_albedo_idx != INVALID_TEXTURE_IDX)
+    if (IsValidTexture(diffuse_albedo_idx))
     {
-        material.diffuse_albedo = SampleTexture(diffuse_albedo_idx, uv, texture_count);
+        material.diffuse_albedo = SampleTexture(diffuse_albedo_idx, uv);
     }
 
+    // Specular Albedo
     uint specular_albedo_idx;
     material.specular_albedo = UnpackRGB(packed_material.specular_albedo, specular_albedo_idx);
-    if (specular_albedo_idx != INVALID_TEXTURE_IDX)
+    if (IsValidTexture(specular_albedo_idx))
     {
-        material.specular_albedo = SampleTexture(specular_albedo_idx, uv, texture_count);
+        material.specular_albedo = SampleTexture(specular_albedo_idx, uv);
     }
-
-    material.emission = UnpackRGBE(packed_material.emission);
 
     // Roughness
-    uint roughness_idx;
     material.roughness = float((packed_material.roughness_metalness >> 0) & 0xFFu) / 255.0f;
-    roughness_idx = (packed_material.roughness_metalness >> 8) & 0xFFu;
-    if (roughness_idx != INVALID_TEXTURE_IDX)
+    uint roughness_idx = (packed_material.roughness_metalness >> 8) & 0xFFu;
+    if (IsValidTexture(roughness_idx))
     {
-        material.roughness = SampleTexture(roughness_idx, uv, texture_count).x;
+        material.roughness = SampleTexture(roughness_idx, uv).x;
     }
+    material.roughness = clamp(material.roughness, MIN_ROUGHNESS, 1.0f);
 
     // Metalness
-    uint metalness_idx;
     material.metalness = float((packed_material.roughness_metalness >> 16) & 0xFFu) / 255.0f;
-    metalness_idx = (packed_material.roughness_metalness >> 24) & 0xFFu;
-    if (metalness_idx != INVALID_TEXTURE_IDX)
+    uint metalness_idx = (packed_material.roughness_metalness >> 24) & 0xFFu;
+    if (IsValidTexture(metalness_idx))
     {
-        material.metalness = SampleTexture(metalness_idx, uv, texture_count).x;
+        material.metalness = SampleTexture(metalness_idx, uv).x;
     }
 
+    // Emission
+    material.emission = UnpackRGBE(packed_material.emission);
     uint emission_idx = (packed_material.ior_emission_idx_transparency >> 8) & 0xFFu;
-    uint transparency_idx = (packed_material.ior_emission_idx_transparency >> 24) & 0xFFu;
-    material.ior = float((packed_material.ior_emission_idx_transparency >> 0) & 0xFFu) / 25.5f;
-    material.transparency =
-        float((packed_material.ior_emission_idx_transparency >> 16) & 0xFFu) / 255.0f;
+    if (IsValidTexture(emission_idx))
+    {
+        material.emission *= SampleTexture(emission_idx, uv);
+    }
 
-    if (emission_idx != INVALID_TEXTURE_IDX)
+    // Transparency
+    material.transparency = float((packed_material.ior_emission_idx_transparency >> 16) & 0xFFu) / 255.0f;
+    uint transparency_idx = (packed_material.ior_emission_idx_transparency >> 24) & 0xFFu;
+    if (IsValidTexture(transparency_idx))
     {
-        material.emission *= SampleTexture(emission_idx, uv, texture_count);
+        material.transparency *= SampleTexture(transparency_idx, uv).x;
     }
-    if (transparency_idx != INVALID_TEXTURE_IDX)
-    {
-        material.transparency *= SampleTexture(transparency_idx, uv, texture_count).x;
-    }
+
+    // IOR
+    material.ior = float((packed_material.ior_emission_idx_transparency >> 0) & 0xFFu) / 25.5f;
 
     return material;
 }
 
+// Diffuse brdf
 float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, out float3 outgoing, out float pdf)
 {
     float3 tbn_outgoing = SampleHemisphereCosine(s, pdf);
@@ -128,17 +135,13 @@ float3 SampleDiffuse(float2 s, float3 albedo, float3 normal, out float3 outgoing
     return albedo * INV_PI;
 }
 
-float3 SampleSpecular(
-    float2 s, float alpha, float3 normal, float3 incoming, out float3 outgoing, out float pdf)
+float3 EvaluateDiffuse(float3 albedo)
 {
-    if (alpha <= 1.0e-4f)
-    {
-        outgoing = reflect(-incoming, normal);
-        pdf = 1.0f;
-        float n_dot_o = max(dot(outgoing, normal), EPS);
-        return 1.0f.xxx / n_dot_o;
-    }
+    return albedo * INV_PI;
+}
 
+float3 SampleSpecular(float2 s, float alpha, float3 normal, float3 incoming, out float3 outgoing, out float pdf)
+{
     float3 wh = GGX_Sample(s, normal, alpha);
     outgoing = reflect(-incoming, wh);
 
@@ -161,17 +164,16 @@ float3 SampleTransparency(float3 incoming, out float3 outgoing, out float pdf)
 }
 
 float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 incoming,
-    bool white_furnace, out float3 outgoing, out float pdf, out float offset)
+    out float3 outgoing, out float pdf, out float offset)
 {
-    if (white_furnace)
-    {
+#if WHITE_FURNACE
         material.diffuse_albedo = 1.0f.xxx;
         material.specular_albedo = 1.0f.xxx;
-    }
+#endif // WHITE_FURNACE
 
     float alpha = material.roughness * material.roughness;
-    float f0_dielectric = IorToF0(1.0f, material.ior);
-    float3 f0 = lerp(f0_dielectric.xxx, material.specular_albedo, material.metalness.xxx);
+
+    float3 f0 = lerp(DIELECTRIC_F0.xxx, material.specular_albedo, material.metalness.xxx);
     float3 diffuse_albedo = (1.0f - material.metalness) * material.diffuse_albedo;
     float3 specular_albedo = lerp(material.specular_albedo, 1.0f.xxx, material.metalness.xxx);
     float3 fresnel = FresnelSchlick(f0, dot(normal, incoming)) * specular_albedo;
@@ -208,20 +210,24 @@ float3 SampleBxdf(float s1, float2 s, Material material, float3 normal, float3 i
 
 float3 EvaluateMaterial(Material material, float3 normal, float3 incoming, float3 outgoing)
 {
-    if (material.transparency < 0.5f)
-    {
-        return 0.0f.xxx;
-    }
+#if WHITE_FURNACE
+        material.diffuse_albedo = 1.0f.xxx;
+        material.specular_albedo = 1.0f.xxx;
+#endif // WHITE_FURNACE
 
     float3 half_vec = normalize(incoming + outgoing);
-    float n_dot_i = max(dot(normal, incoming), EPS);
-    float n_dot_o = max(dot(normal, outgoing), EPS);
-    float n_dot_h = max(dot(normal, half_vec), EPS);
-    float h_dot_o = max(dot(half_vec, outgoing), EPS);
-    float alpha = material.roughness * material.roughness;
-    float3 f0 = lerp(IorToF0(1.0f, material.ior).xxx, material.specular_albedo, material.metalness.xxx);
-    float3 diffuse_color = (1.0f - material.metalness) * material.diffuse_albedo;
+    float n_dot_i = saturate(dot(normal, incoming));
+    float n_dot_o = saturate(dot(normal, outgoing));
+    float n_dot_h = saturate(dot(normal, half_vec));
+    float h_dot_o = saturate(dot(half_vec, outgoing));
+
+    float3 f0 = lerp(DIELECTRIC_F0.xxx, material.specular_albedo, material.metalness.xxx);
     float3 fresnel = FresnelSchlick(f0, h_dot_o);
-    return fresnel * GGX_D(alpha, n_dot_h) * V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha)
-        + (1.0f - fresnel) * diffuse_color * INV_PI;
+
+    float3 diffuse = (1.0f - fresnel) * (1.0f - material.metalness) * EvaluateDiffuse(material.diffuse_albedo);
+
+    float alpha = material.roughness * material.roughness;
+    float3 specular = fresnel * GGX_D(alpha, n_dot_h) * V_SmithGGXCorrelated(n_dot_i, n_dot_o, alpha);
+
+    return diffuse + specular;
 }

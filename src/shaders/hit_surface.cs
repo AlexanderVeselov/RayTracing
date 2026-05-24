@@ -30,7 +30,6 @@ struct RootConstants
     uint sample_index;
     uint bounce;
     uint width;
-    uint white_furnace;
 };
 
 ROOT_CONSTANTS
@@ -74,6 +73,8 @@ StructuredBuffer<Light> g_Lights : register(t21);
 Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t22);
 SamplerState g_TextureSampler : register(s23);
 
+ConstantBuffer<SceneInfo> g_SceneInfo : register(b24);
+
 #include "light.hlsli"
 #include "material.hlsli"
 
@@ -116,8 +117,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     v2.normal = TransformNormal(instance, v2.normal);
     v3.normal = TransformNormal(instance, v3.normal);
     float3 position = InterpolateAttributes(v1.position, v2.position, v3.position, hit.bc);
-    float2 texcoord =
-        InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
+    float2 texcoord = InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
     float3 geometry_normal = normalize(cross(v2.position - v1.position, v3.position - v1.position));
     float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
     if (dot(normal, incoming) < 0.0f)
@@ -129,10 +129,15 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         geometry_normal = -geometry_normal;
     }
 
-    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
+    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
-    if (g_RootConstants.white_furnace == 0u &&
-        dot(material.emission, 1.0f.xxx) > 0.0f)
+
+#if WHITE_FURNACE
+    // Disable emission but don't set it 0 to avoid changing descriptor set layout
+    material.emission *= 1e-8f;
+#endif // WHITE_FURNACE
+
+    if (dot(material.emission, 1.0f.xxx) > 0.0f)
     {
         float4 radiance = g_Radiance[pixel_coord];
         radiance.xyz += throughput * material.emission;
@@ -150,11 +155,15 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         outgoing = normalize(outgoing);
 
         float3 brdf = EvaluateMaterial(material, normal, incoming, outgoing);
-        float3 light_sample =
-            pdf > 0.0f ? light_radiance * throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f)
-                       : 0.0f.xxx;
+        float3 light_sample = pdf > 0.0f ?
+            light_radiance * throughput * brdf / pdf * max(dot(outgoing, normal), 0.0f) : 0.0f.xxx;
 
         bool spawn_shadow_ray = pdf > 0.0f && dot(light_sample, light_sample) > 0.0f;
+
+#if WHITE_FURNACE
+        // Disable direct light sample but don't set it 0 to avoid changing descriptor set layout
+        light_sample *= 1e-8f;
+#endif // WHITE_FURNACE
 
         if (spawn_shadow_ray)
         {
@@ -169,8 +178,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
 
             g_ShadowRays[shadow_ray_idx] = shadow_ray;
             g_ShadowPixelIndices[shadow_ray_idx] = pixel_idx;
-            g_DirectLightSamples[PixelCoord(shadow_ray_idx, width)] =
-                float4(light_sample, 0.0f);
+            g_DirectLightSamples[PixelCoord(shadow_ray_idx, width)] = float4(light_sample, 0.0f);
         }
     }
 
@@ -185,8 +193,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
         float3 indirect_throughput = 0.0f.xxx;
         float3 outgoing;
         float offset;
-        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming,
-            g_RootConstants.white_furnace != 0u, outgoing, pdf, offset);
+        float3 bxdf = SampleBxdf(s1, s, material, normal, incoming, outgoing, pdf, offset);
 
         if (pdf > 0.0f)
         {

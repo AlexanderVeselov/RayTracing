@@ -29,7 +29,6 @@ struct RootConstants
 {
     uint width;
     uint env_map_index;
-    uint white_furnace;
 };
 
 ROOT_CONSTANTS
@@ -55,6 +54,8 @@ RWTexture2D<float4> g_Radiance : register(u5);
 Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t7);
 SamplerState g_TextureSampler : register(s8);
 
+ConstantBuffer<SceneInfo> g_SceneInfo : register(b24);
+
 float3 SampleSky(float3 dir)
 {
     float2 coords = float2(atan2(dir.x, dir.y) + PI, acos(clamp(dir.z, -1.0f, 1.0f)));
@@ -63,7 +64,7 @@ float3 SampleSky(float3 dir)
     coords.y *= INV_PI;
 
     uint texture_index = g_RootConstants.env_map_index;
-    if (texture_index == INVALID_TEXTURE_IDX || texture_index >= g_SceneCounts.w)
+    if (texture_index == INVALID_TEXTURE_IDX || texture_index >= g_SceneInfo.texture_count)
     {
         return float3(0.02f, 0.02f, 0.025f);
     }
@@ -90,9 +91,14 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     uint pixel_idx = g_PixelIndices[ray_idx];
     uint2 pixel_coord = PixelCoord(pixel_idx, g_RootConstants.width);
     float3 throughput = g_Throughputs[pixel_coord].xyz;
-    float3 sky_radiance = g_RootConstants.white_furnace != 0u
-                              ? 0.5f.xxx
-                              : SampleSky(normalize(ray.direction));
+    float3 sky_radiance = SampleSky(normalize(ray.direction));
+
+#if WHITE_FURNACE
+    // Disable sky radiance but don't set it 0 to avoid changing descriptor set layout
+    sky_radiance *= 1e-8f;
+    sky_radiance += 0.5f;
+#endif // WHITE_FURNACE
+
     float4 radiance = g_Radiance[pixel_coord];
     radiance.xyz += throughput * sky_radiance;
     g_Radiance[pixel_coord] = radiance;

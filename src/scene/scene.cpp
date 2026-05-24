@@ -139,8 +139,6 @@ void Scene::CollectEmissiveTriangles()
             emissive_triangles_.push_back({ instance_index, triangle_index });
         }
     }
-
-    scene_info_.emissive_count = (uint32_t)emissive_triangles_.size();
 }
 
 void Scene::AddPointLight(glm::vec3 origin, glm::vec3 radiance)
@@ -167,6 +165,5 @@ void Scene::Finalize()
 {
     CollectEmissiveTriangles();
 
-    scene_info_.analytic_light_count = (uint32_t)lights_.size();
-    scene_info_.environment_map_index = texture_manager_.LoadTexture("assets/ibl/CGSkies_0036_free.hdr");
+    environment_map_index_ = texture_manager_.LoadTexture("assets/ibl/CGSkies_0036_free.hdr");
 }

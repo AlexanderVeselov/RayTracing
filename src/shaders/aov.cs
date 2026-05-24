@@ -61,6 +61,8 @@ StructuredBuffer<PackedMaterial> g_Materials : register(t13);
 Texture2D<float4> g_TextureImages[MAX_TEXTURES] : register(t14);
 SamplerState g_TextureSampler : register(s15);
 
+ConstantBuffer<SceneInfo> g_SceneInfo : register(b24);
+
 #include "material.hlsli"
 
 float2 ProjectScreen(float3 position, float3 camera_position, float3 camera_front, float3 camera_up,
@@ -109,7 +111,7 @@ void main(uint3 dispatch_thread_id: SV_DispatchThreadID)
     float2 texcoord =
         InterpolateAttributes2(v1.texcoord.xy, v2.texcoord.xy, v3.texcoord.xy, hit.bc);
     float3 normal = normalize(InterpolateAttributes(v1.normal, v2.normal, v3.normal, hit.bc));
-    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord, g_SceneCounts.w);
+    Material material = UnpackMaterial(g_Materials[mesh.material_index], texcoord);
 
     g_DiffuseAlbedo[pixel_coord] = float4(material.diffuse_albedo, 1.0f);
     g_Depth[pixel_coord] = length(ray.origin - position);

@@ -29,17 +29,17 @@
 // returns radiance, writes the unnormalized direction to outgoing and selection pdf to pdf.
 float3 Light_Sample(float3 position, float3 normal, float s, out float3 outgoing, out float pdf)
 {
-    if (g_SceneCounts.z == 0u)
+    if (g_SceneInfo.light_count == 0u)
     {
         outgoing = 0.0f.xxx;
         pdf = 0.0f;
         return 0.0f.xxx;
     }
 
-    uint light_idx = min(uint(s * float(g_SceneCounts.z)), g_SceneCounts.z - 1u);
+    uint light_idx = min(uint(s * float(g_SceneInfo.light_count)), g_SceneInfo.light_count - 1u);
     Light light = g_Lights[light_idx];
 
-    pdf = 1.0f / float(g_SceneCounts.z);
+    pdf = 1.0f / float(g_SceneInfo.light_count);
     float3 light_radiance = light.radiance;
 
     if (light.type == LIGHT_TYPE_POINT)
@@ -53,4 +53,4 @@ float3 Light_Sample(float3 position, float3 normal, float s, out float3 outgoing
     return light_radiance;
 }
 
-#endif // LIGHT_HLSLI
+#endif  // LIGHT_HLSLI

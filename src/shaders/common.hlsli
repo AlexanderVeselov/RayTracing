@@ -40,6 +40,8 @@ static const uint SAMPLE_TYPE_MAX = 5u;
 
 #include "shared_structures.h"
 
+#define WHITE_FURNACE 0
+
 uint PackBarycentrics(float2 bc)
 {
     uint2 packed = uint2(round(saturate(bc) * 65535.0f));

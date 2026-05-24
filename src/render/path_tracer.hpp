@@ -67,7 +67,6 @@ public:
     void UploadGPUData(Scene const& scene, AccelerationStructure const& acc_structure,
         TextureManager const& texture_manager);
     void SetCameraData(Camera const& camera);
-    void EnableWhiteFurnace(bool enable);
     void SetMaxBounces(uint32_t max_bounces) { max_bounces_ = max_bounces; }
     void SetSamplerType(SamplerType sampler_type) { sampler_type_ = sampler_type;}
 
@@ -180,7 +179,6 @@ private:
     Camera prev_camera_ = {};
     uint32_t max_bounces_ = 3u;
     SamplerType sampler_type_ = SamplerType::kRandom;
-    bool enable_white_furnace_ = false;
 
     uint32_t triangle_count_ = 0u;
     uint32_t node_count_ = 0u;

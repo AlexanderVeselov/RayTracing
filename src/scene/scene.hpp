@@ -65,7 +65,7 @@ public:
     std::vector<EmissiveTriangle> const& GetEmissiveTriangles() const { return emissive_triangles_; }
     std::vector<PackedMaterial> const& GetMaterials() const { return materials_; }
     std::vector<Light> const& GetLights() const { return lights_; }
-    SceneInfo const& GetSceneInfo() const { return scene_info_; }
+    uint32_t GetEnvironmentMapIndex() const { return environment_map_index_; }
     void Finalize();
     void AddPointLight(glm::vec3 origin, glm::vec3 radiance);
     void AddDirectionalLight(glm::vec3 direction, glm::vec3 radiance);
@@ -84,6 +84,6 @@ private:
     std::vector<EmissiveTriangle> emissive_triangles_;
     std::vector<PackedMaterial> materials_;
     std::vector<Light> lights_;
-    SceneInfo scene_info_ = {};
+    uint32_t environment_map_index_ = 0u;
     TextureManager& texture_manager_;
 };

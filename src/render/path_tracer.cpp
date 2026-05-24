@@ -52,12 +52,6 @@ struct RhiCameraData
     Camera prev_camera;
 };
 
-struct RhiSceneInfoData
-{
-    uint32_t scene_counts[4];
-};
-
-constexpr uint32_t kRenderFlagWhiteFurnace = 1u;
 constexpr uint32_t kMaxTextureCount = MAX_TEXTURES;
 
 inline uint32_t DivideAndRoundUp(uint32_t value, uint32_t divisor)
@@ -114,7 +108,7 @@ PathTracer::PathTracer(uint32_t width, uint32_t height, gpu::Device& device, gpu
     camera_cpu_buffer_ = CreateStagingBuffer(nullptr, sizeof(RhiCameraData), sizeof(RhiCameraData));
     camera_buffer_ = device_.CreateBuffer(sizeof(RhiCameraData), sizeof(RhiCameraData),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
-    scene_info_buffer_ = device_.CreateBuffer(sizeof(RhiSceneInfoData), sizeof(RhiSceneInfoData),
+    scene_info_buffer_ = device_.CreateBuffer(sizeof(SceneInfo), sizeof(SceneInfo),
         gpu::BufferFlags::kShaderResource | gpu::BufferFlags::kConstant);
     CreatePipelines();
 }
@@ -172,8 +166,6 @@ void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& 
     auto const& instance_infos = scene.GetInstanceInfos();
     auto const& materials = scene.GetMaterials();
     auto const& lights = scene.GetLights();
-    auto const& scene_info = scene.GetSceneInfo();
-
     texture_manager_ = &texture_manager;
     hardware_rt_acc_structure_ = nullptr;
     use_hardware_rt_ = acc_structure.GetBackend() == AccelerationStructureBackend::kHardwareRt;
@@ -181,7 +173,7 @@ void PathTracer::UploadGPUData(Scene const& scene, AccelerationStructure const& 
     node_count_ = 0u;
     light_count_ = static_cast<uint32_t>(lights.size());
     texture_count_ = texture_manager.TextureCount();
-    env_map_index_ = scene_info.environment_map_index;
+    env_map_index_ = scene.GetEnvironmentMapIndex();
 
     gpu::Queue& queue = device_.GetQueue(gpu::QueueType::kGraphics);
     gpu::CommandBufferPtr upload_command_buffer = queue.CreateCommandBuffer();
@@ -251,17 +243,6 @@ void PathTracer::SetCameraData(Camera const& camera)
     prev_camera_ = camera;
 }
 
-void PathTracer::EnableWhiteFurnace(bool enable)
-{
-    if (enable == enable_white_furnace_)
-    {
-        return;
-    }
-
-    enable_white_furnace_ = enable;
-    CreatePipelines();
-}
-
 void PathTracer::UpdateCameraData()
 {
     RhiCameraData data = {};
@@ -276,11 +257,11 @@ void PathTracer::UpdateCameraData()
 void PathTracer::UploadSceneInfo(gpu::CommandBuffer& upload_command_buffer,
     std::vector<gpu::BufferPtr>& staging_buffers)
 {
-    RhiSceneInfoData scene_info = {};
-    scene_info.scene_counts[0] = triangle_count_;
-    scene_info.scene_counts[1] = node_count_;
-    scene_info.scene_counts[2] = light_count_;
-    scene_info.scene_counts[3] = texture_count_;
+    SceneInfo scene_info = {};
+    scene_info.triangle_count = triangle_count_;
+    scene_info.node_count = node_count_;
+    scene_info.light_count = light_count_;
+    scene_info.texture_count = texture_count_;
 
     gpu::BufferPtr staging_buffer = CreateStagingBuffer(&scene_info, sizeof(scene_info), sizeof(scene_info));
     upload_command_buffer.CopyBuffer(staging_buffer, 0, scene_info_buffer_, 0, sizeof(scene_info));
@@ -368,8 +349,7 @@ void PathTracer::ShadeMissedRays(uint32_t bounce)
     {
         uint32_t width;
         uint32_t env_map_index;
-        uint32_t white_furnace;
-    } root_constants = { width_, env_map_index_, enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u };
+    } root_constants = { width_, env_map_index_ };
 
     command_buffer_->BindPipeline(miss_pipeline_);
     command_buffer_->BindDescriptorSet(miss_sets_[bounce & 1]);
@@ -388,8 +368,7 @@ void PathTracer::ShadeSurfaceHits(uint32_t bounce)
         uint32_t sample_index;
         uint32_t bounce;
         uint32_t width;
-        uint32_t white_furnace;
-    } root_constants = { sample_index_, bounce, width_, enable_white_furnace_ ? kRenderFlagWhiteFurnace : 0u };
+    } root_constants = { sample_index_, bounce, width_ };
 
     command_buffer_->BindPipeline(hit_surface_pipeline_);
     command_buffer_->BindDescriptorSet(hit_surface_sets_[bounce & 1]);

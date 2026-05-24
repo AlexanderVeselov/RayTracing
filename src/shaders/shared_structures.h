@@ -58,10 +58,10 @@ struct Hit
 
 struct SceneInfo
 {
-    unsigned int analytic_light_count;
-    unsigned int emissive_count;
-    unsigned int environment_map_index;
-    unsigned int padding;
+    unsigned int triangle_count;
+    unsigned int node_count;
+    unsigned int light_count;
+    unsigned int texture_count;
 };
 
 struct EmissiveTriangle

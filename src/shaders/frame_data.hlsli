@@ -33,10 +33,5 @@ cbuffer CameraData : register(b0)
     Camera g_PrevCamera;
 };
 
-cbuffer SceneInfoData : register(b24)
-{
-    uint4 g_SceneCounts;
-};
-
 static const uint RENDER_FLAG_WHITE_FURNACE = 1u;
 #endif
