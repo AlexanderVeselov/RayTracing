@@ -134,14 +134,12 @@ unsigned int PackRoughnessMetalness(float roughness, uint32_t roughness_idx, flo
         | (metalness_idx << 24);
 }
 
-unsigned int PackIorEmissionIdxTransparency(float ior, uint32_t emission_idx, float transparency,
+unsigned int PackEmissionIdxTransparency(uint32_t emission_idx, float transparency,
     uint32_t transparency_idx)
 {
     assert(emission_idx < 256 && transparency_idx < 256);
-    ior = std::clamp(ior, 0.0f, 10.0f);
     transparency = std::clamp(transparency, 0.0f, 1.0f);
-    return ((unsigned int)(ior * 25.5f)) | (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16)
-        | (transparency_idx << 24);
+    return (emission_idx << 8) | ((unsigned int)(transparency * 255.0f) << 16) | (transparency_idx << 24);
 }
 
 }  // namespace
@@ -177,8 +175,7 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
         material.specular_albedo = PackAlbedo(0.0f, 0.0f, 0.0f, kInvalidTextureIndex);
         material.emission = PackRGBE(0.0f, 0.0f, 0.0f);
         material.roughness_metalness = PackRoughnessMetalness(0.5f, kInvalidTextureIndex, 0.0f, kInvalidTextureIndex);
-        material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(1.5f, kInvalidTextureIndex, 1.0f,
-            kInvalidTextureIndex);
+        material.emission_idx_transparency = PackEmissionIdxTransparency(kInvalidTextureIndex, 1.0f, kInvalidTextureIndex);
     }
 
     for (uint32_t material_idx = 0; material_idx < materials.size(); ++material_idx)
@@ -209,7 +206,7 @@ void ObjLoader::Load(Scene& scene, char const* filename, float scale, bool flip_
                 ? kInvalidTextureIndex
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.metallic_texname));
 
-        out_material.ior_emission_idx_transparency = PackIorEmissionIdxTransparency(in_material.ior,
+        out_material.emission_idx_transparency = PackEmissionIdxTransparency(
             in_material.emissive_texname.empty() ? kInvalidTextureIndex
                 : texture_manager.LoadTexture(path_to_folder + "/" + in_material.emissive_texname, true),
             in_material.transmittance[0],

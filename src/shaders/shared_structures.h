@@ -76,8 +76,7 @@ struct PackedMaterial
     unsigned int specular_albedo;      // 24 bit - RGB, 8 bit - texture index
     unsigned int emission;             // 32 bit - RGBE
     unsigned int roughness_metalness;  // 16 bit - roughness + texture idx, 16 bit - metalness + texture idx
-    unsigned int
-        ior_emission_idx_transparency;  // 8 bit - ior, 8 bit - emission texture idx, 16 bit - transparency + texture idx
+    unsigned int emission_idx_transparency;  // 8 bit - emission texture idx, 16 bit - transparency + texture idx
 };
 
 struct Light

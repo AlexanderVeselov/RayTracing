@@ -31,7 +31,6 @@ struct Material
     float3 specular_albedo;
     float metalness;
     float3 emission;
-    float ior;
     float transparency;
 };
 
@@ -107,22 +106,19 @@ Material UnpackMaterial(PackedMaterial packed_material, float2 uv)
 
     // Emission
     material.emission = UnpackRGBE(packed_material.emission);
-    uint emission_idx = (packed_material.ior_emission_idx_transparency >> 8) & 0xFFu;
+    uint emission_idx = (packed_material.emission_idx_transparency >> 8) & 0xFFu;
     if (IsValidTexture(emission_idx))
     {
         material.emission *= SampleTexture(emission_idx, uv);
     }
 
     // Transparency
-    material.transparency = float((packed_material.ior_emission_idx_transparency >> 16) & 0xFFu) / 255.0f;
-    uint transparency_idx = (packed_material.ior_emission_idx_transparency >> 24) & 0xFFu;
+    material.transparency = float((packed_material.emission_idx_transparency >> 16) & 0xFFu) / 255.0f;
+    uint transparency_idx = (packed_material.emission_idx_transparency >> 24) & 0xFFu;
     if (IsValidTexture(transparency_idx))
     {
         material.transparency *= SampleTexture(transparency_idx, uv).x;
     }
-
-    // IOR
-    material.ior = float((packed_material.ior_emission_idx_transparency >> 0) & 0xFFu) / 25.5f;
 
     return material;
 }
